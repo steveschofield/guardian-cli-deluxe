@@ -1,0 +1,22 @@
+# Guardian Configuration
+ai:
+  provider: gemini
+  model: gemini-2.5-pro
+  temperature: 0.2
+
+pentest:
+  safe_mode: true
+  require_confirmation: true
+  max_parallel_tools: 3
+
+output:
+  format: markdown
+  save_path: ./reports
+  verbosity: normal
+
+scope:
+  blacklist:
+    - 127.0.0.0/8
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
