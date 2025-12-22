@@ -102,6 +102,12 @@ Guardian can intelligently use these tools if installed:
 | **gobuster** | Directory brute | `go install github.com/OJ/gobuster/v3@latest` |
 | **ffuf** | Web fuzzing | `go install github.com/ffuf/ffuf/v2@latest` |
 
+| **arjun** | Parameter discovery | `pip install arjun` |
+| **xsstrike** | Advanced XSS | `git clone ...` |
+| **gitleaks** | Secret scanning | `go install github.com/zricethezav/gitleaks/v8@latest` |
+| **cmseek** | CMS detection | `pip install cmseek` |
+| **dnsrecon** | DNS enumeration | `pip install dnsrecon` |
+
 > **Note**: Guardian works without external tools but with limited scanning capabilities. The AI will adapt based on available tools.
 
 ---

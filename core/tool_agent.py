@@ -23,7 +23,8 @@ class ToolAgent(BaseAgent):
         from tools import (
             NmapTool, HttpxTool, SubfinderTool, NucleiTool,
             WhatWebTool, Wafw00fTool, NiktoTool, TestSSLTool, GobusterTool,
-            SQLMapTool, FFufTool, AmassTool, WPScanTool, SSLyzeTool, MasscanTool
+            SQLMapTool, FFufTool, AmassTool, WPScanTool, SSLyzeTool, MasscanTool,
+            ArjunTool, XSStrikeTool, GitleaksTool, CMSeekTool, DnsReconTool
         )
         
         self.available_tools = {
@@ -42,6 +43,11 @@ class ToolAgent(BaseAgent):
             "wpscan": WPScanTool(config),
             "sslyze": SSLyzeTool(config),
             "masscan": MasscanTool(config),
+            "arjun": ArjunTool(config),
+            "xsstrike": XSStrikeTool(config),
+            "gitleaks": GitleaksTool(config),
+            "cmseek": CMSeekTool(config),
+            "dnsrecon": DnsReconTool(config),
         }
 
     

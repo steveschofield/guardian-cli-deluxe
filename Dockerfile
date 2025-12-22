@@ -20,7 +20,8 @@ RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest && \
     go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest && \
     go install -v github.com/OJ/gobuster/v3@latest && \
     go install -v github.com/ffuf/ffuf/v2@latest && \
-    go install -v github.com/owasp-amass/amass/v4/...@master
+    go install -v github.com/owasp-amass/amass/v4/...@master && \
+    go install -v github.com/zricethezav/gitleaks/v8@latest
 
 # ============================================================================
 # Stage 2: Runtime - Python environment with all tools
@@ -83,11 +84,20 @@ COPY --from=builder /go/bin/* /usr/local/bin/
 RUN pip install --no-cache-dir \
     wafw00f \
     sqlmap \
-    sslyze
+    sslyze \
+    arjun \
+    dnsrecon \
+    cmseek
 
 # Download TestSSL
 RUN git clone --depth 1 https://github.com/drwetter/testssl.sh.git /opt/testssl && \
     ln -s /opt/testssl/testssl.sh /usr/local/bin/testssl
+
+# Install XSStrike
+RUN git clone https://github.com/s0md3v/XSStrike.git /opt/xsstrike && \
+    pip install -r /opt/xsstrike/requirements.txt && \
+    ln -s /opt/xsstrike/xsstrike.py /usr/local/bin/xsstrike && \
+    chmod +x /usr/local/bin/xsstrike
 
 # Copy Guardian application files
 COPY pyproject.toml ./

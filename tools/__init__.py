@@ -16,6 +16,11 @@ from .amass import AmassTool
 from .wpscan import WPScanTool
 from .sslyze import SSLyzeTool
 from .masscan import MasscanTool
+from .arjun import ArjunTool
+from .xsstrike import XSStrikeTool
+from .gitleaks import GitleaksTool
+from .cmseek import CMSeekTool
+from .dnsrecon import DnsReconTool
 
 __all__ = [
     "BaseTool",
@@ -34,5 +39,10 @@ __all__ = [
     "WPScanTool",
     "SSLyzeTool",
     "MasscanTool",
+    "ArjunTool",
+    "XSStrikeTool",
+    "GitleaksTool",
+    "CMSeekTool",
+    "DnsReconTool",
 ]
 
