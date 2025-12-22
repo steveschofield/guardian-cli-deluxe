@@ -1,178 +1,253 @@
-# 🔐 Guardian - AI-Powered Penetration Testing CLI Tool
+<div align="center">
 
-**Guardian** is a production-ready AI-powered penetration testing automation CLI tool that leverages **Google Gemini** and **LangChain** to orchestrate intelligent, step-by-step penetration testing workflows while maintaining ethical hacking standards.
+# 🔐 Guardian
+
+### AI-Powered Penetration Testing Automation Platform
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+**Guardian** is an enterprise-grade AI-powered penetration testing automation framework that combines the strategic reasoning of Google Gemini with battle-tested security tools to deliver intelligent, adaptive security assessments.
+
+[Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing)
+
+</div>
+
+---
+
+## ⚠️ Legal Disclaimer
+
+**Guardian is designed exclusively for authorized security testing and educational purposes.**
+
+- ✅ **Legal Use**: Authorized penetration testing, security research, educational environments
+- ❌ **Illegal Use**: Unauthorized access, malicious activities, any form of cyber attack
+
+**You are fully responsible for ensuring you have explicit written permission before testing any system.** Unauthorized access to computer systems is illegal under laws including the Computer Fraud and Abuse Act (CFAA), GDPR, and equivalent international legislation.
+
+**By using Guardian, you agree to use it only on systems you own or have explicit authorization to test.**
+
+---
 
 ## ✨ Features
 
-- **🤖 AI-Driven Decision Making**: Uses Google Gemini to strategically decide next testing steps
-- **🔄 Multi-Agent System**: Specialized AI agents for planning, tool selection, analysis, and reporting
-- **🛠️ Tool Integration**: Seamlessly integrates with industry-standard pentest tools (nmap, httpx, subfinder, nuclei)
-- **📊 Intelligent Analysis**: AI-powered result interpretation and false positive filtering
-- **🔒 Security First**: Built-in safety guardrails, scope validation, and human-in-the-loop controls
-- **📝 Professional Reports**: Auto-generated reports in Markdown, HTML, and JSON formats
-- **⚡ Async Execution**: Fast parallel tool execution
-- **🎯 Workflow Automation**: Predefined workflows for recon, web, and network pentesting
+### 🤖 AI-Powered Intelligence
 
-## 🚀 Quick Start
+- **Multi-Agent Architecture**: Specialized AI agents (Planner, Tool Selector, Analyst, Reporter) collaborate for comprehensive security assessments
+- **Strategic Decision Making**: Google Gemini analyzes findings and determines optimal next steps
+- **Adaptive Testing**: AI adjusts tactics based on discovered vulnerabilities and system responses
+- **False Positive Filtering**: Intelligent analysis reduces noise and focuses on real vulnerabilities
 
-### Prerequisites
+### 🛠️ Extensive Tool Arsenal
 
-- Python 3.11+
-- Google Gemini API Key ([Get one here](https://makersuite.google.com/app/apikey))
-- Optional external tools: `nmap`, `httpx`, `subfinder`, `nuclei`
+**9 Integrated Security Tools:**
+- **Network**: Nmap (comprehensive port scanning)
+- **Web Reconnaissance**: httpx (HTTP probing), WhatWeb (technology fingerprinting), Wafw00f (WAF detection)
+- **Subdomain Discovery**: Subfinder (passive enumeration)
+- **Vulnerability Scanning**: Nuclei (template-based), Nikto (web vulnerabilities)
+- **SSL/TLS Testing**: TestSSL (cipher analysis, protocol testing)
+- **Content Discovery**: Gobuster (directory/file brute forcing)
 
-### Installation
+### 🔒 Security & Compliance
+
+- **Scope Validation**: Automatic blacklisting of private networks and unauthorized targets
+- **Audit Logging**: Complete transparency with detailed logs of all AI decisions and actions
+- **Human-in-the-Loop**: Configurable confirmation prompts for sensitive operations
+- **Safe Mode**: Prevents destructive actions by default
+
+### 📊 Professional Reporting
+
+- **Multiple Formats**: Markdown, HTML, and JSON reports
+- **Executive Summaries**: Non-technical overviews for stakeholders
+- **Technical Deep-Dives**: Detailed findings with evidence and remediation steps
+- **AI Decision Traces**: Full transparency into AI reasoning process
+
+### ⚡ Performance & Efficiency
+
+- **Asynchronous Execution**: Parallel tool execution for faster assessments
+- **Workflow Automation**: Predefined workflows (Recon, Web, Network, Autonomous)
+- **Customizable**: Create custom tools and workflows via simple YAML/Python
+
+---
+
+## 📋 Prerequisites
+
+### Required
+
+- **Python 3.11 or higher** ([Download](https://www.python.org/downloads/))
+- **Google Gemini API Key** ([Get Free API Key](https://makersuite.google.com/app/apikey))
+- **Git** (for cloning repository)
+
+### Optional Tools (for full functionality)
+
+Guardian can intelligently use these tools if installed:
+
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| **nmap** | Port scanning | `apt install nmap` / `choco install nmap` |
+| **httpx** | HTTP probing | `go install github.com/projectdiscovery/httpx/cmd/httpx@latest` |
+| **subfinder** | Subdomain enum | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
+| **nuclei** | Vuln scanning | `go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest` |
+| **whatweb** | Tech fingerprint | `gem install whatweb` / `apt install whatweb` |
+| **wafw00f** | WAF detection | `pip install wafw00f` |
+| **nikto** | Web vuln scan | `apt install nikto` |
+| **testssl** | SSL/TLS testing | Download from [testssl.sh](https://testssl.sh/) |
+| **gobuster** | Directory brute | `go install github.com/OJ/gobuster/v3@latest` |
+
+> **Note**: Guardian works without external tools but with limited scanning capabilities. The AI will adapt based on available tools.
+
+---
+
+## 🚀 Installation
+
+### Step 1: Clone Repository
 
 ```bash
-# Clone the repository
-cd c:\Users\MyBook Hype AMD\workarea\guardian-cli
+git clone https://github.com/zakirkun/guardian-cli.git
+cd guardian-cli
+```
 
-# Create and activate virtual environment (recommended)
-python -m venv venv
-.\venv\Scripts\activate  # Windows
+### Step 2: Set Up Python Environment
 
-# Install dependencies
+**Linux/macOS:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
 pip install -e .
 ```
 
-### Initial Setup
+**Windows:**
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+pip install -e .
+```
+
+### Step 3: Initialize Configuration
 
 ```bash
-# Initialize Guardian (creates config files and prompts for API key)
+# Linux/macOS
 python -m cli.main init
 
-# Or use the Windows batch launcher
+# Windows
+python -m cli.main init
+# or use the batch launcher
 .\guardian.bat init
 ```
 
-During initialization, you'll be prompted for your Gemini API key.
-
-> **Windows Note**: On Windows, use `python -m cli.main` or `.\guardian.bat` instead of just `guardian`.
-
-### Basic Usage
+During initialization, you'll be prompted for your Gemini API key. Alternatively, create a `.env` file:
 
 ```bash
-# Run reconnaissance on a domain
-python -m cli.main recon --domain example.com
+echo "GOOGLE_API_KEY=your_api_key_here" > .env
+```
 
-# Dry run to see what would be executed
-python -m cli.main recon --domain example.com --dry-run
+---
 
-# Quick port scan
-python -m cli.main scan --target 192.168.1.1 --ports "80,443,8080"
+## 🎯 Quick Start
 
-# Run a full workflow
-python -m cli.main workflow run --name recon --target example.com
+### Basic Commands
 
-# Run autonomous AI-driven pentest
-python -m cli.main workflow run --name autonomous --target example.com
-
+```bash
 # List available workflows
 python -m cli.main workflow list
 
-# Generate a report
-python -m cli.main report --session <session-id> --format html
+# Dry run (see execution plan without running)
+python -m cli.main recon --domain example.com --dry-run
 ```
+
+### Example Usage Scenarios
+
+#### 1. Quick Web Application Scan
+```bash
+# Fast security check of a web application
+python -m cli.main workflow run --name web --target https://example.com
+```
+
+#### 2. Comprehensive Network Assessment
+```bash
+# Full network penetration test
+python -m cli.main workflow run --name network --target 192.168.1.0/24
+```
+
+#### 3. Subdomain Reconnaissance
+```bash
+# Discover and analyze subdomains
+python -m cli.main recon --domain example.com
+```
+
+#### 4. Autonomous AI-Driven Test
+```bash
+# Let AI decide each step dynamically
+python -m cli.main workflow run --name autonomous --target example.com
+```
+
+#### 5. Generate Professional Report
+```bash
+# Create HTML report from previous scan
+python -m cli.main report --session 20251222_120000 --format html
+```
+
+#### 6. Explain AI Decisions
+```bash
+# View AI decision-making process
+python -m cli.main ai --last
+```
+
+> **Windows Users**: Use `python -m cli.main` or `.\guardian.bat` instead of `guardian`
+
+---
 
 ## 📖 Documentation
 
-### Commands
+### User Guides
+- **[Quick Start Guide](QUICKSTART.md)** - Get up and running in 5 minutes
+- **[Command Reference](docs/)** - Detailed documentation for all commands
+- **[Configuration Guide](config/guardian.yaml)** - Customize Guardian's behavior
 
-#### `guardian init`
-Initialize configuration and set up API keys.
+### Developer Guides
+- **[Creating Custom Tools](docs/TOOLS_DEVELOPMENT_GUIDE.md)** - Build your own tool integrations
+- **[Workflow Development](docs/WORKFLOW_GUIDE.md)** - Create custom testing workflows
+- **[Available Tools](tools/README.md)** - Overview of integrated tools
 
-```bash
-guardian init
-guardian init --config-dir ~/.guardian --force
-```
+### Architecture
+- **Multi-Agent System**: Planner → Tool Selector → Analyst → Reporter
+- **AI-Driven**: Google Gemini for strategic decision-making
+- **Modular**: Easy to extend with new tools and workflows
 
-#### `guardian scan`
-Quick port scanning with nmap.
+---
 
-```bash
-guardian scan --target example.com
-guardian scan --target 192.168.1.0/24 --ports "1-1000"
-```
-
-#### `guardian recon`
-Run full reconnaissance workflow.
-
-```bash
-guardian recon --domain example.com
-guardian recon --domain example.com --dry-run  # Show plan without executing
-```
-
-#### `guardian workflow`
-Run predefined or autonomous workflows.
-
-```bash
-# List workflows
-guardian workflow list
-
-# Run reconnaissance workflow
-guardian workflow run --name recon --target example.com
-
-# Run web application pentest
-guardian workflow run --name web --target https://example.com
-
-# Run autonomous AI-driven testing
-guardian workflow run --name autonomous --target example.com
-```
-
-#### `guardian analyze`
-Analyze scan results with AI.
-
-```bash
-guardian analyze --input scan_results.json
-```
-
-#### `guardian report`
-Generate professional pentesting reports.
-
-```bash
-guardian report --session 20241222_120000 --format markdown
-guardian report --session 20241222_120000 --format html --output report.html
-```
-
-## 🏗️ Architecture
-
-Guardian uses a multi-agent architecture:
+## 🏗️ Project Structure
 
 ```
-┌─────────────┐
-│   Planner   │  → Decides next steps strategically
-│    Agent    │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Tool Agent  │  → Selects and configures tools
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Analyst    │  → Interprets results, finds vulns
-│    Agent    │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Reporter   │  → Generates professional reports
-│    Agent    │
-└─────────────┘
+guardian-cli/
+├── ai/                    # AI integration (Gemini client, prompts)
+├── cli/                   # Command-line interface
+│   └── commands/         # CLI commands (init, scan, recon, etc.)
+├── core/                  # Core agent system
+│   ├── agent.py          # Base agent
+│   ├── planner.py        # Planner agent
+│   ├── tool_agent.py     # Tool selection agent
+│   ├── analyst_agent.py  # Analysis agent
+│   ├── reporter_agent.py # Reporting agent
+│   ├── memory.py         # State management
+│   └── workflow.py       # Workflow orchestration
+├── tools/                 # Pentesting tool wrappers
+│   ├── nmap.py           # Nmap integration
+│   ├── httpx.py          # httpx integration
+│   ├── nuclei.py         # Nuclei integration
+│   └── ...               # 9 tools total
+├── workflows/             # Workflow definitions (YAML)
+├── utils/                 # Utilities (logging, validation)
+├── config/                # Configuration files
+├── docs/                  # Documentation
+└── reports/               # Generated reports
 ```
 
-### Key Components
+---
 
-- **AI Layer**: Gemini client with LangChain orchestration
-- **Core**: Agents, workflow engine, memory management
-- **Tools**: Wrappers for pentesting tools (nmap, httpx, subfinder, nuclei)
-- **CLI**: Typer-based command interface with rich output
-- **Utils**: Logging, scope validation, configuration
+## 🔧 Configuration
 
-## ⚙️ Configuration
-
-Edit `~/.guardian/guardian.yaml` or `config/guardian.yaml`:
+Edit `config/guardian.yaml` to customize:
 
 ```yaml
 ai:
@@ -181,77 +256,155 @@ ai:
   temperature: 0.2
 
 pentest:
-  safe_mode: true
-  require_confirmation: true
-  max_parallel_tools: 3
-  tool_timeout: 300
-
-output:
-  format: markdown
-  save_path: ./reports
-  include_reasoning: true
-  verbosity: normal
+  safe_mode: true              # Prevent destructive actions
+  require_confirmation: true   # Confirm before each step
+  max_parallel_tools: 3        # Concurrent tool execution
 
 scope:
-  blacklist:
+  blacklist:                   # Never scan these
     - 127.0.0.0/8
     - 10.0.0.0/8
-  require_scope_file: false
 ```
-
-## 🔒 Security & Ethics
-
-Guardian is designed with security and ethics as core principles:
-
-- **Scope Validation**: Automatic blacklisting of private IP ranges
-- **Confirmation Prompts**: Required approval before executing tools
-- **Audit Logging**: All AI decisions and actions are logged
-- **Safe Mode**: Prevents destructive actions by default
-- **Human-in-the-Loop**: User control over workflow execution
-
-> ⚠️ **Warning**: Guardian must only be used for authorized penetration testing. Unauthorized scanning is illegal. Always obtain proper authorization before testing any system.
-
-## 📊 Workflows
-
-### Reconnaissance Workflow
-1. Subdomain enumeration (subfinder)
-2. Port scanning (nmap)
-3. HTTP probing (httpx)
-4. AI analysis and correlation
-
-### Web Application Workflow
-1. HTTP service discovery
-2. Technology detection
-3. Vulnerability scanning (nuclei)
-4. AI-powered analysis
-
-### Network Workflow
-1. Port scanning
-2. Service detection
-3. OS fingerprinting
-4. Vulnerability assessment
-
-### Autonomous Workflow
-AI-driven adaptive testing where the Planner Agent decides each step dynamically based on findings.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit issues and pull requests.
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🙏 Acknowledgments
-
-- Google Gemini for AI capabilities
-- LangChain for orchestration framework
-- The offensive security community for tools and knowledge
-
-## 📞 Support
-
-For issues and questions, please open a GitHub issue.
 
 ---
 
+## 🤝 Contributing
+
+We welcome contributions! Here's how:
+
+### Setting Up Development Environment
+
+```bash
+# Fork and clone
+git clone https://github.com/zakirkun/guardian-cli.git
+cd guardian-cli
+
+# Install dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/
+
+# Format code
+black .
+```
+
+### Contribution Guidelines
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
+
+### Areas for Contribution
+
+- 🛠️ **New Tool Integrations** - Add more security tools
+- 🔄 **Custom Workflows** - Share your workflow templates
+- 🐛 **Bug Fixes** - Report and fix issues
+- 📚 **Documentation** - Improve guides and examples
+- 🧪 **Testing** - Expand test coverage
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+---
+
+## 📊 Roadmap
+
+- [ ] Web Dashboard for visualization
+- [ ] PostgreSQL backend for multi-session tracking
+- [ ] MITRE ATT&CK mapping for findings
+- [ ] Plugin system for custom modules
+- [ ] Integration with CI/CD pipelines
+- [ ] Additional AI models support (Claude, GPT-4)
+- [ ] Mobile app for on-the-go assessments
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Import Errors**
+```bash
+# Reinstall dependencies
+pip install -e . --force-reinstall
+```
+
+**API Rate Limits**
+- Free tier: 2 requests/minute
+- Switch to paid tier or implement request throttling
+- Configure in `config/guardian.yaml`: `ai.rate_limit: 60`
+
+**Tool Not Found**
+```bash
+# Check tool availability
+which nmap
+which httpx
+
+# Install missing tools (see Prerequisites)
+```
+
+**Windows Command Not Found**
+```powershell
+# Use full command
+python -m cli.main --help
+
+# Or use batch launcher
+.\guardian.bat --help
+```
+
+For more help, [open an issue](https://github.com/zakirkun/guardian-cli/issues).
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+```
+MIT License
+
+Copyright (c) 2025 Guardian Project
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction...
+```
+
+---
+
+## 🙏 Acknowledgments
+
+- **Google Gemini** - AI capabilities
+- **LangChain** - AI orchestration framework
+- **ProjectDiscovery** - Open-source security tools (httpx, subfinder, nuclei)
+- **Nmap** - Network exploration and security auditing
+- **The Security Community** - Tool developers and researchers
+
+---
+
+## 📞 Support & Contact
+
+- **GitHub Issues**: [Report bugs or request features](https://github.com/zakirkun/guardian-cli/issues)
+- **Discussions**: [Join community discussions](https://github.com/zakirkun/guardian-cli/discussions)
+- **Documentation**: [Read the docs](docs/)
+- **Security**: Report vulnerabilities privately to security@example.com
+
+---
+
+## ⭐ Star History
+
+If you find Guardian useful, please consider giving it a star! ⭐
+
+---
+
+<div align="center">
+
 **Guardian** - Intelligent, Ethical, Automated Penetration Testing
+
+Made with ❤️ by the Security Community
+
+[⬆ Back to Top](#-guardian)
+
+</div>
