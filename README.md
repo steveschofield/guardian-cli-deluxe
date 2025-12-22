@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/logo.svg" alt="Guardian Logo" width="200" />
+
 # 🔐 Guardian
 
 ### AI-Powered Penetration Testing Automation Platform
