@@ -101,7 +101,6 @@ Guardian can intelligently use these tools if installed:
 | **sslyze** | SSL/TLS analysis | `pip install sslyze` |
 | **gobuster** | Directory brute | `go install github.com/OJ/gobuster/v3@latest` |
 | **ffuf** | Web fuzzing | `go install github.com/ffuf/ffuf/v2@latest` |
-
 | **arjun** | Parameter discovery | `pip install arjun` |
 | **xsstrike** | Advanced XSS | `git clone ...` |
 | **gitleaks** | Secret scanning | `go install github.com/zricethezav/gitleaks/v8@latest` |
