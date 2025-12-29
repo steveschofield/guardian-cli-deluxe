@@ -5,6 +5,7 @@ Nmap tool wrapper for port scanning and service detection
 import re
 import json
 from typing import Dict, Any, List
+from urllib.parse import urlparse
 
 from tools.base_tool import BaseTool
 
@@ -15,6 +16,16 @@ class NmapTool(BaseTool):
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build nmap command"""
         config = self.config.get("tools", {}).get("nmap", {})
+
+        # Normalize target: strip scheme, capture port if present
+        parsed = urlparse(target)
+        target_host = target
+        target_port = None
+        if parsed.scheme and parsed.hostname:
+            target_host = parsed.hostname
+            target_port = parsed.port
+        elif parsed.scheme and not parsed.hostname:
+            raise ValueError(f"Invalid target for nmap: {target}")
         
         # Base command
         command = ["nmap"]
@@ -34,12 +45,14 @@ class NmapTool(BaseTool):
         # Custom args from kwargs
         if "ports" in kwargs:
             command.extend(["-p", kwargs["ports"]])
+        elif target_port:
+            command.extend(["-p", str(target_port)])
         
         if "scan_type" in kwargs:
             command.append(kwargs["scan_type"])
         
         # Target
-        command.append(target)
+        command.append(target_host)
         
         return command
     
