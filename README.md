@@ -29,6 +29,15 @@
 
 **By using Guardian, you agree to use it only on systems you own or have explicit authorization to test.**
 
+⚠️ My Disclaimer
+This tool is intended for EDUCATIONAL and AUTHORIZED security testing purposes ONLY.
+
+Do NOT use against systems without explicit written permission
+The authors are NOT responsible for misuse of this extension
+Use ONLY on systems you own or have authorization to test
+Recommended for local testing against vulnerable apps like OWASP Juice Shop or DVWA
+USE AT YOUR OWN RISK - NO WARRANTY PROVIDED
+
 ---
 
 ## ✨ Features
@@ -44,6 +53,7 @@
 ### 🛠️ Extensive Tool Arsenal
 
 **15 Integrated Security Tools:**
+
 - **Network**: Nmap (comprehensive port scanning), Masscan (ultra-fast scanning)
 - **Web Reconnaissance**: httpx (HTTP probing), WhatWeb (technology fingerprinting), Wafw00f (WAF detection)
 - **Subdomain Discovery**: Subfinder (passive enumeration), Amass (active/passive mapping)
@@ -87,28 +97,28 @@
 
 Guardian can intelligently use these tools if installed:
 
-| Tool | Purpose | Installation |
-|------|---------|--------------|
-| **nmap** | Port scanning | `apt install nmap` / `choco install nmap` |
-| **masscan** | Ultra-fast scan | `apt install masscan` / Build from source |
-| **httpx** | HTTP probing | `go install github.com/projectdiscovery/httpx/cmd/httpx@latest` |
-| **subfinder** | Subdomain enum | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
-| **amass** | Network mapping | `go install github.com/owasp-amass/amass/v4/...@master` |
-| **nuclei** | Vuln scanning | `go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest` |
-| **whatweb** | Tech fingerprint | `gem install whatweb` / `apt install whatweb` |
-| **wafw00f** | WAF detection | `pip install wafw00f` |
-| **nikto** | Web vuln scan | `apt install nikto` |
-| **sqlmap** | SQL injection | `pip install sqlmap` / `apt install sqlmap` |
-| **wpscan** | WordPress scan | `gem install wpscan` |
-| **testssl** | SSL/TLS testing | Download from [testssl.sh](https://testssl.sh/) |
-| **sslyze** | SSL/TLS analysis | `pip install sslyze` |
-| **gobuster** | Directory brute | `go install github.com/OJ/gobuster/v3@latest` |
-| **ffuf** | Web fuzzing | `go install github.com/ffuf/ffuf/v2@latest` |
-| **arjun** | Parameter discovery | `pip install arjun` |
-| **xsstrike** | Advanced XSS | `git clone ...` |
-| **gitleaks** | Secret scanning | `go install github.com/zricethezav/gitleaks/v8@latest` |
-| **cmseek** | CMS detection | `pip install cmseek` |
-| **dnsrecon** | DNS enumeration | `pip install dnsrecon` |
+| Tool                | Purpose             | Installation                                                                 |
+| ------------------- | ------------------- | ---------------------------------------------------------------------------- |
+| **nmap**      | Port scanning       | `apt install nmap` / `choco install nmap`                                |
+| **masscan**   | Ultra-fast scan     | `apt install masscan` / Build from source                                  |
+| **httpx**     | HTTP probing        | `go install github.com/projectdiscovery/httpx/cmd/httpx@latest`            |
+| **subfinder** | Subdomain enum      | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
+| **amass**     | Network mapping     | `go install github.com/owasp-amass/amass/v4/...@master`                    |
+| **nuclei**    | Vuln scanning       | `go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest`       |
+| **whatweb**   | Tech fingerprint    | `gem install whatweb` / `apt install whatweb`                            |
+| **wafw00f**   | WAF detection       | `pip install wafw00f`                                                      |
+| **nikto**     | Web vuln scan       | `apt install nikto`                                                        |
+| **sqlmap**    | SQL injection       | `pip install sqlmap` / `apt install sqlmap`                              |
+| **wpscan**    | WordPress scan      | `gem install wpscan`                                                       |
+| **testssl**   | SSL/TLS testing     | Download from[testssl.sh](https://testssl.sh/)                                  |
+| **sslyze**    | SSL/TLS analysis    | `pip install sslyze`                                                       |
+| **gobuster**  | Directory brute     | `go install github.com/OJ/gobuster/v3@latest`                              |
+| **ffuf**      | Web fuzzing         | `go install github.com/ffuf/ffuf/v2@latest`                                |
+| **arjun**     | Parameter discovery | `pip install arjun`                                                        |
+| **xsstrike**  | Advanced XSS        | `git clone ...`                                                            |
+| **gitleaks**  | Secret scanning     | `go install github.com/zricethezav/gitleaks/v8@latest`                     |
+| **cmseek**    | CMS detection       | `pip install cmseek`                                                       |
+| **dnsrecon**  | DNS enumeration     | `pip install dnsrecon`                                                     |
 
 > **Note**: Guardian works without external tools but with limited scanning capabilities. The AI will adapt based on available tools.
 
@@ -136,6 +146,7 @@ docker-compose run --rm guardian recon --domain example.com
 ```
 
 **Benefits:**
+
 - ✅ All 15 tools pre-installed (nmap, httpx, nuclei, sqlmap, etc.)
 - ✅ No manual tool installation required
 - ✅ Consistent environment across all systems
@@ -157,6 +168,7 @@ cd guardian-cli
 #### Step 2: Set Up Python Environment
 
 **Linux/macOS:**
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate
@@ -164,6 +176,7 @@ pip install -e .
 ```
 
 **Windows:**
+
 ```powershell
 python -m venv venv
 .\venv\Scripts\activate
@@ -189,6 +202,7 @@ echo "GOOGLE_API_KEY=your_api_key_here" > .env  # only if using Gemini
 ```
 
 To use a local LLM (e.g., Ollama Llama 3.x):
+
 ```bash
 # In config/guardian.yaml (or your copied ~/.guardian/guardian.yaml)
 ai:
@@ -214,36 +228,42 @@ python -m cli.main recon --domain example.com --dry-run
 ### Example Usage Scenarios
 
 #### 1. Quick Web Application Scan
+
 ```bash
 # Fast security check of a web application
 python -m cli.main workflow run --name web --target https://example.com
 ```
 
 #### 2. Comprehensive Network Assessment
+
 ```bash
 # Full network penetration test
 python -m cli.main workflow run --name network --target 192.168.1.0/24
 ```
 
 #### 3. Subdomain Reconnaissance
+
 ```bash
 # Discover and analyze subdomains
 python -m cli.main recon --domain example.com
 ```
 
 #### 4. Autonomous AI-Driven Test
+
 ```bash
 # Let AI decide each step dynamically
 python -m cli.main workflow run --name autonomous --target example.com
 ```
 
 #### 5. Generate Professional Report
+
 ```bash
 # Create HTML report from previous scan
 python -m cli.main report --session 20251222_120000 --format html
 ```
 
 #### 6. Explain AI Decisions
+
 ```bash
 # View AI decision-making process
 python -m cli.main ai --last
@@ -256,17 +276,20 @@ python -m cli.main ai --last
 ## 📖 Documentation
 
 ### User Guides
+
 - **[Quick Start Guide](QUICKSTART.md)** - Get up and running in 5 minutes
 - **[Docker Deployment Guide](docs/DOCKER.md)** - Run Guardian with Docker (recommended)
 - **[Command Reference](docs/)** - Detailed documentation for all commands
 - **[Configuration Guide](config/guardian.yaml)** - Customize Guardian's behavior
 
 ### Developer Guides
+
 - **[Creating Custom Tools](docs/TOOLS_DEVELOPMENT_GUIDE.md)** - Build your own tool integrations
 - **[Workflow Development](docs/WORKFLOW_GUIDE.md)** - Create custom testing workflows
 - **[Available Tools](tools/README.md)** - Overview of integrated tools
 
 ### Architecture
+
 - **Multi-Agent System**: Planner → Tool Selector → Analyst → Reporter
 - **AI-Driven**: Google Gemini for strategic decision-making
 - **Modular**: Easy to extend with new tools and workflows
@@ -395,17 +418,20 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 ### Common Issues
 
 **Import Errors**
+
 ```bash
 # Reinstall dependencies
 pip install -e . --force-reinstall
 ```
 
 **API Rate Limits**
+
 - Free tier: 2 requests/minute
 - Switch to paid tier or implement request throttling
 - Configure in `config/guardian.yaml`: `ai.rate_limit: 60`
 
 **Tool Not Found**
+
 ```bash
 # Check tool availability
 which nmap
@@ -415,6 +441,7 @@ which httpx
 ```
 
 **Windows Command Not Found**
+
 ```powershell
 # Use full command
 python -m cli.main --help
