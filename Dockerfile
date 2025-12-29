@@ -4,7 +4,8 @@
 # ============================================================================
 # Stage 1: Builder - Install Go tools and build dependencies
 # ============================================================================
-FROM golang:1.21-alpine AS builder
+# Use a Go toolchain new enough for the latest ProjectDiscovery releases.
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /build
 
