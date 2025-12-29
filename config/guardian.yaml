@@ -3,8 +3,9 @@
 
 # AI Configuration
 ai:
-  provider: gemini
-  model: gemini-2.5-pro
+  provider: ollama
+  model: "llama3.1:8b"
+  base_url: "http://192.168.1.69:11434"
   temperature: 0.2
   max_tokens: 8000
   timeout: 60
@@ -45,9 +46,6 @@ scope:
   # Blacklisted IP ranges (CIDR notation)
   blacklist:
     - 127.0.0.0/8
-    - 10.0.0.0/8
-    - 172.16.0.0/12
-    - 192.168.0.0/16
   
   # Require explicit scope file for scanning
   require_scope_file: false

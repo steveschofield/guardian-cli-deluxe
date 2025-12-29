@@ -19,8 +19,8 @@ from utils.helpers import parse_severity
 class AnalystAgent(BaseAgent):
     """Agent that analyzes scan results and extracts security findings"""
     
-    def __init__(self, config, gemini_client, memory):
-        super().__init__("Analyst", config, gemini_client, memory)
+    def __init__(self, config, llm_client, memory):
+        super().__init__("Analyst", config, llm_client, memory)
     
     async def execute(self, tool_result: Dict[str, Any]) -> Dict[str, Any]:
         """

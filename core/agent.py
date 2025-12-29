@@ -5,7 +5,6 @@ Base agent class for all Guardian AI agents
 from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 
-from ai.gemini_client import GeminiClient
 from core.memory import PentestMemory
 from utils.logger import get_logger
 
@@ -17,12 +16,12 @@ class BaseAgent(ABC):
         self,
         name: str,
         config: Dict[str, Any],
-        gemini_client: GeminiClient,
+        llm_client: Any,
         memory: PentestMemory
     ):
         self.name = name
         self.config = config
-        self.gemini = gemini_client
+        self.llm = llm_client
         self.memory = memory
         self.logger = get_logger(config)
     
@@ -39,7 +38,7 @@ class BaseAgent(ABC):
             Dict with 'reasoning' and 'response' keys
         """
         try:
-            result = await self.gemini.generate_with_reasoning(
+            result = await self.llm.generate_with_reasoning(
                 prompt=prompt,
                 system_prompt=system_prompt
             )

@@ -16,8 +16,8 @@ from tools import NmapTool, HttpxTool, SubfinderTool, NucleiTool
 class ToolAgent(BaseAgent):
     """Agent that selects and configures pentesting tools"""
     
-    def __init__(self, config, gemini_client, memory):
-        super().__init__("ToolSelector", config, gemini_client, memory)
+    def __init__(self, config, llm_client, memory):
+        super().__init__("ToolSelector", config, llm_client, memory)
         
         # Initialize available tools
         from tools import (

@@ -47,15 +47,17 @@ def init_command(
     else:
         _copy_default_config(config_file)
     
-    # Create .env file
+    # Create .env file (optional for Gemini)
     if not env_file.exists() or force:
         console.print("\n[bold]API Key Setup[/bold]")
-        api_key = Prompt.ask("Enter your Google Gemini API key", password=True)
+        api_key = Prompt.ask("Enter your Google Gemini API key (leave blank if using a local model)", password=True)
         
-        with open(env_file, 'w') as f:
-            f.write(f"GOOGLE_API_KEY={api_key}\n")
-        
-        console.print(f"[green]✓[/green] Created environment file at {env_file}")
+        if api_key:
+            with open(env_file, 'w') as f:
+                f.write(f"GOOGLE_API_KEY={api_key}\n")
+            console.print(f"[green]✓[/green] Created environment file at {env_file}")
+        else:
+            console.print("[yellow]Skipped .env creation (no Gemini API key provided)[/yellow]")
     
     # Create reports directory
     reports_dir = Path("./reports")
@@ -80,8 +82,9 @@ def _copy_default_config(dest: Path):
     # For now, create a minimal config
     default_config = """# Guardian Configuration
 ai:
-  provider: gemini
-  model: gemini-2.5-pro
+  provider: ollama
+  model: "llama3.1:8b"
+  base_url: "http://127.0.0.1:11434"
   temperature: 0.2
 
 pentest:
@@ -97,9 +100,6 @@ output:
 scope:
   blacklist:
     - 127.0.0.0/8
-    - 10.0.0.0/8
-    - 172.16.0.0/12
-    - 192.168.0.0/16
 """
     
     with open(dest, 'w') as f:

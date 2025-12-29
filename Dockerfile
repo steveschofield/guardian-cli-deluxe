@@ -5,7 +5,10 @@
 # Stage 1: Builder - Install Go tools and build dependencies
 # ============================================================================
 # Use a Go toolchain new enough for the latest ProjectDiscovery releases.
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24.3-alpine AS builder
+
+# Allow automatic toolchain download if modules require a newer Go.
+ENV GOTOOLCHAIN=auto
 
 WORKDIR /build
 
@@ -19,7 +22,7 @@ RUN apk add --no-cache \
 RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest && \
     go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
     go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest && \
-    go install -v github.com/OJ/gobuster/v3@latest && \
+    go install -v github.com/OJ/gobuster/v3@v3.7.0 && \
     go install -v github.com/ffuf/ffuf/v2@latest && \
     go install -v github.com/owasp-amass/amass/v4/...@master && \
     go install -v github.com/zricethezav/gitleaks/v8@latest
@@ -71,12 +74,16 @@ RUN apk add --no-cache \
     # Install Masscan
     git clone https://github.com/robertdavidgraham/masscan /opt/masscan && \
     cd /opt/masscan && make && make install && \
-    cd ${GUARDIAN_HOME} && \
-    # Clean up build dependencies
-    apk del make gcc musl-dev
+    cd ${GUARDIAN_HOME}
 
-# Install Ruby-based tools
-RUN gem install whatweb wpscan --no-document
+# Install Ruby-based tools (WhatWeb from source + WPScan gem)
+RUN git clone https://github.com/urbanadventurer/WhatWeb /opt/whatweb && \
+    cd /opt/whatweb && \
+    bundle config set without 'development test' && \
+    bundle install && \
+    ln -s /opt/whatweb/whatweb /usr/local/bin/whatweb && \
+    chmod +x /usr/local/bin/whatweb && \
+    gem install wpscan --no-document
 
 # Copy Go tools from builder
 COPY --from=builder /go/bin/* /usr/local/bin/
@@ -87,8 +94,16 @@ RUN pip install --no-cache-dir \
     sqlmap \
     sslyze \
     arjun \
-    dnsrecon \
-    cmseek
+    dnsrecon
+
+# Install CMSeeK from source
+RUN git clone https://github.com/Tuhinshubhra/CMSeeK.git /opt/cmseek && \
+    pip install --no-cache-dir -r /opt/cmseek/requirements.txt && \
+    ln -s /opt/cmseek/cmseek.py /usr/local/bin/cmseek && \
+    chmod +x /usr/local/bin/cmseek
+
+# Clean up build dependencies now that gems/pip installs are done
+RUN apk del make gcc musl-dev
 
 # Download TestSSL
 RUN git clone --depth 1 https://github.com/drwetter/testssl.sh.git /opt/testssl && \

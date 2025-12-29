@@ -10,7 +10,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**Guardian** is an enterprise-grade AI-powered penetration testing automation framework that combines the strategic reasoning of Google Gemini with battle-tested security tools to deliver intelligent, adaptive security assessments.
+**Guardian** is an enterprise-grade AI-powered penetration testing automation framework that combines the strategic reasoning of modern LLMs (Gemini or local models via Ollama/OpenAI-compatible) with battle-tested security tools to deliver intelligent, adaptive security assessments.
 
 [Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing)
 
@@ -36,7 +36,8 @@
 ### 🤖 AI-Powered Intelligence
 
 - **Multi-Agent Architecture**: Specialized AI agents (Planner, Tool Selector, Analyst, Reporter) collaborate for comprehensive security assessments
-- **Strategic Decision Making**: Google Gemini analyzes findings and determines optimal next steps
+- **Flexible LLM Backends**: Use Google Gemini or a local LLM (e.g., Ollama with Llama 3.x) via config
+- **Strategic Decision Making**: LLM analyzes findings and determines optimal next steps
 - **Adaptive Testing**: AI adjusts tactics based on discovered vulnerabilities and system responses
 - **False Positive Filtering**: Intelligent analysis reduces noise and focuses on real vulnerabilities
 
@@ -77,8 +78,10 @@
 ### Required
 
 - **Python 3.11 or higher** ([Download](https://www.python.org/downloads/))
-- **Google Gemini API Key** ([Get Free API Key](https://makersuite.google.com/app/apikey))
 - **Git** (for cloning repository)
+- **One LLM backend**:
+  - Google Gemini API Key ([Get API Key](https://makersuite.google.com/app/apikey)), _or_
+  - Local LLM endpoint (e.g., Ollama at `http://127.0.0.1:11434`)
 
 ### Optional Tools (for full functionality)
 
@@ -122,7 +125,7 @@ Guardian can intelligently use these tools if installed:
 git clone https://github.com/zakirkun/guardian-cli.git
 cd guardian-cli
 
-# Create .env file with your API key
+# Optional: .env if using Gemini
 echo "GOOGLE_API_KEY=your_api_key_here" > .env
 
 # Build Docker image (one-time, ~5 minutes)
@@ -179,10 +182,19 @@ python -m cli.main init
 .\guardian.bat init
 ```
 
-During initialization, you'll be prompted for your Gemini API key. Alternatively, create a `.env` file:
+During initialization, you can provide a Gemini API key (optional if using a local model). Alternatively, create a `.env` file:
 
 ```bash
-echo "GOOGLE_API_KEY=your_api_key_here" > .env
+echo "GOOGLE_API_KEY=your_api_key_here" > .env  # only if using Gemini
+```
+
+To use a local LLM (e.g., Ollama Llama 3.x):
+```bash
+# In config/guardian.yaml (or your copied ~/.guardian/guardian.yaml)
+ai:
+  provider: ollama
+  model: "llama3.1:8b"
+  base_url: "http://127.0.0.1:11434"  # adjust if remote host
 ```
 
 ---

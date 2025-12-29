@@ -11,7 +11,7 @@ from datetime import datetime
 from core.agent import BaseAgent
 from core.planner import PlannerAgent
 from core.memory import PentestMemory, ToolExecution, Finding
-from ai.gemini_client import GeminiClient
+from ai.provider_factory import get_llm_client
 from utils.logger import get_logger
 from utils.scope_validator import ScopeValidator
 
@@ -27,7 +27,7 @@ class WorkflowEngine:
         # Initialize components
         self.memory = PentestMemory(target)
         self.scope_validator = ScopeValidator(config)
-        self.gemini_client = GeminiClient(config)
+        self.llm_client = get_llm_client(config)
         
         # Initialize all agents
         from core.planner import PlannerAgent
@@ -35,10 +35,10 @@ class WorkflowEngine:
         from core.analyst_agent import AnalystAgent
         from core.reporter_agent import ReporterAgent
         
-        self.planner = PlannerAgent(config, self.gemini_client, self.memory)
-        self.tool_agent = ToolAgent(config, self.gemini_client, self.memory)
-        self.analyst = AnalystAgent(config, self.gemini_client, self.memory)
-        self.reporter = ReporterAgent(config, self.gemini_client, self.memory)
+        self.planner = PlannerAgent(config, self.llm_client, self.memory)
+        self.tool_agent = ToolAgent(config, self.llm_client, self.memory)
+        self.analyst = AnalystAgent(config, self.llm_client, self.memory)
+        self.reporter = ReporterAgent(config, self.llm_client, self.memory)
         
         # Workflow state
         self.is_running = False
