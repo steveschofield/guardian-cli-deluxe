@@ -4,6 +4,7 @@ Maintains state across the penetration testing workflow
 """
 
 import json
+import re
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
@@ -87,8 +88,9 @@ class PentestMemory:
     
     def mark_action_complete(self, action: str):
         """Mark an action as completed"""
-        if action not in self.completed_actions:
-            self.completed_actions.append(action)
+        normalized = self._normalize_action(action)
+        if normalized and normalized not in self.completed_actions:
+            self.completed_actions.append(normalized)
     
     def update_context(self, key: str, value: Any):
         """Update context information"""
@@ -178,3 +180,13 @@ Technologies:
             return True
         except Exception as e:
             return False
+
+    def _normalize_action(self, action: str) -> str:
+        """Normalize action strings (strip markdown/numbering/artifacts)"""
+        if not action:
+            return ""
+        # Remove markdown bold markers and bullet/number prefixes
+        cleaned = action.replace("**", " ").strip()
+        cleaned = re.sub(r"^\s*[-\*\d\.\)]+\s*", "", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        return cleaned.strip()
