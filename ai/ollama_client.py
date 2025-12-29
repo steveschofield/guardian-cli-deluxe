@@ -1,12 +1,12 @@
 """
 Ollama API client for Guardian
-Uses LangChain's ChatOllama to talk to a local Ollama server
+Uses langchain-ollama ChatOllama to talk to a local Ollama server
 """
 
 import os
 from typing import Optional, Dict, Any
 
-from langchain_community.chat_models import ChatOllama
+from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from utils.logger import get_logger
@@ -31,6 +31,7 @@ class OllamaClient:
                 temperature=self.temperature,
                 base_url=self.base_url,
                 num_predict=self.max_tokens,
+                options={},  # avoid unsupported defaults
             )
             self.logger.info(f"Initialized Ollama model: {self.model_name} @ {self.base_url}")
         except Exception as e:
