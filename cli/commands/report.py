@@ -30,7 +30,7 @@ def report_command(
     from utils.helpers import load_config
     from core.memory import PentestMemory
     from core.reporter_agent import ReporterAgent
-    from ai.gemini_client import GeminiClient
+    from ai.provider_factory import get_llm_client
     
     console.print(f"[bold cyan]📄 Generating Report: {session_id}[/bold cyan]\n")
     
@@ -47,8 +47,8 @@ def report_command(
         memory.load_state(session_file)
         
         # Initialize Reporter Agent
-        gemini = GeminiClient(config)
-        reporter = ReporterAgent(config, gemini, memory)
+        llm_client = get_llm_client(config)
+        reporter = ReporterAgent(config, llm_client, memory)
         
         # Generate report
         console.print(f"Generating {format} report...")

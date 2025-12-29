@@ -15,8 +15,8 @@ from ai.prompt_templates import (
 class PlannerAgent(BaseAgent):
     """Strategic planner that decides next pentest steps"""
     
-    def __init__(self, config, gemini_client, memory):
-        super().__init__("Planner", config, gemini_client, memory)
+    def __init__(self, config, llm_client, memory):
+        super().__init__("Planner", config, llm_client, memory)
     
     async def execute(self, **kwargs) -> Dict[str, Any]:
         """Decide the next action in the penetration test"""

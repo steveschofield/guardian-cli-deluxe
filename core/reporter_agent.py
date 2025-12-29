@@ -19,8 +19,8 @@ from ai.prompt_templates import (
 class ReporterAgent(BaseAgent):
     """Agent that generates professional penetration testing reports"""
     
-    def __init__(self, config, gemini_client, memory):
-        super().__init__("Reporter", config, gemini_client, memory)
+    def __init__(self, config, llm_client, memory):
+        super().__init__("Reporter", config, llm_client, memory)
     
     async def execute(self, format: str = "markdown") -> Dict[str, Any]:
         """
