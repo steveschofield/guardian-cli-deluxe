@@ -34,5 +34,10 @@ Quick pointers for extending Guardian with new tools, workflows, or AI backends.
 - For CLI help: `python -m cli.main --help`.
 - Consider adding lightweight unit tests under `tests/` for new parsers/logic.
 
+## Session Exports
+- Workflows now emit helper files per session in `reports/`: `urls_<session>.txt` (deduped URLs) and `payloads_<session>.txt` (tool commands/payloads) for quick import into Burp/ZAP or other testers.
+- When wiring new tools, make sure URLs are present in commands/output so `_extract_urls` can pick them up; keep files plaintext and newline-delimited.
+- If you change report/output paths, ensure these exports remain easy to find and documented.
+
 ## Docs
 - Update `README.md` when adding user-facing features or new requirements.
