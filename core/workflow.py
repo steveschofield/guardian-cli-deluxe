@@ -4,6 +4,7 @@ Coordinates agents and manages pentest execution flow
 """
 
 import asyncio
+import re
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 from datetime import datetime
@@ -305,3 +306,29 @@ class WorkflowEngine:
         state_file = output_dir / f"session_{self.memory.session_id}.json"
         self.memory.save_state(state_file)
         self.logger.info(f"Session saved to: {state_file}")
+
+        # Export helper files for manual testing (URLs, payloads/commands)
+        urls = self._extract_urls()
+        if urls:
+            urls_file = output_dir / f"urls_{self.memory.session_id}.txt"
+            with open(urls_file, "w", encoding="utf-8") as f:
+                f.write("\n".join(sorted(set(urls))))
+            self.logger.info(f"Exported URLs for manual testing: {urls_file}")
+
+        commands = [te.command for te in self.memory.tool_executions if te.command]
+        if commands:
+            payloads_file = output_dir / f"payloads_{self.memory.session_id}.txt"
+            with open(payloads_file, "w", encoding="utf-8") as f:
+                f.write("\n".join(commands))
+            self.logger.info(f"Exported tool commands: {payloads_file}")
+
+    def _extract_urls(self) -> List[str]:
+        """Collect URLs from tool outputs and commands for export."""
+        urls = []
+        url_regex = re.compile(r"https?://[^\s\"'>]+")
+        for te in self.memory.tool_executions:
+            if te.command:
+                urls.extend(url_regex.findall(te.command))
+            if te.output:
+                urls.extend(url_regex.findall(te.output))
+        return urls

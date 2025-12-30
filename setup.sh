@@ -72,4 +72,48 @@ install_xsstrike
 install_cmseek
 install_gitleaks
 
+# Fetch extra nuclei templates (CVE-heavy packs)
+install_nuclei_templates() {
+  mkdir -p "${HOME}/nuclei-templates-extra"
+  clone_or_update() {
+    local repo_url="$1"
+    local dest="$2"
+    if [[ -d "${dest}/.git" ]]; then
+      git -C "${dest}" pull --ff-only || true
+    else
+      git clone --depth 1 "${repo_url}" "${dest}" || true
+    }
+  }
+  clone_or_update "https://github.com/ARPSyndicate/kenzer-templates" "${HOME}/nuclei-templates-extra/kenzer"
+  clone_or_update "https://github.com/geeknik/the-nuclei-templates" "${HOME}/nuclei-templates-extra/geeknik"
+  clone_or_update "https://github.com/emadshanab/CVE-Nuclei-Templates" "${HOME}/nuclei-templates-extra/emadshanab"
+}
+
+# Install additional recon tools (Go/Pip/NPM) if available
+install_recon_extras() {
+  if command -v go >/dev/null 2>&1; then
+    go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+    go install github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest
+    go install github.com/d3mondev/puredns@latest
+    go install github.com/hakluke/hakrawler@latest
+    go install github.com/jaeles-project/gospider@latest
+  else
+    echo "WARN: go not found; skipping dnsx/shuffledns/puredns/hakrawler/gospider" >&2
+  fi
+
+  pip install altdns
+
+  if command -v npm >/dev/null 2>&1; then
+    npm install -g retire
+  else
+    echo "WARN: npm not found; skipping retire.js" >&2
+  fi
+}
+
+echo "Fetching extra nuclei templates (CVE packs)..."
+install_nuclei_templates
+
+echo "Installing recon extras (dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire)..."
+install_recon_extras
+
 echo "Setup complete. Ensure ${VENV_BIN} is in your PATH."
