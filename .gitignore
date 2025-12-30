@@ -1,5 +1,5 @@
 reports/
-
+shannon-uncontained*
 # Python
 __pycache__/
 *.py[cod]
