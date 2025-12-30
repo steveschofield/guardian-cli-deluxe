@@ -71,6 +71,7 @@ USE AT YOUR OWN RISK - NO WARRANTY PROVIDED
 ### 📊 Professional Reporting
 
 - **Multiple Formats**: Markdown, HTML, and JSON reports
+- **Manual Testing Helpers**: Each session exports `urls_<session>.txt` and `payloads_<session>.txt` under `reports/` for quick import into Burp/ZAP or other tools
 - **Executive Summaries**: Non-technical overviews for stakeholders
 - **Technical Deep-Dives**: Detailed findings with evidence and remediation steps
 - **AI Decision Traces**: Full transparency into AI reasoning process
@@ -261,6 +262,7 @@ python -m cli.main workflow run --name autonomous --target example.com
 # Create HTML report from previous scan
 python -m cli.main report --session 20251222_120000 --format html
 ```
+Reports are saved to `./reports` with helper exports (`urls_<session>.txt`, `payloads_<session>.txt`) you can load into Burp or ZAP.
 
 #### 6. Explain AI Decisions
 
