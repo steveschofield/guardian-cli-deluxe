@@ -34,11 +34,19 @@ class NucleiTool(BaseTool):
         severities = config.get("severity", ["critical", "high", "medium"])
         if severities:
             command.extend(["-severity", ",".join(severities)])
-        
-        # Templates path
-        templates_path = config.get("templates_path")
-        if templates_path:
-            command.extend(["-t", templates_path])
+
+        # Tags
+        tags = config.get("tags")
+        if tags:
+            command.extend(["-tags", ",".join(tags)])
+
+        # Templates path(s)
+        templates_paths = config.get("templates_paths") or config.get("templates_path")
+        if templates_paths:
+            if isinstance(templates_paths, str):
+                templates_paths = [templates_paths]
+            for path in templates_paths:
+                command.extend(["-t", path])
         
         # Silent mode
         command.append("-silent")

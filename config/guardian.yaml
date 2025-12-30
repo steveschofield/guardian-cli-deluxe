@@ -72,7 +72,12 @@ tools:
   nuclei:
     enabled: true
     severity: ["critical", "high", "medium"]
-    templates_path: ~/nuclei-templates
+    templates_paths:
+      - ~/nuclei-templates
+      - ~/nuclei-templates-extra/kenzer
+      - ~/nuclei-templates-extra/geeknik
+      - ~/nuclei-templates-extra/emadshanab
+    tags: ["cve", "exposure", "rce", "default"]
 
 # Workflow Settings
 workflows:
