@@ -21,6 +21,13 @@ from .xsstrike import XSStrikeTool
 from .gitleaks import GitleaksTool
 from .cmseek import CMSeekTool
 from .dnsrecon import DnsReconTool
+from .dnsx import DnsxTool
+from .shuffledns import ShufflednsTool
+from .puredns import PurednsTool
+from .altdns import AltdnsTool
+from .hakrawler import HakrawlerTool
+from .gospider import GospiderTool
+from .retire import RetireTool
 
 __all__ = [
     "BaseTool",
@@ -44,5 +51,11 @@ __all__ = [
     "GitleaksTool",
     "CMSeekTool",
     "DnsReconTool",
+    "DnsxTool",
+    "ShufflednsTool",
+    "PurednsTool",
+    "AltdnsTool",
+    "HakrawlerTool",
+    "GospiderTool",
+    "RetireTool",
 ]
-

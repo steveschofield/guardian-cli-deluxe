@@ -24,9 +24,11 @@ class ToolAgent(BaseAgent):
             NmapTool, HttpxTool, SubfinderTool, NucleiTool,
             WhatWebTool, Wafw00fTool, NiktoTool, TestSSLTool, GobusterTool,
             SQLMapTool, FFufTool, AmassTool, WPScanTool, SSLyzeTool, MasscanTool,
-            ArjunTool, XSStrikeTool, GitleaksTool, CMSeekTool, DnsReconTool
+            ArjunTool, XSStrikeTool, GitleaksTool, CMSeekTool, DnsReconTool,
+            DnsxTool, ShufflednsTool, PurednsTool, AltdnsTool,
+            HakrawlerTool, GospiderTool, RetireTool
         )
-        
+
         self.available_tools = {
             "nmap": NmapTool(config),
             "httpx": HttpxTool(config),
@@ -48,7 +50,56 @@ class ToolAgent(BaseAgent):
             "gitleaks": GitleaksTool(config),
             "cmseek": CMSeekTool(config),
             "dnsrecon": DnsReconTool(config),
+            "dnsx": DnsxTool(config),
+            "shuffledns": ShufflednsTool(config),
+            "puredns": PurednsTool(config),
+            "altdns": AltdnsTool(config),
+            "hakrawler": HakrawlerTool(config),
+            "gospider": GospiderTool(config),
+            "retire": RetireTool(config),
         }
+
+    def log_tool_availability(self):
+        """Log availability of all registered tools and basic install hints."""
+        install_hints = {
+            "nmap": "apt install nmap",
+            "masscan": "apt install masscan (or build from source)",
+            "httpx": "go install github.com/projectdiscovery/httpx/cmd/httpx@latest",
+            "subfinder": "go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
+            "nuclei": "go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest",
+            "whatweb": "git clone https://github.com/urbanadventurer/WhatWeb",
+            "wafw00f": "pip install wafw00f",
+            "nikto": "apt install nikto",
+            "testssl": "git clone https://github.com/drwetter/testssl.sh.git",
+            "gobuster": "go install github.com/OJ/gobuster/v3@latest",
+            "sqlmap": "pip install sqlmap",
+            "ffuf": "go install github.com/ffuf/ffuf/v2@latest",
+            "amass": "go install github.com/owasp-amass/amass/v4/...@master",
+            "wpscan": "gem install wpscan",
+            "sslyze": "pip install sslyze",
+            "arjun": "pip install arjun",
+            "xsstrike": "git clone https://github.com/s0md3v/XSStrike.git",
+            "gitleaks": "go install github.com/zricethezav/gitleaks/v8@latest",
+            "cmseek": "git clone https://github.com/Tuhinshubhra/CMSeeK.git",
+            "dnsrecon": "pip install dnsrecon",
+            "dnsx": "go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest",
+            "shuffledns": "go install github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest",
+            "puredns": "go install github.com/d3mondev/puredns@latest",
+            "altdns": "pip install altdns",
+            "hakrawler": "go install github.com/hakluke/hakrawler@latest",
+            "gospider": "go install github.com/jaeles-project/gospider@latest",
+            "retire": "npm install -g retire",
+        }
+
+        missing = []
+        for name, tool in self.available_tools.items():
+            if tool.is_available:
+                self.logger.info(f"Tool available: {name}")
+            else:
+                self.logger.warning(f"Tool missing: {name} ({install_hints.get(name, 'install manually')})")
+                missing.append(name)
+        if missing:
+            self.logger.warning(f"Missing tools: {', '.join(missing)}. Some functionality will be limited.")
 
     
     async def execute(self, objective: str, target: str, **kwargs) -> Dict[str, Any]:

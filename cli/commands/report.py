@@ -50,23 +50,26 @@ def report_command(
         llm_client = get_llm_client(config)
         reporter = ReporterAgent(config, llm_client, memory)
         
-        # Generate report
-        console.print(f"Generating {format} report...")
-        report = asyncio.run(reporter.execute(format=format))
+        # Generate markdown and html
+        outputs = []
+        for fmt, ext in (("markdown", "md"), ("html", "html")):
+            console.print(f"Generating {fmt} report...")
+            report = asyncio.run(reporter.execute(format=fmt))
+
+            if output:
+                base = output.with_suffix("")
+                out_path = base.with_suffix(f".{ext}")
+            else:
+                out_path = Path(f"./reports/report_{session_id}.{ext}")
+
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(out_path, 'w', encoding='utf-8') as f:
+                f.write(report["content"])
+            outputs.append((fmt, out_path))
         
-        # Determine output path
-        if not output:
-            ext = {"markdown": "md", "html": "html", "json": "json"}.get(format, "txt")
-            output = Path(f"./reports/report_{session_id}.{ext}")
-        
-        # Save report
-        output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, 'w', encoding='utf-8') as f:
-            f.write(report["content"])
-        
-        console.print(f"\n[green]✓ Report generated successfully![/green]")
-        console.print(f"Output: [cyan]{output}[/cyan]")
-        console.print(f"Format: [cyan]{format}[/cyan]")
+        console.print(f"\n[green]✓ Reports generated successfully![/green]")
+        for fmt, path in outputs:
+            console.print(f"{fmt.upper()}: [cyan]{path}[/cyan]")
         console.print(f"Findings: [cyan]{len(memory.findings)}[/cyan]")
         
     except Exception as e:

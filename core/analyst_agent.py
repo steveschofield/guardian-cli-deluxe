@@ -143,49 +143,51 @@ class AnalystAgent(BaseAgent):
     
     def _parse_findings(self, ai_response: str, tool: str, target: str) -> List[Finding]:
         """Parse findings from AI analysis response"""
-        findings = []
-        
-        # Simple parsing - look for severity markers
-        severity_markers = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
-        
-        lines = ai_response.split('\n')
-        current_finding = None
-        
+        findings: List[Finding] = []
+        severity_markers = ["critical", "high", "medium", "low", "info"]
+
+        lines = [l.strip() for l in ai_response.splitlines() if l.strip()]
+        current: Optional[Finding] = None
+
         for line in lines:
-            # Check if line starts a new finding
-            for severity in severity_markers:
-                if f"[{severity}]" in line or f"{severity}:" in line:
-                    if current_finding:
-                        findings.append(current_finding)
-                    
-                    # Extract title
-                    title = line.split(']')[-1].strip() if ']' in line else line
-                    
-                    current_finding = Finding(
-                        id=f"{tool}_{len(findings)}_{datetime.now().timestamp()}",
-                        severity=severity.lower(),
-                        title=title[:200],
-                        description="",
-                        evidence="",
-                        tool=tool,
-                        target=target,
-                        timestamp=datetime.now().isoformat()
-                    )
-                    break
-            
-            # Accumulate description
-            if current_finding and "Evidence:" not in line and "Impact:" not in line:
-                current_finding.description += line + "\n"
-            
-            # Extract evidence
-            if current_finding and "Evidence:" in line:
-                evidence = line.split("Evidence:")[-1].strip()
-                current_finding.evidence = evidence
-        
-        # Add last finding
-        if current_finding:
-            findings.append(current_finding)
-        
+            # Match patterns like "[High]" or "1. [Critical]" or "HIGH:"
+            import re
+            sev_match = re.search(r"\[?\b(critical|high|medium|low|info)\b\]?", line, re.IGNORECASE)
+            if sev_match:
+                severity = sev_match.group(1).lower()
+                # finalize previous
+                if current:
+                    findings.append(current)
+                # derive title after the severity marker
+                title_part = re.sub(r"^\s*\d+[\.\)]\s*", "", line)  # drop numbering
+                title_part = re.sub(r"\[?\b(critical|high|medium|low|info)\b\]?:?", "", title_part, flags=re.IGNORECASE)
+                title = title_part.strip(":- ").strip()
+                if not title:
+                    title = f"{severity.title()} finding"
+
+                current = Finding(
+                    id=f"{tool}_{len(findings)}_{datetime.now().timestamp()}",
+                    severity=severity,
+                    title=title[:200],
+                    description="",
+                    evidence="",
+                    tool=tool,
+                    target=target,
+                    timestamp=datetime.now().isoformat()
+                )
+                continue
+
+            if current:
+                # Evidence line
+                if "evidence:" in line.lower():
+                    evidence_text = line.split("Evidence:")[-1].strip()
+                    current.evidence = evidence_text
+                else:
+                    current.description += line + "\n"
+
+        if current:
+            findings.append(current)
+
         return findings
     
     def _format_findings_for_correlation(self) -> str:

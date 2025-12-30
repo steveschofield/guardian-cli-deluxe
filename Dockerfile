@@ -96,6 +96,15 @@ RUN pip install --no-cache-dir \
     arjun \
     dnsrecon
 
+# Install JS and additional recon tools
+RUN npm install -g retire && \
+    go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest && \
+    go install github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest && \
+    go install github.com/d3mondev/puredns@latest && \
+    pip install altdns && \
+    go install github.com/hakluke/hakrawler@latest && \
+    go install github.com/jaeles-project/gospider@latest
+
 # Install CMSeeK from source
 RUN git clone https://github.com/Tuhinshubhra/CMSeeK.git /opt/cmseek && \
     pip install --no-cache-dir -r /opt/cmseek/requirements.txt && \

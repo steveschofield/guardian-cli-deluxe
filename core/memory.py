@@ -89,7 +89,7 @@ class PentestMemory:
     def mark_action_complete(self, action: str):
         """Mark an action as completed"""
         normalized = self._normalize_action(action)
-        if normalized and normalized not in self.completed_actions:
+        if normalized and normalized not in self.completed_actions and normalized.lower() != "unknown":
             self.completed_actions.append(normalized)
     
     def update_context(self, key: str, value: Any):
@@ -187,6 +187,7 @@ Technologies:
             return ""
         # Remove markdown bold markers and bullet/number prefixes
         cleaned = action.replace("**", " ").strip()
-        cleaned = re.sub(r"^\s*[-\*\d\.\)]+\s*", "", cleaned)
+        cleaned = re.sub(r"^\s*[-\*\d\.\)]+\s*", "", cleaned)  # leading bullets/numbers
+        cleaned = re.sub(r"\b\d+\.\s*$", "", cleaned)  # trailing isolated numbering
         cleaned = re.sub(r"\s+", " ", cleaned)
         return cleaned.strip()
