@@ -28,17 +28,23 @@ class WorkflowEngine:
         self.memory = PentestMemory(target)
         self.scope_validator = ScopeValidator(config)
         self.llm_client = get_llm_client(config)
-        
+
         # Initialize all agents
         from core.planner import PlannerAgent
         from core.tool_agent import ToolAgent
         from core.analyst_agent import AnalystAgent
         from core.reporter_agent import ReporterAgent
-        
+
         self.planner = PlannerAgent(config, self.llm_client, self.memory)
         self.tool_agent = ToolAgent(config, self.llm_client, self.memory)
         self.analyst = AnalystAgent(config, self.llm_client, self.memory)
         self.reporter = ReporterAgent(config, self.llm_client, self.memory)
+
+        # Log tool availability up front
+        try:
+            self.tool_agent.log_tool_availability()
+        except Exception as e:
+            self.logger.warning(f"Tool availability check failed: {e}")
         
         # Workflow state
         self.is_running = False
@@ -190,6 +196,10 @@ class WorkflowEngine:
                 )
                 
                 self.logger.info(f"Found {len(analysis['findings'])} findings from {tool_name}")
+                
+                # Update last tool execution with findings count
+                if self.memory.tool_executions:
+                    self.memory.tool_executions[-1].findings_count = len(analysis["findings"])
             else:
                 self.logger.warning(f"Tool execution failed: {result.get('error')}")
             
@@ -201,18 +211,17 @@ class WorkflowEngine:
             
         elif step_type == "report":
             # Generate report
-            self.logger.info(f"Generating {step.get('format', 'markdown')} report...")
-            report = await self.reporter.execute(format=step.get("format", "markdown"))
-            
-            # Save report
             output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
             output_dir.mkdir(parents=True, exist_ok=True)
-            
-            report_file = output_dir / f"report_{self.memory.session_id}.{step.get('format', 'md')}"
-            with open(report_file, 'w', encoding='utf-8') as f:
-                f.write(report["content"])
-            
-            self.logger.info(f"Report saved to: {report_file}")
+
+            # Always generate markdown and html
+            for fmt, ext in (("markdown", "md"), ("html", "html")):
+                self.logger.info(f"Generating {fmt} report...")
+                report = await self.reporter.execute(format=fmt)
+                report_file = output_dir / f"report_{self.memory.session_id}.{ext}"
+                with open(report_file, 'w', encoding='utf-8') as f:
+                    f.write(report["content"])
+                self.logger.info(f"Report saved to: {report_file}")
         
         self.memory.mark_action_complete(step["name"])
     
@@ -243,8 +252,9 @@ class WorkflowEngine:
                     command=result.get("command", ""),
                     output=result.get("raw_output", "")
                 )
-                
                 self.logger.info(f"Found {len(analysis['findings'])} new findings")
+                if self.memory.tool_executions:
+                    self.memory.tool_executions[-1].findings_count = len(analysis["findings"])
             
         except Exception as e:
             self.logger.error(f"Failed to execute AI decision: {e}")
