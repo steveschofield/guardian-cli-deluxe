@@ -6,7 +6,8 @@ Quick pointers for extending Guardian with new tools, workflows, or AI backends.
 - Implement a tool class in `tools/` following existing patterns (e.g., `NmapTool`, `HttpxTool`).
 - Wire it into `tools/__init__.py` and register it in `core/tool_agent.py` `available_tools`.
 - Provide sensible defaults and guardrails (timeouts, safe args) in the tool config block in `config/guardian.yaml`.
-- If the tool needs external binaries, update the Dockerfile and/or docs.
+- Update `setup.sh` with install steps (pip/go/gem/apt) so fresh environments can pull it automatically.
+- If the tool needs external binaries, update the Dockerfile and/or docs and note platform quirks.
 
 ## Adding a Workflow
 - Define a workflow YAML in `workflows/` or extend `_load_workflow` logic if using code-driven steps.
@@ -40,4 +41,5 @@ Quick pointers for extending Guardian with new tools, workflows, or AI backends.
 - If you change report/output paths, ensure these exports remain easy to find and documented.
 
 ## Docs
-- Update `README.md` when adding user-facing features or new requirements.
+- Update `README.md` when adding user-facing features or new requirements (including new tools).
+- Keep install tables accurate (optional tools section, default config hints) when tooling changes.
