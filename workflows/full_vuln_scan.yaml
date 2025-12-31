@@ -13,6 +13,14 @@ steps:
     args:
       tech_detect: true
 
+  - name: web_vuln_scan_nikto
+    tool: nikto
+    description: Baseline web vulnerability scan of discovered endpoints
+    args:
+      format: "json"
+    dependencies:
+      - web_discovery
+
   - name: ssl_analysis
     tool: sslyze
     description: Deep SSL/TLS configuration analysis
