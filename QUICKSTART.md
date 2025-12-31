@@ -68,8 +68,9 @@ python -m cli.main <command> --help
 
 - **Windows**: Use `python -m cli.main` or `.\guardian.bat` instead of `guardian`
 - **API Key**: Required for AI features (get from https://makersuite.google.com/app/apikey)
-- **External Tools**: Optional but recommended (nmap, httpx, subfinder, nuclei)
+- **External Tools**: Optional but recommended (nmap, httpx, subfinder, nuclei, **nikto**)
 - **Authorization**: Only scan systems you have explicit permission to test
+- **Workflow steps**: Recon/web/full_vuln workflows will run Nikto if present; install via `apt install nikto` (or equivalent) to enable that step.
 
 ## Troubleshooting
 
