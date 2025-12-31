@@ -10,3 +10,18 @@ export LLM_MODEL=llama3.1:8b
 
 python -m cli.main workflow run --name autonomous --target http://192.168.1.130:3000
  
+Gap snapshot
+
+Guardian is rich in security scanners but lacks Shannon’s deliverable/TOTP helpers and MCP tool-loading.
+Shannon has no built-in recon/vuln scanners; relies on external MCP servers for extras.
+Integration plan (proposed)
+
+1. Port Shannon helper tools: add save_deliverable (with queue JSON validation + filename mapping) and generate_totp as Guardian-native tools, exposed via ToolAgent and CLI; mirror Shannon file layout so reports align.
+
+2. Add optional MCP bridge: small client wrapper (modeled after llm-client.js) to register MCP tool schemas alongside BaseTool wrappers, enabling Playwright/browsers or future custom tools without changing Guardian code.
+
+(done) 3. Expand scanner set in phases: (a) quick wins—ProjectDiscovery naabu (fast port scan), katana (crawler), mapcidr/asnmap (net mapping); (b) web fuzzing depth—dirsearch/feroxbuster, waybackurls/gau for historical paths; (c) service-specific—smbclient/crackmapexec for AD, kerbrute, bloodhound export support if in scope.
+
+(done) 4. Config/reporting harmonization: extend guardian.yaml for tool toggles/default args, add deliverable output paths compatible with Shannon report expectations, and log availability hints (similar to ToolAgent.log_tool_availability) for new tools.
+
+5. Validation/tests: add lightweight unit tests for new helpers (queue validation, TOTP), plus a smoke script that lists available tools and runs --version to catch missing deps.
