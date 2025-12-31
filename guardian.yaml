@@ -20,3 +20,22 @@ scope:
     - 127.0.0.0/8
     - 10.0.0.0/8
     - 172.16.0.0/12
+
+tools:
+  naabu:
+    enabled: true
+    rate: 1000
+    top_ports: 100
+    exclude_cdn: true
+
+  katana:
+    enabled: true
+    depth: 2
+    concurrency: 10
+
+  asnmap:
+    enabled: true
+    include_org: true
+
+  waybackurls:
+    enabled: true

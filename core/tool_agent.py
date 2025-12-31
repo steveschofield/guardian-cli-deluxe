@@ -10,7 +10,12 @@ from ai.prompt_templates import (
     TOOL_SELECTION_PROMPT,
     TOOL_PARAMETERS_PROMPT
 )
-from tools import NmapTool, HttpxTool, SubfinderTool, NucleiTool
+from tools import (
+    NmapTool,
+    HttpxTool,
+    SubfinderTool,
+    NucleiTool,
+)
 
 
 class ToolAgent(BaseAgent):
@@ -26,7 +31,8 @@ class ToolAgent(BaseAgent):
             SQLMapTool, FFufTool, AmassTool, WPScanTool, SSLyzeTool, MasscanTool,
             ArjunTool, XSStrikeTool, GitleaksTool, CMSeekTool, DnsReconTool,
             DnsxTool, ShufflednsTool, PurednsTool, AltdnsTool,
-            HakrawlerTool, GospiderTool, RetireTool
+            HakrawlerTool, GospiderTool, RetireTool, NaabuTool, KatanaTool,
+            AsnmapTool, WaybackurlsTool
         )
 
         self.available_tools = {
@@ -57,6 +63,10 @@ class ToolAgent(BaseAgent):
             "hakrawler": HakrawlerTool(config),
             "gospider": GospiderTool(config),
             "retire": RetireTool(config),
+            "naabu": NaabuTool(config),
+            "katana": KatanaTool(config),
+            "asnmap": AsnmapTool(config),
+            "waybackurls": WaybackurlsTool(config),
         }
 
     def log_tool_availability(self):
@@ -89,6 +99,10 @@ class ToolAgent(BaseAgent):
             "hakrawler": "go install github.com/hakluke/hakrawler@latest",
             "gospider": "go install github.com/jaeles-project/gospider@latest",
             "retire": "npm install -g retire",
+            "naabu": "go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest",
+            "katana": "go install github.com/projectdiscovery/katana/cmd/katana@latest",
+            "asnmap": "go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest",
+            "waybackurls": "go install github.com/tomnomnom/waybackurls@latest",
         }
 
         missing = []
@@ -236,28 +250,37 @@ class ToolAgent(BaseAgent):
             return "unknown"
     
     def _parse_selection(self, response: str) -> Dict[str, str]:
-        """Parse AI tool selection response"""
+        """Parse AI tool selection response.
+
+        More tolerant of markdown/bold formatting (e.g., '**TOOL**: `nuclei`')
+        and avoids silently defaulting to nmap when parsing fails.
+        """
+        import re
+
         selection = {
-            "tool": "nmap",  # Default
+            "tool": "",
             "arguments": "",
             "expected_output": ""
         }
-        
-        # Simple parsing
-        if "TOOL:" in response:
-            start = response.find("TOOL:") + len("TOOL:")
-            end = response.find("ARGUMENTS:", start) if "ARGUMENTS:" in response else len(response)
-            selection["tool"] = response[start:end].strip().lower()
-        
-        if "ARGUMENTS:" in response:
-            start = response.find("ARGUMENTS:") + len("ARGUMENTS:")
-            end = response.find("EXPECTED_OUTPUT:", start) if "EXPECTED_OUTPUT:" in response else len(response)
-            selection["arguments"] = response[start:end].strip()
-        
-        if "EXPECTED_OUTPUT:" in response:
-            start = response.find("EXPECTED_OUTPUT:") + len("EXPECTED_OUTPUT:")
-            selection["expected_output"] = response[start:].strip()
-        
+
+        # Match variants like "TOOL:", "**TOOL**:", "Tool:", with optional backticks
+        tool_match = re.search(r"tool[^a-zA-Z0-9]{0,3}:\s*`?([a-zA-Z0-9_-]+)`?", response, re.IGNORECASE)
+        if tool_match:
+            selection["tool"] = tool_match.group(1).lower()
+
+        args_match = re.search(r"arguments[^a-zA-Z0-9]{0,3}:\s*(.+?)(?:expected_output|$)", response, re.IGNORECASE | re.DOTALL)
+        if args_match:
+            selection["arguments"] = args_match.group(1).strip()
+
+        expected_match = re.search(r"expected_output[^a-zA-Z0-9]{0,3}:\s*(.+)$", response, re.IGNORECASE | re.DOTALL)
+        if expected_match:
+            selection["expected_output"] = expected_match.group(1).strip()
+
+        # If tool still missing, fall back to first available tool (deterministic) instead of hardcoding nmap
+        if not selection["tool"]:
+            selection["tool"] = next(iter(self.available_tools.keys()))
+            self.logger.warning("Tool parse failed; defaulting to first available tool: %s", selection["tool"])
+
         return selection
     
     def get_available_tools(self) -> Dict[str, bool]:

@@ -14,9 +14,22 @@ from rich.logging import RichHandler
 class AuditLogger:
     """Specialized logger for security audit trails"""
     
-    def __init__(self, log_path: str = "./logs/guardian.log", level: str = "INFO"):
+    def __init__(
+        self,
+        log_path: str = "./logs/guardian.log",
+        level: str = "INFO",
+        console_log_path: Optional[str] = None
+    ):
         self.log_path = Path(log_path)
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Build a per-run, timestamped console log if not provided
+        if console_log_path is None:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            console_log = Path(f"./reports/console_{ts}.log")
+        else:
+            console_log = Path(console_log_path)
+        console_log.parent.mkdir(parents=True, exist_ok=True)
         
         # Create logger
         self.logger = logging.getLogger("guardian")
@@ -33,9 +46,15 @@ class AuditLogger:
         # Rich console handler for beautiful output
         console_handler = RichHandler(rich_tracebacks=True, markup=True)
         console_handler.setLevel(getattr(logging, level.upper()))
+
+        # Mirror console output to a dedicated reports file (same level as console)
+        console_file_handler = logging.FileHandler(console_log)
+        console_file_handler.setLevel(getattr(logging, level.upper()))
+        console_file_handler.setFormatter(file_formatter)
         
         self.logger.addHandler(file_handler)
         self.logger.addHandler(console_handler)
+        self.logger.addHandler(console_file_handler)
     
     def log_ai_decision(self, agent: str, decision: str, reasoning: str, context: Dict[str, Any]):
         """Log AI agent decisions for audit trail"""
@@ -111,7 +130,8 @@ def get_logger(config: Optional[Dict[str, Any]] = None) -> AuditLogger:
             log_config = config["logging"]
             _logger = AuditLogger(
                 log_path=log_config.get("path", "./logs/guardian.log"),
-                level=log_config.get("level", "INFO")
+                level=log_config.get("level", "INFO"),
+                console_log_path=log_config.get("console_log_path")
             )
         else:
             _logger = AuditLogger()

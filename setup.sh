@@ -8,6 +8,22 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_BIN="${VIRTUAL_ENV:-}/bin"
 TOOLS_DIR="${BASE_DIR}/tools/vendor"
 
+install_libpcap_dev() {
+  if command -v apt-get >/dev/null 2>&1; then
+    if command -v sudo >/dev/null 2>&1; then
+      echo "Installing libpcap-dev (required for naabu and other Go scanners)..."
+      sudo apt-get update && sudo apt-get install -y libpcap-dev
+    else
+      echo "WARN: sudo not available; install libpcap-dev manually (apt-get install -y libpcap-dev)" >&2
+    fi
+  else
+    echo "INFO: Non-apt system detected; ensure libpcap development headers are installed (e.g., brew install libpcap)" >&2
+  fi
+}
+
+# Ensure libpcap headers are present before building Go scanners
+install_libpcap_dev
+
 if [[ -z "${VIRTUAL_ENV:-}" ]]; then
   echo "ERROR: Activate your virtual environment first (source venv/bin/activate)" >&2
   exit 1
@@ -111,8 +127,12 @@ install_recon_extras() {
     go install github.com/d3mondev/puredns/v2@latest
     go install github.com/hakluke/hakrawler@latest
     go install github.com/jaeles-project/gospider@latest
+    go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+    go install github.com/projectdiscovery/katana/cmd/katana@latest
+    go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest
+    go install github.com/tomnomnom/waybackurls@latest
   else
-    echo "WARN: go not found; skipping dnsx/shuffledns/puredns/hakrawler/gospider" >&2
+    echo "WARN: go not found; skipping dnsx/shuffledns/puredns/hakrawler/gospider/naabu/katana/asnmap/waybackurls" >&2
   fi
 
   # altdns is no longer on PyPI; install from the maintained fork (package name py-altdns)
@@ -125,10 +145,23 @@ install_recon_extras() {
   fi
 }
 
+install_libpcap_dev() {
+  if command -v apt-get >/dev/null 2>&1; then
+    if command -v sudo >/dev/null 2>&1; then
+      echo "Installing libpcap-dev (required for naabu and other Go scanners)..."
+      sudo apt-get update && sudo apt-get install -y libpcap-dev
+    else
+      echo "WARN: sudo not available; install libpcap-dev manually (apt-get install -y libpcap-dev)" >&2
+    fi
+  else
+    echo "INFO: Non-apt system detected; ensure libpcap development headers are installed (e.g., brew install libpcap)" >&2
+  fi
+}
+
 echo "Fetching extra nuclei templates (CVE packs)..."
 install_nuclei_templates
 
-echo "Installing recon extras (dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire)..."
+echo "Installing recon extras (dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls)..."
 install_recon_extras
 
 echo "Setup complete. Ensure ${VENV_BIN} is in your PATH."
