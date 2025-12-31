@@ -32,6 +32,14 @@ from .naabu import NaabuTool
 from .katana import KatanaTool
 from .asnmap import AsnmapTool
 from .waybackurls import WaybackurlsTool
+from .subjs import SubjsTool
+from .dirsearch import DirsearchTool
+from .linkfinder import LinkfinderTool
+from .xnlinkfinder import XnlinkfinderTool
+from .paramspider import ParamspiderTool
+from .schemathesis import SchemathesisTool
+from .trufflehog import TrufflehogTool
+from .metasploit import MetasploitTool
 
 __all__ = [
     "BaseTool",
@@ -66,4 +74,12 @@ __all__ = [
     "KatanaTool",
     "AsnmapTool",
     "WaybackurlsTool",
+    "SubjsTool",
+    "DirsearchTool",
+    "LinkfinderTool",
+    "XnlinkfinderTool",
+    "ParamspiderTool",
+    "SchemathesisTool",
+    "TrufflehogTool",
+    "MetasploitTool",
 ]
