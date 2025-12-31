@@ -52,14 +52,16 @@ USE AT YOUR OWN RISK - NO WARRANTY PROVIDED
 
 ### 🛠️ Extensive Tool Arsenal
 
-**15 Integrated Security Tools:**
+**20+ Integrated Security Tools:**
 
-- **Network**: Nmap (comprehensive port scanning), Masscan (ultra-fast scanning)
+- **Network**: Nmap (comprehensive port scanning), Masscan (ultra-fast scanning), Naabu (fast TCP/UDP)
 - **Web Reconnaissance**: httpx (HTTP probing), WhatWeb (technology fingerprinting), Wafw00f (WAF detection)
-- **Subdomain Discovery**: Subfinder (passive enumeration), Amass (active/passive mapping)
-- **Vulnerability Scanning**: Nuclei (template-based), Nikto (web vulnerabilities), SQLMap (SQL injection), WPScan (WordPress)
+- **Subdomain/ASN Discovery**: Subfinder (passive enum), Amass (active/passive mapping), ASNmap (AS intel), dnsx/shuffledns/puredns/altdns
+- **URL/Content Discovery**: Katana (crawler), Gospider, Hakrawler, Waybackurls, Subjs, Dirsearch/Gobuster/FFuf
+- **JS/API Analysis**: LinkFinder/xnLinkFinder (JS endpoint discovery), ParamSpider/Arjun (parameter discovery), Schemathesis (OpenAPI fuzzing)
+- **Vulnerability Scanning**: Nuclei (templates), Nikto (web vulns), SQLMap (SQLi), WPScan (WordPress)
+- **Secrets/Leak Detection**: Gitleaks, TruffleHog
 - **SSL/TLS Testing**: TestSSL (cipher analysis), SSLyze (advanced configuration analysis)
-- **Content Discovery**: Gobuster (directory brute forcing), FFuf (advanced web fuzzing)
 
 ### 🔒 Security & Compliance
 
@@ -96,30 +98,35 @@ USE AT YOUR OWN RISK - NO WARRANTY PROVIDED
 
 ### Optional Tools (for full functionality)
 
-Guardian can intelligently use these tools if installed:
+Guardian will use these automatically if present:
 
-| Tool                | Purpose             | Installation                                                                 |
-| ------------------- | ------------------- | ---------------------------------------------------------------------------- |
-| **nmap**      | Port scanning       | `apt install nmap` / `choco install nmap`                                |
-| **masscan**   | Ultra-fast scan     | `apt install masscan` / Build from source                                  |
-| **httpx**     | HTTP probing        | `go install github.com/projectdiscovery/httpx/cmd/httpx@latest`            |
-| **subfinder** | Subdomain enum      | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
-| **amass**     | Network mapping     | `go install github.com/owasp-amass/amass/v4/...@master`                    |
-| **nuclei**    | Vuln scanning       | `go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest`       |
-| **whatweb**   | Tech fingerprint    | `gem install whatweb` / `apt install whatweb`                            |
-| **wafw00f**   | WAF detection       | `pip install wafw00f`                                                      |
-| **nikto**     | Web vuln scan       | `apt install nikto`                                                        |
-| **sqlmap**    | SQL injection       | `pip install sqlmap` / `apt install sqlmap`                              |
-| **wpscan**    | WordPress scan      | `gem install wpscan`                                                       |
-| **testssl**   | SSL/TLS testing     | Download from[testssl.sh](https://testssl.sh/)                                  |
-| **sslyze**    | SSL/TLS analysis    | `pip install sslyze`                                                       |
-| **gobuster**  | Directory brute     | `go install github.com/OJ/gobuster/v3@latest`                              |
-| **ffuf**      | Web fuzzing         | `go install github.com/ffuf/ffuf/v2@latest`                                |
-| **arjun**     | Parameter discovery | `pip install arjun`                                                        |
-| **xsstrike**  | Advanced XSS        | `git clone ...`                                                            |
-| **gitleaks**  | Secret scanning     | `go install github.com/zricethezav/gitleaks/v8@latest`                     |
-| **cmseek**    | CMS detection       | `pip install cmseek`                                                       |
-| **dnsrecon**  | DNS enumeration     | `pip install dnsrecon`                                                     |
+| Tool | Purpose | Installation |
+| --- | --- | --- |
+| **nmap** | Port scanning | `apt install nmap` / `brew install nmap` |
+| **masscan** | Ultra-fast scan | `apt install masscan` / build from source |
+| **naabu** | Fast TCP/UDP scan | `go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest` |
+| **httpx** | HTTP probing | `go install github.com/projectdiscovery/httpx/cmd/httpx@latest` |
+| **subfinder** | Subdomain enum | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
+| **amass** | Network mapping | `go install github.com/owasp-amass/amass/v4/...@latest` |
+| **asnmap** | ASN intel | `go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest` |
+| **nuclei** | Vuln scanning | `go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest` |
+| **whatweb** | Tech fingerprint | `apt install whatweb` / `gem install whatweb` |
+| **wafw00f** | WAF detection | `pip install wafw00f` |
+| **nikto** | Web vuln scan | `apt install nikto` |
+| **sqlmap** | SQL injection | `pip install sqlmap` / `apt install sqlmap` |
+| **wpscan** | WordPress scan | `gem install wpscan` |
+| **testssl** | SSL/TLS testing | `git clone https://github.com/drwetter/testssl.sh` |
+| **sslyze** | SSL/TLS analysis | `pip install sslyze` |
+| **gobuster / ffuf / dirsearch** | Content brute force | `go install ...gobuster/v3@latest` / `go install github.com/ffuf/ffuf/v2@latest` / `pip install dirsearch` |
+| **katana / gospider / hakrawler** | Crawling & URL harvest | `go install ...` |
+| **waybackurls / subjs** | Historical/JS URL harvest | `go install tomnomnom/waybackurls@latest` / `go install github.com/lc/subjs@latest` |
+| **linkfinder / xnLinkFinder** | JS endpoint discovery | `pip install "linkfinder @ git+https://github.com/GerbenJavado/LinkFinder.git"` / `pip install xnlinkfinder` |
+| **arjun / paramspider** | Parameter discovery | `pip install arjun` / `pip install "paramspider @ git+https://github.com/devanshbatham/ParamSpider.git"` |
+| **schemathesis** | OpenAPI fuzzing | `pip install schemathesis` |
+| **gitleaks / trufflehog** | Secret scanning | `go install github.com/zricethezav/gitleaks/v8@latest` / `pip install trufflehog` |
+| **dnsrecon / dnsx / shuffledns / puredns / altdns** | DNS enumeration/resolution | `pip install dnsrecon` / `go install ...` / `pip install py-altdns @ git+https://github.com/infosec-au/altdns.git` |
+| **cmseek / xsstrike** | CMS/XSS utilities | `pip install cmseek` / `pip install xsstrike` |
+| **metasploit** | Exploitation framework | `apt install metasploit-framework` or nightly installer |
 
 > **Note**: Guardian works without external tools but with limited scanning capabilities. The AI will adapt based on available tools.
 
@@ -129,7 +136,7 @@ Guardian can intelligently use these tools if installed:
 
 ### Option 1: Docker (Recommended - All Tools Included) 🐳
 
-**Easiest and fastest way to get started with all 15 security tools pre-installed!**
+**Easiest and fastest way to get started with the core security tools pre-installed!**
 
 ```bash
 # Clone repository
@@ -148,7 +155,7 @@ docker-compose run --rm guardian recon --domain example.com
 
 **Benefits:**
 
-- ✅ All 15 tools pre-installed (nmap, httpx, nuclei, sqlmap, etc.)
+- ✅ Core tools pre-installed (nmap, httpx, nuclei, sqlmap, etc.)
 - ✅ No manual tool installation required
 - ✅ Consistent environment across all systems
 - ✅ Isolated and secure
@@ -314,23 +321,16 @@ guardian-cli/
 │   ├── reporter_agent.py # Reporting agent
 │   ├── memory.py         # State management
 │   └── workflow.py       # Workflow orchestration
-├── tools/                 # Pentesting tool wrappers
-│   ├── nmap.py           # Nmap integration
-│   ├── masscan.py        # Masscan integration
-│   ├── httpx.py          # httpx integration
-│   ├── subfinder.py      # Subfinder integration
-│   ├── amass.py          # Amass integration
-│   ├── nuclei.py         # Nuclei integration
-│   ├── sqlmap.py         # SQLMap integration
-│   ├── wpscan.py         # WPScan integration
-│   ├── whatweb.py        # WhatWeb integration
-│   ├── wafw00f.py        # Wafw00f integration
-│   ├── nikto.py          # Nikto integration
-│   ├── testssl.py        # TestSSL integration
-│   ├── sslyze.py         # SSLyze integration
-│   ├── gobuster.py       # Gobuster integration
-│   ├── ffuf.py           # FFuf integration
-│   └── ...               # 15 tools total
+├── tools/                 # Pentesting tool wrappers (20+)
+│   ├── nmap.py, masscan.py, naabu.py
+│   ├── httpx.py, nuclei.py, nikto.py, sqlmap.py, wpscan.py
+│   ├── subfinder.py, amass.py, asnmap.py, dnsx.py, shuffledns.py, puredns.py, altdns.py
+│   ├── katana.py, hakrawler.py, gospider.py, waybackurls.py, subjs.py
+│   ├── dirsearch.py, ffuf.py, gobuster.py
+│   ├── linkfinder.py, xnlinkfinder.py, paramspider.py, arjun.py, schemathesis.py
+│   ├── gitleaks.py, trufflehog.py, cmseek.py
+│   ├── testssl.py, sslyze.py, wafw00f.py, whatweb.py, metasploit.py
+│   └── ...               # See tools/README.md and guardian.yaml for defaults
 ├── workflows/             # Workflow definitions (YAML)
 ├── utils/                 # Utilities (logging, validation)
 ├── config/                # Configuration files
