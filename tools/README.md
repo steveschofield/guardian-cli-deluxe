@@ -13,6 +13,10 @@ This directory contains wrappers for various penetration testing tools.
   - Installation: `apt-get install masscan` or build from [source](https://github.com/robertdavidgraham/masscan)
   - Features: Fast large-scale port scanning, banner grabbing, rate limiting
 
+- **Naabu**: Fast TCP port scanner
+  - Installation: `go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest`
+  - Features: JSONL output, CDN exclusion, top-port presets
+
 
 
 ### Web Reconnaissance  
@@ -28,6 +32,10 @@ This directory contains wrappers for various penetration testing tools.
   - Installation: `pip install wafw00f`
   - Features: Detect WAF products, identify vendors
 
+- **Katana**: Web crawler
+  - Installation: `go install github.com/projectdiscovery/katana/cmd/katana@latest`
+  - Features: Fast crawling with depth control, JSONL output
+
 ### Subdomain Enumeration
 - **Subfinder**: Passive subdomain discovery
   - Installation: `go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest`
@@ -36,6 +44,10 @@ This directory contains wrappers for various penetration testing tools.
 - **Amass**: Advanced network mapping and asset discovery
   - Installation: `go install -v github.com/owasp-amass/amass/v4/...@master`
   - Features: Active/passive enumeration, ASN/CIDR discovery, relationship mapping
+
+- **Asnmap**: ASN and prefix mapping
+  - Installation: `go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest`
+  - Features: ASN lookups, prefix enumeration, organization metadata
 
 ### Vulnerability Scanning
 - **Nuclei**: Template-based vulnerability scanner
@@ -71,6 +83,10 @@ This directory contains wrappers for various penetration testing tools.
 - **FFuf**: Fast web fuzzer
   - Installation: `go install github.com/ffuf/ffuf/v2@latest`
   - Features: Advanced fuzzing, JSON output, recursion, filtering/matching
+
+- **Waybackurls**: Historical URL collection
+  - Installation: `go install github.com/tomnomnom/waybackurls@latest`
+  - Features: Extracts URLs from the Internet Archive/other sources
 
 ## Tool Wrapper Architecture
 
