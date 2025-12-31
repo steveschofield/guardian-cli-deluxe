@@ -21,6 +21,14 @@ Available Tools:
 - nikto: Comprehensive web vulnerability scanning
 - testssl: SSL/TLS security testing and cipher analysis
 - gobuster: Directory and file brute forcing
+- dirsearch: Content discovery and brute forcing
+- subjs: Extract URLs from JavaScript responses
+- linkfinder / xnlinkfinder: Discover endpoints inside JavaScript
+- paramspider: Parameter discovery from crawled URLs
+- waybackurls: Historical URL collection
+- schemathesis: OpenAPI-based API fuzzing
+- trufflehog: Secret scanning in repos/URLs
+- metasploit: Scripted Metasploit module execution
 - custom_tools: Python-based custom scanning logic
 
 You must:
@@ -57,6 +65,15 @@ AVAILABLE TOOLS:
 - nikto: Web vulnerability scanner
 - testssl: SSL/TLS security testing
 - gobuster: Directory/file brute forcing
+- dirsearch: Content discovery
+- subjs: JS URL extraction
+- linkfinder: JS endpoint discovery
+- xnlinkfinder: Advanced JS endpoint discovery
+- paramspider: Parameter discovery
+- waybackurls: Historical URLs
+- schemathesis: API schema fuzzing
+- trufflehog: Secret scanning
+- metasploit: Scripted module execution
 - custom: Python-based custom tools
 
 Consider:

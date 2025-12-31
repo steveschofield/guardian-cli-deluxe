@@ -32,7 +32,9 @@ class ToolAgent(BaseAgent):
             ArjunTool, XSStrikeTool, GitleaksTool, CMSeekTool, DnsReconTool,
             DnsxTool, ShufflednsTool, PurednsTool, AltdnsTool,
             HakrawlerTool, GospiderTool, RetireTool, NaabuTool, KatanaTool,
-            AsnmapTool, WaybackurlsTool
+            AsnmapTool, WaybackurlsTool, SubjsTool, DirsearchTool,
+            LinkfinderTool, XnlinkfinderTool, ParamspiderTool,
+            SchemathesisTool, TrufflehogTool, MetasploitTool
         )
 
         self.available_tools = {
@@ -67,6 +69,14 @@ class ToolAgent(BaseAgent):
             "katana": KatanaTool(config),
             "asnmap": AsnmapTool(config),
             "waybackurls": WaybackurlsTool(config),
+            "subjs": SubjsTool(config),
+            "dirsearch": DirsearchTool(config),
+            "linkfinder": LinkfinderTool(config),
+            "xnlinkfinder": XnlinkfinderTool(config),
+            "paramspider": ParamspiderTool(config),
+            "schemathesis": SchemathesisTool(config),
+            "trufflehog": TrufflehogTool(config),
+            "metasploit": MetasploitTool(config),
         }
 
     def log_tool_availability(self):
@@ -103,6 +113,14 @@ class ToolAgent(BaseAgent):
             "katana": "go install github.com/projectdiscovery/katana/cmd/katana@latest",
             "asnmap": "go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest",
             "waybackurls": "go install github.com/tomnomnom/waybackurls@latest",
+            "subjs": "go install github.com/lc/subjs@latest",
+            "dirsearch": "pip install dirsearch",
+            "linkfinder": "pip install git+https://github.com/GerbenJavado/LinkFinder.git",
+            "xnlinkfinder": "pip install xnlinkfinder",
+            "paramspider": "pip install git+https://github.com/devanshbatham/ParamSpider.git",
+            "schemathesis": "pip install schemathesis",
+            "trufflehog": "pip install trufflehog",
+            "metasploit": "install via https://www.metasploit.com/ (msfconsole on PATH)",
         }
 
         missing = []

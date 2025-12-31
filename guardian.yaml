@@ -39,3 +39,39 @@ tools:
 
   waybackurls:
     enabled: true
+
+  subjs:
+    enabled: true
+
+  dirsearch:
+    enabled: true
+    wordlist: "/usr/share/seclists/Discovery/Web-Content/common.txt"
+    threads: 20
+    extensions: "php,html,js"
+    recursive: false
+
+  linkfinder:
+    enabled: true
+
+  xnlinkfinder:
+    enabled: true
+
+  paramspider:
+    enabled: true
+    level: 2
+    threads: 10
+    exclude: "jpg,png,gif"
+
+  schemathesis:
+    enabled: true
+    workers: 4
+    checks: "all"
+    max_examples: 20
+
+  trufflehog:
+    enabled: true
+    only_verified: true
+
+  metasploit:
+    enabled: false
+    # Provide msfconsole command string or module/extra in ToolAgent call
