@@ -131,17 +131,44 @@ install_recon_extras() {
     go install github.com/projectdiscovery/katana/cmd/katana@latest
     go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest
     go install github.com/tomnomnom/waybackurls@latest
+    go install github.com/lc/subjs@latest
   else
-    echo "WARN: go not found; skipping dnsx/shuffledns/puredns/hakrawler/gospider/naabu/katana/asnmap/waybackurls" >&2
+    echo "WARN: go not found; skipping dnsx/shuffledns/puredns/hakrawler/gospider/naabu/katana/asnmap/waybackurls/subjs" >&2
   fi
 
   # altdns is no longer on PyPI; install from the maintained fork (package name py-altdns)
   pip install "py-altdns @ git+https://github.com/infosec-au/altdns.git"
 
+  # Python-based discovery/analysis extras
+  if command -v python >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1; then
+    pip install dirsearch
+    pip install "linkfinder @ git+https://github.com/GerbenJavado/LinkFinder.git"
+    pip install xnlinkfinder
+    pip install "paramspider @ git+https://github.com/devanshbatham/ParamSpider.git"
+    pip install schemathesis
+    pip install trufflehog
+  else
+    echo "WARN: python/pip not found; skipping dirsearch/linkfinder/xnlinkfinder/paramspider/schemathesis/trufflehog" >&2
+  fi
+
   if command -v npm >/dev/null 2>&1; then
     npm install -g retire
   else
     echo "WARN: npm not found; skipping retire.js" >&2
+  fi
+}
+
+install_metasploit() {
+  if command -v msfconsole >/dev/null 2>&1; then
+    echo "Metasploit already present on PATH"
+    return
+  fi
+
+  if command -v sudo >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+    echo "Installing metasploit-framework via apt (requires sudo)..."
+    sudo apt-get update -y && sudo apt-get install -y metasploit-framework || echo "WARN: metasploit install failed; install manually from https://docs.metasploit.com/docs/using-metasploit/getting-started/nightly-installers.html" >&2
+  else
+    echo "WARN: metasploit not installed and apt/sudo not available; install manually from https://www.metasploit.com/" >&2
   fi
 }
 
@@ -161,7 +188,10 @@ install_libpcap_dev() {
 echo "Fetching extra nuclei templates (CVE packs)..."
 install_nuclei_templates
 
-echo "Installing recon extras (dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls)..."
+echo "Installing recon extras (dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog)..."
 install_recon_extras
+
+echo "Installing metasploit (optional, for MetasploitTool)..."
+install_metasploit
 
 echo "Setup complete. Ensure ${VENV_BIN} is in your PATH."
