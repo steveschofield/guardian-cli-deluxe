@@ -41,6 +41,7 @@ install_xsstrike() {
     git clone https://github.com/s0md3v/XSStrike.git "${repo}"
   fi
   pip install -r "${repo}/requirements.txt"
+  chmod +x "${repo}/xsstrike.py"
   link_into_venv "${repo}/xsstrike.py" "xsstrike"
 }
 
@@ -66,11 +67,25 @@ install_gitleaks() {
   fi
 }
 
-echo "Installing optional tools: testssl, xsstrike, cmseek, gitleaks"
+install_nikto() {
+  if command -v nikto >/dev/null 2>&1; then
+    echo "nikto already present on PATH"
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+    echo "Installing nikto via apt (requires sudo)..."
+    sudo apt-get update -y && sudo apt-get install -y nikto
+  else
+    echo "WARN: nikto not found and sudo not available; install manually (e.g., apt install nikto)" >&2
+  fi
+}
+
+echo "Installing optional tools: testssl, xsstrike, cmseek, gitleaks, nikto"
 install_testssl
 install_xsstrike
 install_cmseek
 install_gitleaks
+install_nikto
 
 # Fetch extra nuclei templates (CVE-heavy packs)
 install_nuclei_templates() {
@@ -82,11 +97,10 @@ install_nuclei_templates() {
       git -C "${dest}" pull --ff-only || true
     else
       git clone --depth 1 "${repo_url}" "${dest}" || true
-    }
+    fi
   }
   clone_or_update "https://github.com/ARPSyndicate/kenzer-templates" "${HOME}/nuclei-templates-extra/kenzer"
   clone_or_update "https://github.com/geeknik/the-nuclei-templates" "${HOME}/nuclei-templates-extra/geeknik"
-  clone_or_update "https://github.com/emadshanab/CVE-Nuclei-Templates" "${HOME}/nuclei-templates-extra/emadshanab"
 }
 
 # Install additional recon tools (Go/Pip/NPM) if available
@@ -94,14 +108,15 @@ install_recon_extras() {
   if command -v go >/dev/null 2>&1; then
     go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
     go install github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest
-    go install github.com/d3mondev/puredns@latest
+    go install github.com/d3mondev/puredns/v2@latest
     go install github.com/hakluke/hakrawler@latest
     go install github.com/jaeles-project/gospider@latest
   else
     echo "WARN: go not found; skipping dnsx/shuffledns/puredns/hakrawler/gospider" >&2
   fi
 
-  pip install altdns
+  # altdns is no longer on PyPI; install from the maintained fork (package name py-altdns)
+  pip install "py-altdns @ git+https://github.com/infosec-au/altdns.git"
 
   if command -v npm >/dev/null 2>&1; then
     npm install -g retire

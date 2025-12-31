@@ -26,6 +26,15 @@ steps:
     objective: "Probe all discovered domains for HTTP services"
     parameters:
       tech_detect: true
+
+  - name: web_vuln_scan_nikto
+    type: tool
+    tool: nikto
+    objective: "Baseline web vulnerability scan of responsive hosts"
+    parameters:
+      format: "csv"
+    dependencies:
+      - http_probing
     
   - name: vulnerability_scan
     type: tool

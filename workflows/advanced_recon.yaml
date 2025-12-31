@@ -37,3 +37,11 @@ steps:
     description: Probe for working HTTP services
     dependencies:
       - subdomain_enum
+
+  - name: web_vuln_scan_nikto
+    tool: nikto
+    description: Baseline web vulnerability scan of discovered HTTP services
+    args:
+      format: "csv"
+    dependencies:
+      - web_probing
