@@ -79,6 +79,24 @@ tools:
       - ~/nuclei-templates-extra/emadshanab
     tags: ["cve", "exposure", "rce", "default"]
 
+  naabu:
+    enabled: true
+    rate: 1000
+    top_ports: 100
+    exclude_cdn: true
+
+  katana:
+    enabled: true
+    depth: 2
+    concurrency: 10
+
+  asnmap:
+    enabled: true
+    include_org: true
+
+  waybackurls:
+    enabled: true
+
 # Workflow Settings
 workflows:
   # Default workflow timeout (seconds)

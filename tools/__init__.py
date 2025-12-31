@@ -28,6 +28,10 @@ from .altdns import AltdnsTool
 from .hakrawler import HakrawlerTool
 from .gospider import GospiderTool
 from .retire import RetireTool
+from .naabu import NaabuTool
+from .katana import KatanaTool
+from .asnmap import AsnmapTool
+from .waybackurls import WaybackurlsTool
 
 __all__ = [
     "BaseTool",
@@ -58,4 +62,8 @@ __all__ = [
     "HakrawlerTool",
     "GospiderTool",
     "RetireTool",
+    "NaabuTool",
+    "KatanaTool",
+    "AsnmapTool",
+    "WaybackurlsTool",
 ]
