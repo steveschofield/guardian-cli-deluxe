@@ -234,6 +234,7 @@ python -m cli.main recon --domain example.com --dry-run
 # Fast security check of a web application
 python -m cli.main workflow run --name web --target https://example.com
 ```
+> The web and recon workflows now include a **Nikto baseline scan** after HTTP discovery. Make sure `nikto` is installed (e.g., `apt install nikto`) so the step runs.
 
 #### 2. Comprehensive Network Assessment
 
