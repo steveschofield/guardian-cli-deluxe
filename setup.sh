@@ -10,9 +10,9 @@ TOOLS_DIR="${BASE_DIR}/tools/vendor"
 
 install_libpcap_dev() {
   if command -v apt-get >/dev/null 2>&1; then
-    if command -v sudo >/dev/null 2>&1; then
+    if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
       echo "Installing libpcap-dev (required for naabu and other Go scanners)..."
-      sudo apt-get update && sudo apt-get install -y libpcap-dev
+      sudo apt-get update && sudo apt-get install -y libpcap-dev || echo "WARN: libpcap-dev install failed; install manually if Go scanners fail to build" >&2
     else
       echo "WARN: sudo not available; install libpcap-dev manually (apt-get install -y libpcap-dev)" >&2
     fi
@@ -37,7 +37,7 @@ ensure_node_and_npm() {
   if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
     if sudo -n true 2>/dev/null; then
       echo "Installing nodejs/npm via apt (required for retire.js)..."
-      sudo apt-get update && sudo apt-get install -y nodejs npm
+      sudo apt-get update && sudo apt-get install -y nodejs npm || echo "WARN: nodejs/npm install failed; install manually to enable retire.js" >&2
     else
       echo "WARN: npm not found and sudo requires a password; install nodejs/npm manually to enable retire.js" >&2
     fi
@@ -46,6 +46,24 @@ ensure_node_and_npm() {
   fi
 }
 
+ensure_go() {
+  if command -v go >/dev/null 2>&1; then
+    return
+  fi
+
+  if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+    if sudo -n true 2>/dev/null; then
+      echo "Installing Go via apt (required for several recon tools)..."
+      sudo apt-get update && (sudo apt-get install -y golang-go || sudo apt-get install -y golang) || echo "WARN: Go install failed; install Go manually to enable Go-based recon tools" >&2
+    else
+      echo "WARN: go not found and sudo requires a password; install Go manually to enable Go-based recon tools" >&2
+    fi
+  else
+    echo "WARN: go not found; install Go manually to enable Go-based recon tools" >&2
+  fi
+}
+
+ensure_go
 ensure_node_and_npm
 
 echo "Using virtualenv: ${VIRTUAL_ENV}"
@@ -73,6 +91,104 @@ link_into_venv() {
     echo "WARN: ${src} is not executable"
   fi
   ln -sf "${src}" "${VENV_BIN}/${name}"
+}
+
+install_github_release_and_link() {
+  local repo="$1"
+  local bin="$2"
+
+  local bin_dir="${BASE_DIR}/tools/.bin"
+  mkdir -p "${bin_dir}"
+
+  if [[ -x "${bin_dir}/${bin}" ]]; then
+    link_into_venv "${bin_dir}/${bin}" "${bin}"
+    return 0
+  fi
+
+  python "${BASE_DIR}/scripts/install_github_release_binary.py" "${repo}" "${bin}" || return 1
+  if [[ -x "${bin_dir}/${bin}" ]]; then
+    link_into_venv "${bin_dir}/${bin}" "${bin}"
+  fi
+}
+
+install_deb_binary_and_link() {
+  local package="$1"
+  local bin="$2"
+
+  if ! command -v apt-get >/dev/null 2>&1; then
+    return 1
+  fi
+  if ! command -v dpkg-deb >/dev/null 2>&1; then
+    return 1
+  fi
+
+  local bin_dir="${BASE_DIR}/tools/.bin"
+  mkdir -p "${bin_dir}"
+
+  if [[ -x "${bin_dir}/${bin}" ]]; then
+    link_into_venv "${bin_dir}/${bin}" "${bin}"
+    return 0
+  fi
+
+  local tmp
+  tmp="$(mktemp -d)"
+  (cd "${tmp}" && apt-get download "${package}" >/dev/null 2>&1) || { rm -rf "${tmp}"; return 1; }
+
+  local deb
+  deb="$(ls -1 "${tmp}"/*.deb 2>/dev/null | head -n 1 || true)"
+  if [[ -z "${deb}" ]]; then
+    rm -rf "${tmp}"
+    return 1
+  fi
+
+  local out
+  out="$(mktemp -d)"
+  dpkg-deb -x "${deb}" "${out}" >/dev/null 2>&1 || { rm -rf "${tmp}" "${out}"; return 1; }
+
+  if [[ -x "${out}/usr/bin/${bin}" ]]; then
+    cp -f "${out}/usr/bin/${bin}" "${bin_dir}/${bin}"
+    chmod +x "${bin_dir}/${bin}"
+    link_into_venv "${bin_dir}/${bin}" "${bin}"
+    rm -rf "${tmp}" "${out}"
+    return 0
+  fi
+
+  rm -rf "${tmp}" "${out}"
+  return 1
+}
+
+go_install_and_link() {
+  local pkg="$1"
+  local bin="$2"
+
+  if ! command -v go >/dev/null 2>&1; then
+    echo "WARN: go not found; skipping ${bin} install" >&2
+    return 0
+  fi
+
+  echo "Installing ${bin} (${pkg})..."
+  if ! go install "${pkg}"; then
+    echo "WARN: failed to install ${bin} via go (${pkg})" >&2
+    return 0
+  fi
+
+  local gobin
+  gobin="$(go env GOBIN 2>/dev/null || true)"
+  if [[ -z "${gobin}" ]]; then
+    local gopath_first
+    gopath_first="$(go env GOPATH 2>/dev/null | cut -d: -f1 || true)"
+    if [[ -n "${gopath_first}" ]]; then
+      gobin="${gopath_first}/bin"
+    else
+      gobin="${GOPATH:-${HOME}/go}/bin"
+    fi
+  fi
+
+  if [[ -x "${gobin}/${bin}" ]]; then
+    link_into_venv "${gobin}/${bin}" "${bin}"
+  else
+    echo "WARN: ${bin} was installed but not found in ${gobin}; ensure your Go bin dir is on PATH" >&2
+  fi
 }
 
 write_python_wrapper_into_venv() {
@@ -128,16 +244,10 @@ install_cmseek() {
 }
 
 install_gitleaks() {
-  if command -v go >/dev/null 2>&1; then
-    go install github.com/zricethezav/gitleaks/v8@latest
-    # go installs into GOPATH/bin or ~/go/bin; if present, link into venv
-    local gopath_bin="${GOPATH:-${HOME}/go}/bin"
-    if [[ -x "${gopath_bin}/gitleaks" ]]; then
-      link_into_venv "${gopath_bin}/gitleaks" "gitleaks"
-    fi
-  else
-    echo "WARN: go not found; skipping gitleaks install" >&2
+  if install_github_release_and_link "zricethezav/gitleaks" "gitleaks"; then
+    return
   fi
+  go_install_and_link "github.com/zricethezav/gitleaks/v8@latest" "gitleaks"
 }
 
 install_nikto() {
@@ -179,20 +289,71 @@ install_nuclei_templates() {
 
 # Install additional recon tools (Go/Pip/NPM) if available
 install_recon_extras() {
-  if command -v go >/dev/null 2>&1; then
-    go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
-    go install github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest
-    go install github.com/d3mondev/puredns/v2@latest
-    go install github.com/hakluke/hakrawler@latest
-    go install github.com/jaeles-project/gospider@latest
-    go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
-    go install github.com/projectdiscovery/katana/cmd/katana@latest
-    go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest
-    go install github.com/tomnomnom/waybackurls@latest
-    go install github.com/lc/subjs@latest
-  else
-    echo "WARN: go not found; skipping dnsx/shuffledns/puredns/hakrawler/gospider/naabu/katana/asnmap/waybackurls/subjs" >&2
-  fi
+  # Prefer GitHub release binaries where available (more reliable than `go install` on restricted networks/DNS).
+  install_github_release_and_link "projectdiscovery/subfinder" "subfinder" || true
+  install_github_release_and_link "projectdiscovery/dnsx" "dnsx" || true
+  install_github_release_and_link "projectdiscovery/shuffledns" "shuffledns" || true
+  install_github_release_and_link "projectdiscovery/naabu" "naabu" || true
+  install_github_release_and_link "projectdiscovery/katana" "katana" || true
+  install_github_release_and_link "projectdiscovery/asnmap" "asnmap" || true
+  install_github_release_and_link "jaeles-project/gospider" "gospider" || true
+  install_github_release_and_link "zricethezav/gitleaks" "gitleaks" || true
+  install_github_release_and_link "d3mondev/puredns" "puredns" || true
+
+  # hakrawler: Kali provides a package; extract without requiring sudo.
+  install_deb_binary_and_link "hakrawler" "hakrawler" || true
+
+  # waybackurls: no deps (stdlib only) and no release assets; build from source in GOPATH mode.
+  install_waybackurls() {
+    if [[ -x "${VENV_BIN}/waybackurls" ]]; then
+      return 0
+    fi
+    if ! command -v go >/dev/null 2>&1; then
+      echo "WARN: go not found; skipping waybackurls install" >&2
+      return 0
+    fi
+    local gopath="${TOOLS_DIR}/.gopath"
+    local repo="${gopath}/src/github.com/tomnomnom/waybackurls"
+    mkdir -p "${repo}"
+    if [[ ! -d "${repo}/.git" ]]; then
+      rm -rf "${repo}"
+      git clone https://github.com/tomnomnom/waybackurls.git "${repo}" || { echo "WARN: waybackurls clone failed" >&2; return 0; }
+    fi
+    (cd "${repo}" && GO111MODULE=off GOPATH="${gopath}" go install ./...) || { echo "WARN: waybackurls build failed" >&2; return 0; }
+    if [[ -x "${gopath}/bin/waybackurls" ]]; then
+      link_into_venv "${gopath}/bin/waybackurls" "waybackurls"
+    fi
+  }
+
+  # subjs: build from source but avoid `golang.org` lookups by using GitHub mirrors for x/* modules.
+  install_subjs() {
+    if [[ -x "${VENV_BIN}/subjs" ]]; then
+      return 0
+    fi
+    if ! command -v go >/dev/null 2>&1; then
+      echo "WARN: go not found; skipping subjs install" >&2
+      return 0
+    fi
+    local repo="${TOOLS_DIR}/subjs"
+    if [[ ! -d "${repo}/.git" ]]; then
+      git clone https://github.com/lc/subjs.git "${repo}" || { echo "WARN: subjs clone failed" >&2; return 0; }
+    fi
+    (
+      cd "${repo}"
+      go mod edit -replace=golang.org/x/net=github.com/golang/net@v0.0.0-20200202094626-16171245cfb2
+      go mod edit -replace=golang.org/x/crypto=github.com/golang/crypto@v0.0.0-20190308221718-c2843e01d9a2
+      go mod edit -replace=golang.org/x/sys=github.com/golang/sys@v0.0.0-20190215142949-d0b11bdaac8a
+      go mod edit -replace=golang.org/x/text=github.com/golang/text@v0.3.0
+      GOPROXY=direct GOSUMDB=off go mod tidy
+      GOPROXY=direct GOSUMDB=off go build -o "${BASE_DIR}/tools/.bin/subjs" .
+    ) || { echo "WARN: subjs build failed" >&2; return 0; }
+    if [[ -x "${BASE_DIR}/tools/.bin/subjs" ]]; then
+      link_into_venv "${BASE_DIR}/tools/.bin/subjs" "subjs"
+    fi
+  }
+
+  install_waybackurls
+  install_subjs
 
   install_retire_js() {
     if ! command -v npm >/dev/null 2>&1; then
@@ -226,6 +387,7 @@ install_recon_extras() {
 
   # Python-based discovery/analysis extras
   if command -v python >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1; then
+    pip install arjun
     pip install dirsearch
     pip install "linkfinder @ git+https://github.com/GerbenJavado/LinkFinder.git"
     pip install xnlinkfinder
@@ -247,7 +409,11 @@ install_metasploit() {
 
   if command -v sudo >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
     echo "Installing metasploit-framework via apt (requires sudo)..."
-    sudo apt-get update -y && sudo apt-get install -y metasploit-framework || echo "WARN: metasploit install failed; install manually from https://docs.metasploit.com/docs/using-metasploit/getting-started/nightly-installers.html" >&2
+    if sudo -n true 2>/dev/null; then
+      sudo apt-get update -y && sudo apt-get install -y metasploit-framework || echo "WARN: metasploit install failed; install manually from https://docs.metasploit.com/docs/using-metasploit/getting-started/nightly-installers.html" >&2
+    else
+      echo "WARN: sudo requires a password; skipping metasploit apt install" >&2
+    fi
   else
     echo "WARN: metasploit not installed and apt/sudo not available; install manually from https://www.metasploit.com/" >&2
   fi
