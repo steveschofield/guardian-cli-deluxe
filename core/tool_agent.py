@@ -146,8 +146,9 @@ class ToolAgent(BaseAgent):
         Returns:
             Dict with selected tool and configuration
         """
-        # Determine target type
+        # Determine target type and normalize for downstream tools
         target_type = self._detect_target_type(target)
+        normalized_target = self._normalize_target_for_tooling(target, target_type)
         
         # Get context from memory
         context = self.memory.get_context_for_ai()
@@ -155,7 +156,7 @@ class ToolAgent(BaseAgent):
         # Ask AI to select tool
         prompt = TOOL_SELECTION_PROMPT.format(
             objective=objective,
-            target=target,
+            target=normalized_target,
             target_type=target_type,
             phase=self.memory.current_phase,
             context=context
@@ -165,6 +166,31 @@ class ToolAgent(BaseAgent):
         
         # Parse tool selection
         tool_selection = self._parse_selection(result["response"])
+
+        # Gate DNS/subdomain tools when target is IP-only
+        dns_like = {"subfinder", "amass", "dnsrecon", "dnsx", "shuffledns", "puredns", "altdns", "asnmap"}
+        if target_type == "ip" and tool_selection["tool"] in dns_like:
+            self.logger.warning(f"Tool {tool_selection['tool']} not suitable for IP targets; skipping selection")
+            return {
+                "tool": "",
+                "arguments": "",
+                "reasoning": "Selected tool is DNS-only and target is an IP",
+                "expected_output": ""
+            }
+
+        # De-duplicate httpx when no new context: if last tool was httpx with same target, skip
+        if tool_selection["tool"] == "httpx":
+            recent = self.memory.tool_executions[-1] if self.memory.tool_executions else None
+            if recent and recent.tool == "httpx":
+                recent_norm = self._normalize_target_for_tooling(recent.target, self._detect_target_type(recent.target))
+                if recent_norm == normalized_target:
+                    self.logger.info("Skipping redundant httpx run; recent httpx already executed for this target")
+                    return {
+                        "tool": "",
+                        "arguments": "",
+                        "reasoning": "Recent httpx already executed for this target",
+                        "expected_output": ""
+                    }
         
         self.log_action("ToolSelected", f"{tool_selection['tool']} for {objective}")
         
@@ -246,6 +272,14 @@ class ToolAgent(BaseAgent):
                 "duration": result["duration"]
             }
             
+        except ValueError as e:
+            self.logger.warning(f"Tool {tool_name} skipped: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "tool": tool_name,
+                "skipped": True
+            }
         except Exception as e:
             self.logger.error(f"Tool execution failed: {e}")
             return {
@@ -256,16 +290,29 @@ class ToolAgent(BaseAgent):
     
     def _detect_target_type(self, target: str) -> str:
         """Detect if target is IP, domain, or URL"""
-        from utils.helpers import is_valid_ip, is_valid_domain, is_valid_url
-        
+        from utils.helpers import is_valid_ip, is_valid_domain, is_valid_url, extract_domain_from_url
+        # If it's a URL pointing to an IP, treat as IP
         if is_valid_url(target):
+            host = extract_domain_from_url(target)
+            if host and is_valid_ip(host):
+                return "ip"
             return "url"
-        elif is_valid_ip(target):
+        if is_valid_ip(target):
             return "ip"
-        elif is_valid_domain(target):
+        if is_valid_domain(target):
             return "domain"
-        else:
-            return "unknown"
+        return "unknown"
+
+    def _normalize_target_for_tooling(self, target: str, target_type: str) -> str:
+        """Strip schemes/ports for domain-only tools and gate non-domain actions."""
+        from urllib.parse import urlparse
+
+        if target_type == "url":
+            parsed = urlparse(target)
+            return parsed.netloc or target
+        if target_type in ("ip", "domain"):
+            return target
+        return target
     
     def _parse_selection(self, response: str) -> Dict[str, str]:
         """Parse AI tool selection response.
@@ -297,7 +344,7 @@ class ToolAgent(BaseAgent):
         # If tool still missing, fall back to first available tool (deterministic) instead of hardcoding nmap
         if not selection["tool"]:
             selection["tool"] = next(iter(self.available_tools.keys()))
-            self.logger.warning("Tool parse failed; defaulting to first available tool: %s", selection["tool"])
+            self.logger.warning(f"Tool parse failed; defaulting to first available tool: {selection['tool']}")
 
         return selection
     

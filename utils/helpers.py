@@ -6,8 +6,10 @@ import re
 import json
 import yaml
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from datetime import datetime
+import socket
+import ssl
 
 
 def load_config(config_path: str = "config/guardian.yaml") -> Dict[str, Any]:
@@ -113,3 +115,48 @@ def color_severity(severity: str) -> str:
         'info': 'cyan'
     }
     return colors.get(severity.lower(), 'white')
+
+
+def reverse_lookup_ip(ip: str) -> Optional[str]:
+    """Perform reverse DNS lookup for an IP; return hostname or None."""
+    try:
+        host, _, _ = socket.gethostbyaddr(ip)
+        return host
+    except Exception:
+        return None
+
+
+def fetch_tls_names(ip: str, port: int = 443, timeout: float = 5.0) -> List[str]:
+    """
+    Attempt to retrieve TLS certificate SAN/CN names from an IP:port.
+    Returns a list of hostnames; empty on failure/non-TLS.
+    """
+    names: List[str] = []
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    try:
+        with socket.create_connection((ip, port), timeout=timeout) as sock:
+            with ctx.wrap_socket(sock, server_hostname=ip) as ssock:
+                cert = ssock.getpeercert()
+                # subjectAltName entries
+                for tup in cert.get("subjectAltName", []):
+                    if tup[0].lower() == "dns":
+                        names.append(tup[1])
+                # fallback to commonName
+                for attr in cert.get("subject", []):
+                    for k, v in attr:
+                        if k.lower() == "commonname":
+                            names.append(v)
+    except Exception:
+        return []
+
+    # Deduplicate while preserving order
+    seen = set()
+    uniq = []
+    for n in names:
+        if n not in seen:
+            uniq.append(n)
+            seen.add(n)
+    return uniq

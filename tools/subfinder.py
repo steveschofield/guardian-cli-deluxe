@@ -18,11 +18,14 @@ class SubfinderTool(BaseTool):
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build subfinder command"""
         config = self.config.get("tools", {}).get("subfinder", {})
-        
+        from urllib.parse import urlparse
+
         command = ["subfinder"]
-        
-        # Domain
-        command.extend(["-d", target])
+
+        # Normalize domain input (strip scheme/port)
+        parsed = urlparse(target)
+        domain = parsed.hostname or target
+        command.extend(["-d", domain])
         
         # JSON output
         command.append("-json")

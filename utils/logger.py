@@ -100,21 +100,21 @@ class AuditLogger:
         else:
             self.logger.info(f"Security Event [{event_type}]: {details}")
     
-    def info(self, message: str):
+    def info(self, message: str, *args):
         """Standard info logging"""
-        self.logger.info(message)
+        self.logger.info(message, *args)
     
-    def warning(self, message: str):
+    def warning(self, message: str, *args):
         """Standard warning logging"""
-        self.logger.warning(message)
+        self.logger.warning(message, *args)
     
-    def error(self, message: str):
+    def error(self, message: str, *args):
         """Standard error logging"""
-        self.logger.error(message)
+        self.logger.error(message, *args)
     
-    def debug(self, message: str):
+    def debug(self, message: str, *args):
         """Standard debug logging"""
-        self.logger.debug(message)
+        self.logger.debug(message, *args)
 
 
 # Global logger instance

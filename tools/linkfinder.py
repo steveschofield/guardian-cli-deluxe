@@ -6,14 +6,15 @@ import re
 from typing import Dict, Any, List
 from importlib.util import find_spec
 from tools.base_tool import BaseTool
+from utils.logger import get_logger
 
 
 class LinkfinderTool(BaseTool):
     """linkfinder wrapper"""
 
     def __init__(self, config):
-        super().__init__(config)
-        # LinkFinder does not always install a console script; prefer module execution.
+        self.config = config
+        self.logger = get_logger(config)
         self.tool_name = "linkfinder"
         self.is_available = find_spec("linkfinder") is not None
         if not self.is_available:
