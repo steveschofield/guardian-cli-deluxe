@@ -29,10 +29,42 @@ if [[ -z "${VIRTUAL_ENV:-}" ]]; then
   exit 1
 fi
 
+ensure_node_and_npm() {
+  if command -v npm >/dev/null 2>&1; then
+    return
+  fi
+
+  if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+    if sudo -n true 2>/dev/null; then
+      echo "Installing nodejs/npm via apt (required for retire.js)..."
+      sudo apt-get update && sudo apt-get install -y nodejs npm
+    else
+      echo "WARN: npm not found and sudo requires a password; install nodejs/npm manually to enable retire.js" >&2
+    fi
+  else
+    echo "WARN: npm not found; install nodejs/npm manually to enable retire.js" >&2
+  fi
+}
+
+ensure_node_and_npm
+
 echo "Using virtualenv: ${VIRTUAL_ENV}"
 mkdir -p "${TOOLS_DIR}"
 
 pip install -e "${BASE_DIR}"
+
+install_npm_dependencies() {
+  if [[ -f "${BASE_DIR}/package.json" ]]; then
+    if command -v npm >/dev/null 2>&1; then
+      echo "Installing Node dependencies (npm install)..."
+      (cd "${BASE_DIR}" && npm install)
+    else
+      echo "WARN: package.json found but npm is not installed; skipping npm install" >&2
+    fi
+  fi
+}
+
+install_npm_dependencies
 
 link_into_venv() {
   local src="$1"
@@ -162,6 +194,33 @@ install_recon_extras() {
     echo "WARN: go not found; skipping dnsx/shuffledns/puredns/hakrawler/gospider/naabu/katana/asnmap/waybackurls/subjs" >&2
   fi
 
+  install_retire_js() {
+    if ! command -v npm >/dev/null 2>&1; then
+      echo "INFO: npm not found; skipping retire.js" >&2
+      return 0
+    fi
+
+    echo "Installing retire.js (npm)..."
+
+    # First try plain global install (works if npm is already configured with a user-writable prefix).
+    if npm install -g retire >/dev/null 2>&1; then
+      return 0
+    fi
+
+    # Fall back to a user-local prefix and link into the venv so `retire` is on PATH when the venv is active.
+    local prefix="${HOME}/.local"
+    if npm install -g --prefix "${prefix}" retire; then
+      local retire_bin="${prefix}/bin/retire"
+      if [[ -x "${retire_bin}" ]]; then
+        ln -sf "${retire_bin}" "${VENV_BIN}/retire"
+      fi
+      return 0
+    fi
+
+    echo "WARN: retire.js install failed (npm permissions/config); install manually or set npm prefix to a user-writable directory" >&2
+    return 0
+  }
+
   # altdns is no longer on PyPI; install from the maintained fork (package name py-altdns)
   pip install "py-altdns @ git+https://github.com/infosec-au/altdns.git"
 
@@ -177,11 +236,7 @@ install_recon_extras() {
     echo "WARN: python/pip not found; skipping dirsearch/linkfinder/xnlinkfinder/paramspider/schemathesis/trufflehog" >&2
   fi
 
-  if command -v npm >/dev/null 2>&1; then
-    npm install -g retire
-  else
-    echo "WARN: npm not found; skipping retire.js" >&2
-  fi
+  install_retire_js
 }
 
 install_metasploit() {
