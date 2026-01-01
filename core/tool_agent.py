@@ -166,6 +166,14 @@ class ToolAgent(BaseAgent):
         
         # Parse tool selection
         tool_selection = self._parse_selection(result["response"])
+        if not tool_selection.get("tool"):
+            self.logger.warning("Tool parse failed; refusing to default to an arbitrary tool")
+            return {
+                "tool": "",
+                "arguments": "",
+                "reasoning": "Could not parse TOOL from ToolSelector response",
+                "expected_output": ""
+            }
 
         # Gate DNS/subdomain tools when target is IP-only
         dns_like = {"subfinder", "amass", "dnsrecon", "dnsx", "shuffledns", "puredns", "altdns", "asnmap"}
@@ -250,8 +258,8 @@ class ToolAgent(BaseAgent):
         try:
             # Execute tool
             result = await tool.execute(target, **kwargs)
-            
-            # Record execution in memory
+
+            # Record execution in memory (even on non-zero exit for audit/debug)
             from core.memory import ToolExecution
             execution = ToolExecution(
                 tool=tool_name,
@@ -259,17 +267,30 @@ class ToolAgent(BaseAgent):
                 target=target,
                 timestamp=result.get("timestamp", ""),
                 exit_code=result["exit_code"],
-                output=result["raw_output"],
+                output=result.get("raw_output", ""),
                 duration=result["duration"]
             )
             self.memory.add_tool_execution(execution)
+
+            # Treat non-zero exit as failure (still returning captured output/error)
+            if result.get("exit_code", 0) != 0:
+                err = result.get("error") or "Tool exited with non-zero status"
+                self.logger.warning(f"Tool {tool_name} exited non-zero ({result.get('exit_code')}): {err}")
+                return {
+                    "success": False,
+                    "error": err,
+                    "tool": tool_name,
+                    "raw_output": result.get("raw_output", ""),
+                    "exit_code": result.get("exit_code"),
+                }
             
             return {
                 "success": True,
                 "tool": tool_name,
                 "parsed": result["parsed"],
                 "raw_output": result["raw_output"],
-                "duration": result["duration"]
+                "duration": result["duration"],
+                "exit_code": result["exit_code"],
             }
             
         except ValueError as e:
@@ -318,7 +339,7 @@ class ToolAgent(BaseAgent):
         """Parse AI tool selection response.
 
         More tolerant of markdown/bold formatting (e.g., '**TOOL**: `nuclei`')
-        and avoids silently defaulting to nmap when parsing fails.
+        and fails closed (returns empty tool) when parsing fails.
         """
         import re
 
@@ -329,22 +350,29 @@ class ToolAgent(BaseAgent):
         }
 
         # Match variants like "TOOL:", "**TOOL**:", "Tool:", with optional backticks
-        tool_match = re.search(r"tool[^a-zA-Z0-9]{0,3}:\s*`?([a-zA-Z0-9_-]+)`?", response, re.IGNORECASE)
+        tool_match = re.search(
+            r"(?:^|\n)\s*(?:\d+[\.\)]\s*)?\**\s*tool\**\s*:\s*`?([a-zA-Z0-9_-]+)`?",
+            response,
+            re.IGNORECASE,
+        )
         if tool_match:
             selection["tool"] = tool_match.group(1).lower()
 
-        args_match = re.search(r"arguments[^a-zA-Z0-9]{0,3}:\s*(.+?)(?:expected_output|$)", response, re.IGNORECASE | re.DOTALL)
+        args_match = re.search(
+            r"(?:^|\n)\s*(?:\d+[\.\)]\s*)?\**\s*arguments\**\s*:\s*(.+?)(?:\n\s*(?:\d+[\.\)]\s*)?\**\s*expected_output\**\s*:|$)",
+            response,
+            re.IGNORECASE | re.DOTALL,
+        )
         if args_match:
             selection["arguments"] = args_match.group(1).strip()
 
-        expected_match = re.search(r"expected_output[^a-zA-Z0-9]{0,3}:\s*(.+)$", response, re.IGNORECASE | re.DOTALL)
+        expected_match = re.search(
+            r"(?:^|\n)\s*(?:\d+[\.\)]\s*)?\**\s*expected_output\**\s*:\s*(.+)$",
+            response,
+            re.IGNORECASE | re.DOTALL,
+        )
         if expected_match:
             selection["expected_output"] = expected_match.group(1).strip()
-
-        # If tool still missing, fall back to first available tool (deterministic) instead of hardcoding nmap
-        if not selection["tool"]:
-            selection["tool"] = next(iter(self.available_tools.keys()))
-            self.logger.warning(f"Tool parse failed; defaulting to first available tool: {selection['tool']}")
 
         return selection
     

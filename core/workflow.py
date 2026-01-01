@@ -242,6 +242,61 @@ class WorkflowEngine:
             self.logger.warning("Skipping AI decision because action is unknown/empty")
             self.memory.mark_action_complete(action or "unknown")
             return
+
+        # Handle internal (non-tool) actions without routing through ToolSelector.
+        output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        if action == "correlate_findings":
+            analysis = await self.analyst.correlate_findings()
+            self.memory.update_context("correlate_findings", analysis)
+            self.logger.info("Correlation analysis complete")
+            self.memory.mark_action_complete(action)
+            return
+
+        if action == "risk_assessment":
+            assessment = await self.planner.analyze_results()
+            content = assessment.get("response", "")
+            if content:
+                out_file = output_dir / f"risk_assessment_{self.memory.session_id}.md"
+                with open(out_file, "w", encoding="utf-8") as f:
+                    f.write(content)
+                self.logger.info(f"Risk assessment saved to: {out_file}")
+            self.memory.update_context("risk_assessment", assessment)
+            self.memory.mark_action_complete(action)
+            return
+
+        if action == "executive_summary":
+            summary = await self.reporter.generate_executive_summary()
+            out_file = output_dir / f"executive_summary_{self.memory.session_id}.md"
+            with open(out_file, "w", encoding="utf-8") as f:
+                f.write(summary)
+            self.logger.info(f"Executive summary saved to: {out_file}")
+            self.memory.update_context("executive_summary", summary)
+            self.memory.mark_action_complete(action)
+            return
+
+        if action == "remediation_plan":
+            plan = await self.reporter.generate_remediation_plan()
+            out_file = output_dir / f"remediation_plan_{self.memory.session_id}.md"
+            with open(out_file, "w", encoding="utf-8") as f:
+                f.write(plan)
+            self.logger.info(f"Remediation plan saved to: {out_file}")
+            self.memory.update_context("remediation_plan", plan)
+            self.memory.mark_action_complete(action)
+            return
+
+        if action == "generate_report":
+            for fmt, ext in (("markdown", "md"), ("html", "html")):
+                self.logger.info(f"Generating {fmt} report...")
+                report = await self.reporter.execute(format=fmt)
+                report_file = output_dir / f"report_{self.memory.session_id}.{ext}"
+                with open(report_file, "w", encoding="utf-8") as f:
+                    f.write(report["content"])
+                self.logger.info(f"Report saved to: {report_file}")
+            self.memory.mark_action_complete(action)
+            return
+
         # Skip domain-only actions on IP targets but attempt reverse DNS for recon value
         from utils.helpers import is_valid_ip, reverse_lookup_ip, fetch_tls_names, extract_domain_from_url
         target_host = extract_domain_from_url(self.target) or self.target

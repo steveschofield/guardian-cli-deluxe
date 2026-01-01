@@ -4,12 +4,14 @@ ai:
   model: "llama3.1:8b"
   base_url: "http://192.168.1.69:11434"
   temperature: 0.2
+  llm_timeout_seconds: 300
 
 pentest:
   safe_mode: true
   require_confirmation: true
   max_parallel_tools: 3
-
+  llm_timeout_seconds: 300
+  
 output:
   format: markdown
   save_path: ./reports

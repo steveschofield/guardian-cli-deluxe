@@ -2,6 +2,7 @@
 puredns wrapper for DNS resolution
 """
 
+import os
 from typing import Dict, Any, List
 from tools.base_tool import BaseTool
 
@@ -14,9 +15,11 @@ class PurednsTool(BaseTool):
         command = ["puredns", "resolve", target]
 
         if "resolvers" in kwargs:
-            command.extend(["-r", kwargs["resolvers"]])
+            resolvers = os.path.expandvars(os.path.expanduser(kwargs["resolvers"]))
+            command.extend(["-r", resolvers])
         if "wordlist" in kwargs:
-            command.extend(["-w", kwargs["wordlist"]])
+            wordlist = os.path.expandvars(os.path.expanduser(kwargs["wordlist"]))
+            command.extend(["-w", wordlist])
         return command
 
     def parse_output(self, output: str) -> Dict[str, Any]:

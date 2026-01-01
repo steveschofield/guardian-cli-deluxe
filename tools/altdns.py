@@ -2,6 +2,7 @@
 altdns wrapper for permutation-based DNS enumeration
 """
 
+import os
 from typing import Dict, Any, List
 from tools.base_tool import BaseTool
 
@@ -17,13 +18,16 @@ class AltdnsTool(BaseTool):
 
         command = ["altdns"]
         if input_file:
+            input_file = os.path.expandvars(os.path.expanduser(input_file))
             command.extend(["-i", input_file])
         else:
             # fall back to echoing target
             command.extend(["-i", "-"])
         if wordlist:
+            wordlist = os.path.expandvars(os.path.expanduser(wordlist))
             command.extend(["-w", wordlist])
         if output_file:
+            output_file = os.path.expandvars(os.path.expanduser(output_file))
             command.extend(["-o", output_file])
 
         return command
