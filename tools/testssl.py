@@ -2,8 +2,11 @@
 TestSSL tool wrapper for SSL/TLS testing
 """
 
+import shutil
 import re
 from typing import Dict, Any, List
+from urllib.parse import urlparse
+from pathlib import Path
 
 from tools.base_tool import BaseTool
 
@@ -13,11 +16,35 @@ class TestSSLTool(BaseTool):
     
     def __init__(self, config):
         super().__init__(config)
-        self.tool_name = "testssl.sh"
-    
+
+    def _vendor_executable_path(self) -> Path:
+        return Path(__file__).resolve().parent / "vendor" / "testssl.sh" / "testssl.sh"
+
+    def _resolve_executable(self) -> str | None:
+        # Prefer PATH, fall back to vendored copy if present.
+        return (
+            shutil.which("testssl.sh")
+            or shutil.which("testssl")
+            or (str(self._vendor_executable_path()) if self._vendor_executable_path().exists() else None)
+        )
+
+    def _check_installation(self) -> bool:
+        return self._resolve_executable() is not None
+
+    def _normalize_target(self, target: str) -> str:
+        # testssl.sh expects host[:port] (URLs with scheme can confuse it).
+        if "://" in target:
+            parsed = urlparse(target)
+            return parsed.netloc or target
+        return target
+
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build testssl command"""
-        command = ["testssl.sh"]
+        executable = self._resolve_executable()
+        if not executable:
+            raise RuntimeError("testssl executable not found (expected testssl/testssl.sh or vendored copy)")
+
+        command = [executable]
         
         # Machine-readable output
         command.append("--jsonfile=-")
@@ -34,7 +61,7 @@ class TestSSLTool(BaseTool):
         command.append("--quiet")
         
         # Target (host:port or URL)
-        command.append(target)
+        command.append(self._normalize_target(target))
         
         return command
     

@@ -20,6 +20,7 @@ You must:
 - Explain vulnerabilities in clear, technical language
 - Suggest mitigation strategies
 - Avoid hallucinating vulnerabilities that don't exist
+- Do not infer vulnerabilities without concrete evidence from the raw output. If evidence is missing, state that no findings are available.
 
 Security Assessment Criteria:
 - Is this a confirmed vulnerability or potential issue?
@@ -54,7 +55,9 @@ FINDINGS:
   Impact: <security impact>
   Recommendation: <how to fix>
 
-SUMMARY: <overall security posture>
+If there is no concrete evidence in the output, state that no findings are available instead of speculating.
+
+SUMMARY: <overall security posture (or "No evidence of issues in this output")>
 """
 
 ANALYST_CORRELATION_PROMPT = """Correlate findings from multiple tools to build a comprehensive security picture.

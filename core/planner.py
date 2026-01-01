@@ -3,6 +3,7 @@ Strategic Planner Agent
 Decides next steps in the penetration testing workflow
 """
 
+import re
 from typing import Dict, Any
 from core.agent import BaseAgent
 from ai.prompt_templates import (
@@ -97,8 +98,8 @@ class PlannerAgent(BaseAgent):
         """Get list of available actions based on current phase"""
         all_actions = {
             "reconnaissance": [
-                "subdomain_enumeration - Discover subdomains",
-                "dns_enumeration - Gather DNS records",
+                "subdomain_enumeration - Discover subdomains (domains only)",
+                "dns_enumeration - Gather DNS records (domains only)",
                 "technology_detection - Identify web technologies",
                 "port_scanning - Scan for open ports"
             ],
@@ -149,4 +150,73 @@ class PlannerAgent(BaseAgent):
             start = response.find("EXPECTED_OUTCOME:") + len("EXPECTED_OUTCOME:")
             decision["expected_outcome"] = response[start:].strip()
         
+        # Normalize common variants and extract known action tokens
+        aliases = {
+            "automated_web_scanning": "web_probing",
+            "exploitation": "vulnerability_scanning",
+            "web_scanning": "web_probing",
+            "report": "generate_report",
+            "port_scan": "port_scanning",
+            "port_scans": "port_scanning",
+            "portscanner": "port_scanning",
+            "dns_scan": "dns_enumeration",
+            "subdomain_scan": "subdomain_enumeration",
+            "vuln_scan": "vulnerability_scanning",
+            "vuln_scanning": "vulnerability_scanning",
+            "web_scan": "web_probing",
+            "tech_detection": "technology_detection",
+        }
+
+        valid_actions = {
+            "subdomain_enumeration",
+            "dns_enumeration",
+            "technology_detection",
+            "port_scanning",
+            "service_detection",
+            "vulnerability_scanning",
+            "web_probing",
+            "ssl_analysis",
+            "correlate_findings",
+            "risk_assessment",
+            "false_positive_filter",
+            "prioritize_vulns",
+            "generate_report",
+            "executive_summary",
+            "remediation_plan",
+            "fuzzing",
+            "analysis",
+        }
+
+        action_clean = decision["next_action"].strip().lower()
+        # Strip common markdown formatting without breaking underscore-delimited action names.
+        action_clean = re.sub(r"[*`]+", "", action_clean).strip().strip("_").strip()
+        # Normalize common natural-language variants like "Web Probing" -> "web_probing".
+        action_clean = re.sub(r"[\s\-]+", "_", action_clean)
+        action_clean = re.sub(r"[^a-z0-9_]+", "", action_clean)
+        action_clean = re.sub(r"_+", "_", action_clean).strip("_")
+
+        # Extract known action if embedded in numbering/formatting
+        if action_clean and action_clean not in valid_actions:
+            pattern = "|".join(sorted(valid_actions, key=len, reverse=True))
+            match = re.search(pattern, action_clean)
+            if match:
+                action_clean = match.group(0)
+
+        # Apply aliases on cleaned action
+        if action_clean in aliases:
+            action_clean = aliases[action_clean]
+        else:
+            for key, value in aliases.items():
+                if key in action_clean:
+                    action_clean = value
+                    break
+
+        decision["next_action"] = action_clean
+
+        # Validate next_action against known actions; if invalid, mark unknown
+        if decision["next_action"] not in valid_actions:
+            decision["next_action"] = "unknown"
+            decision["expected_outcome"] = ""
+            decision["parameters"] = {}
+
         return decision

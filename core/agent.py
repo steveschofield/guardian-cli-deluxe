@@ -2,6 +2,8 @@
 Base agent class for all Guardian AI agents
 """
 
+import asyncio
+import time
 from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 
@@ -37,10 +39,20 @@ class BaseAgent(ABC):
         Returns:
             Dict with 'reasoning' and 'response' keys
         """
+        llm_timeout = (
+            self.config.get("ai", {}).get("llm_timeout_seconds")
+            or self.config.get("pentest", {}).get("llm_timeout_seconds")
+            or 120
+        )
+
+        started = time.time()
         try:
-            result = await self.llm.generate_with_reasoning(
-                prompt=prompt,
-                system_prompt=system_prompt
+            result = await asyncio.wait_for(
+                self.llm.generate_with_reasoning(
+                    prompt=prompt,
+                    system_prompt=system_prompt
+                ),
+                timeout=llm_timeout
             )
             
             # Log AI decision
@@ -49,6 +61,9 @@ class BaseAgent(ABC):
                 decision=result["response"],
                 reasoning=result["reasoning"],
                 context={"prompt": prompt[:200]}
+            )
+            self.logger.debug(
+                f"[{self.name}] LLM call completed in {time.time() - started:.2f}s"
             )
             
             # Store in memory
@@ -60,6 +75,10 @@ class BaseAgent(ABC):
             
             return result
             
+        except asyncio.TimeoutError:
+            elapsed = time.time() - started
+            self.logger.error(f"Agent {self.name} LLM call timed out after {elapsed:.2f}s")
+            raise
         except Exception as e:
             self.logger.error(f"Agent {self.name} thinking error: {e}")
             raise
