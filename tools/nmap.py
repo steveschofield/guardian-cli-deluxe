@@ -43,11 +43,11 @@ class NmapTool(BaseTool):
         command.extend(["-oX", "-"])
         
         # Custom args from kwargs
-        if "ports" in kwargs:
+        if "ports" in kwargs and kwargs["ports"]:
             command.extend(["-p", kwargs["ports"]])
         elif target_port:
             command.extend(["-p", str(target_port)])
-        
+
         if "scan_type" in kwargs:
             command.append(kwargs["scan_type"])
         

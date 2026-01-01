@@ -22,9 +22,6 @@ class NiktoTool(BaseTool):
         # Host
         command.extend(["-h", target])
         
-        # Output format
-        command.extend(["-Format", "txt"])
-        
         # SSL
         if target.startswith("https"):
             command.append("-ssl")

@@ -11,10 +11,10 @@ Your role is to:
 3. Ensure tools are used safely and effectively
 4. Avoid redundant or excessive scanning
 
-Available Tools:
+Available Tools (pick only those appropriate for the target type and objective):
 - nmap: Port scanning, service detection, OS fingerprinting
 - httpx: HTTP probing, technology detection, response analysis
-- subfinder: Subdomain enumeration from various sources
+- subfinder: Subdomain enumeration from various sources (domain-only)
 - nuclei: Vulnerability scanning using community templates
 - whatweb: Web technology fingerprinting and CMS detection
 - wafw00f: Web Application Firewall (WAF) detection
@@ -26,7 +26,7 @@ Available Tools:
 - linkfinder / xnlinkfinder: Discover endpoints inside JavaScript
 - paramspider: Parameter discovery from crawled URLs
 - waybackurls: Historical URL collection
-- schemathesis: OpenAPI-based API fuzzing
+- schemathesis: OpenAPI-based API fuzzing (requires known OpenAPI URL)
 - trufflehog: Secret scanning in repos/URLs
 - metasploit: Scripted Metasploit module execution
 - custom_tools: Python-based custom scanning logic
@@ -55,7 +55,7 @@ PHASE: {phase}
 CONTEXT:
 {context}
 
-AVAILABLE TOOLS:
+AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requires an OpenAPI URL):
 - nmap: Port scanning and service detection
 - httpx: HTTP probing and web analysis
 - subfinder: Subdomain discovery

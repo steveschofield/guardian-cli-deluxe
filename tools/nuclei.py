@@ -27,8 +27,8 @@ class NucleiTool(BaseTool):
         else:
             command.extend(["-u", target])
         
-        # JSON output
-        command.extend(["-json"])
+        # JSONL output (parseable line by line)
+        command.extend(["-jsonl"])
         
         # Severity filtering
         severities = config.get("severity", ["critical", "high", "medium"])
