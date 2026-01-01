@@ -5,13 +5,15 @@ xnLinkFinder wrapper for advanced JS endpoint extraction
 import re
 from typing import Dict, Any, List
 from tools.base_tool import BaseTool
+from utils.logger import get_logger
 
 
 class XnlinkfinderTool(BaseTool):
     """xnlinkfinder wrapper"""
 
     def __init__(self, config):
-        super().__init__(config)
+        self.config = config
+        self.logger = get_logger(config)
         # Binary installs as 'xnLinkFinder'
         self.tool_name = "xnLinkFinder"
         self.is_available = self._check_installation()

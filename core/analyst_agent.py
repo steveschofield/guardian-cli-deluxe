@@ -52,6 +52,17 @@ class AnalystAgent(BaseAgent):
         Returns:
             Dict with findings, summary, and analysis
         """
+        # Short-circuit on empty/error-only output
+        if not output.strip() or "Output file format specified without a name" in output:
+            msg = "No actionable output from tool; skipping findings."
+            self.log_action("AnalysisComplete", msg)
+            return {
+                "findings": [],
+                "summary": msg,
+                "reasoning": msg,
+                "tool": tool
+            }
+
         # Truncate very long outputs
         if len(output) > 5000:
             output = output[:5000] + "\n... (truncated)"
@@ -67,6 +78,30 @@ class AnalystAgent(BaseAgent):
         
         # Parse findings from AI response
         findings = self._parse_findings(result["response"], tool, target)
+
+        # Drop findings whose evidence isn't in the raw output (reduces hallucinations)
+        filtered = []
+        output_lower = output.lower()
+        low_signal_tools = {"nmap", "whatweb", "httpx"}
+        for f in findings:
+            if f.evidence and f.evidence.lower() in output_lower:
+                if f.tool in low_signal_tools and f.severity in {"critical", "high", "medium"}:
+                    ev = f.evidence.lower()
+                    if not any(token in ev for token in ["cve", "vulnerab", "exploit", "xss", "sqli", "sql injection", "rce", "csrf"]):
+                        continue
+                filtered.append(f)
+        findings = filtered
+
+        # If still nothing with evidence, return empty
+        if not findings:
+            msg = "No evidence-backed findings; output deemed informational."
+            self.log_action("AnalysisComplete", msg)
+            return {
+                "findings": [],
+                "summary": msg,
+                "reasoning": msg,
+                "tool": tool
+            }
         
         # Add findings to memory
         for finding in findings:

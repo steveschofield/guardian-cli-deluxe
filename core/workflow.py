@@ -51,6 +51,7 @@ class WorkflowEngine:
         self.is_running = False
         self.current_step = 0
         self.max_steps = config.get("workflows", {}).get("max_steps", 20)
+        self._step_durations: List[float] = []
     
     async def run_workflow(self, workflow_name: str) -> Dict[str, Any]:
         """
@@ -81,9 +82,11 @@ class WorkflowEngine:
             for step in steps:
                 if not self.is_running:
                     break
-                
+                self._log_progress(prefix="Workflow", total=len(steps), current=self.current_step)
                 self.logger.info(f"Executing step: {step['name']}")
+                step_started = datetime.now()
                 await self._execute_step(step)
+                self._record_step_duration(step_started)
                 self.current_step += 1
             
             # Generate final analysis
@@ -130,6 +133,7 @@ class WorkflowEngine:
                 
                 self.logger.info(f"AI Decision: {decision.get('next_action')}")
                 self.logger.debug(f"Reasoning: {decision.get('reasoning', 'N/A')}")
+                self._log_progress(prefix="Autonomous", total=self.max_steps, current=self.current_step)
                 
                 # Check if we should stop
                 if decision.get("next_action", "").lower() in ["done", "complete", "finish"]:
@@ -137,7 +141,9 @@ class WorkflowEngine:
                     break
                 
                 # Execute the decided action
+                step_started = datetime.now()
                 await self._execute_ai_decision(decision)
+                self._record_step_duration(step_started)
                 
                 self.current_step += 1
                 
@@ -231,6 +237,53 @@ class WorkflowEngine:
         action = decision.get("next_action", "")
         
         self.logger.info(f"Executing AI decision: {action}")
+
+        if not action or action == "unknown":
+            self.logger.warning("Skipping AI decision because action is unknown/empty")
+            self.memory.mark_action_complete(action or "unknown")
+            return
+        # Skip domain-only actions on IP targets but attempt reverse DNS for recon value
+        from utils.helpers import is_valid_ip, reverse_lookup_ip, fetch_tls_names, extract_domain_from_url
+        target_host = extract_domain_from_url(self.target) or self.target
+        if is_valid_ip(target_host) and action in {"subdomain_enumeration", "dns_enumeration"}:
+            hostname = reverse_lookup_ip(target_host)
+            if hostname:
+                self.logger.info(f"Reverse DNS for {target_host}: {hostname}")
+                self.memory.update_context("discovered_assets", [hostname])
+                # record as a pseudo tool execution for traceability
+                from core.memory import ToolExecution
+                self.memory.add_tool_execution(ToolExecution(
+                    tool="reverse_dns",
+                    command=f"PTR {target_host}",
+                    target=target_host,
+                    timestamp=datetime.now().isoformat(),
+                    exit_code=0,
+                    output=hostname,
+                    duration=0.0
+                ))
+            else:
+                self.logger.info(f"Reverse DNS for {target_host}: no PTR found")
+
+            # Try to harvest TLS SAN/CN names if 443 is listening
+            tls_names = fetch_tls_names(target_host, 443)
+            if tls_names:
+                self.logger.info(f"TLS names for {target_host}: {', '.join(tls_names)}")
+                self.memory.update_context("discovered_assets", tls_names)
+                from core.memory import ToolExecution
+                self.memory.add_tool_execution(ToolExecution(
+                    tool="tls_cert_probe",
+                    command=f"TLS SAN/CN from {target_host}:443",
+                    target=target_host,
+                    timestamp=datetime.now().isoformat(),
+                    exit_code=0,
+                    output=", ".join(tls_names),
+                    duration=0.0
+                ))
+            else:
+                self.logger.info(f"TLS names for {target_host}: none or TLS unavailable")
+
+            self.memory.mark_action_complete(action)
+            return
         
         # Use Tool Agent to select appropriate tool
         try:
@@ -238,11 +291,30 @@ class WorkflowEngine:
                 objective=action,
                 target=self.target
             )
+
+            if not tool_selection.get("tool"):
+                self.logger.warning("Tool selection returned no tool; skipping execution")
+                self.memory.mark_action_complete(action)
+                return
             
-            # Execute selected tool
+            # Execute selected tool with parsed arguments when possible
+            tool_kwargs: Dict[str, Any] = {}
+            args = tool_selection.get("arguments", "") or ""
+            if tool_selection["tool"] == "nmap" and args:
+                if "-p-" in args:
+                    tool_kwargs["ports"] = "1-65535"
+                else:
+                    import re
+                    port_match = re.search(r"-p\\s*([0-9,\\-]+)", args)
+                    if port_match:
+                        tool_kwargs["ports"] = port_match.group(1)
+                if "-sS" in args:
+                    tool_kwargs["scan_type"] = "-sS"
+
             result = await self.tool_agent.execute_tool(
                 tool_name=tool_selection["tool"],
-                target=self.target
+                target=self.target,
+                **tool_kwargs
             )
             
             if result.get("success"):
@@ -332,3 +404,25 @@ class WorkflowEngine:
             if te.output:
                 urls.extend(url_regex.findall(te.output))
         return urls
+
+    def _record_step_duration(self, started_at: datetime):
+        """Track step duration for rough ETA logging."""
+        elapsed = (datetime.now() - started_at).total_seconds()
+        self._step_durations.append(elapsed)
+        # Keep the last 10 samples for rolling average
+        if len(self._step_durations) > 10:
+            self._step_durations.pop(0)
+
+    def _log_progress(self, prefix: str, total: int, current: int):
+        """Log a simple progress bar and ETA."""
+        current_display = current + 1  # zero-based internal counter
+        bar_width = 20
+        pct = min(max(current / max(total, 1), 0), 1.0)
+        filled = int(bar_width * pct)
+        bar = "#" * filled + "-" * (bar_width - filled)
+
+        avg = sum(self._step_durations) / len(self._step_durations) if self._step_durations else None
+        remaining = max(total - current, 0)
+        eta = f"ETA ~{int(avg * remaining)}s" if avg else "ETA n/a"
+
+        self.logger.info(f"{prefix} Progress [{bar}] {current_display}/{total} ({int(pct*100)}%) {eta}")

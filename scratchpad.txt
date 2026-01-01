@@ -25,3 +25,13 @@ Integration plan (proposed)
 (done) 4. Config/reporting harmonization: extend guardian.yaml for tool toggles/default args, add deliverable output paths compatible with Shannon report expectations, and log availability hints (similar to ToolAgent.log_tool_availability) for new tools.
 
 5. Validation/tests: add lightweight unit tests for new helpers (queue validation, TOTP), plus a smoke script that lists available tools and runs --version to catch missing deps.
+
+
+Shannon architecture.
+Shannon’s pipeline isn’t LLM-picked per run—it has a scripted playbook of agents that fire whatever tools are wired into each stage, gated only by availability/config. Examples:
+
+crawler-agent.js runs katana → gospider → hakrawler → gau/gauplus → waybackurls → (optionally) waymore/subjs/etc., checking isToolAvailable before each.
+js-harvester-agent.js and content-discovery-agent.js do the same for linkfinder/xnlinkfinder/paramspider/dirsearch/feroxbuster/gobuster.
+secret-scanner-agent.js, parameter-discovery-agent.js, schemathesis-agent.js, etc. each run their tool if present.
+Preflight in preflight.js just reports what’s available; the playbook then uses everything it knows about that’s available.
+So on a fresh run Shannon will attempt the full toolchain it’s coded to use, skipping only what’s missing or disabled—there’s no single-tool LLM selector like in Guardian.

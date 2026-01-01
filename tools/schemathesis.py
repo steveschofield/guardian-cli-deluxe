@@ -11,8 +11,11 @@ class SchemathesisTool(BaseTool):
     """schemathesis wrapper"""
 
     def get_command(self, target: str, **kwargs) -> List[str]:
-        schema = kwargs.get("schema") or kwargs.get("openapi") or target
+        schema = kwargs.get("schema") or kwargs.get("openapi")
         base_url = kwargs.get("base_url") or kwargs.get("url") or target
+
+        if not schema:
+            raise ValueError("Schemathesis requires a schema/openapi URL; none provided")
 
         command = ["schemathesis", "run", schema, "--url", base_url]
 
