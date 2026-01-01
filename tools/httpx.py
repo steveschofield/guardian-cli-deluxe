@@ -2,7 +2,11 @@
 httpx tool wrapper for HTTP probing
 """
 
+import os
 import json
+import shutil
+import subprocess
+from pathlib import Path
 from typing import Dict, Any, List
 
 from tools.base_tool import BaseTool
@@ -12,17 +16,106 @@ class HttpxTool(BaseTool):
     """httpx HTTP probing wrapper"""
     
     def __init__(self, config):
+        self._executable: str | None = None
         super().__init__(config)
+
+    def _repo_bin_candidates(self) -> List[str]:
+        repo_root = Path(__file__).resolve().parent.parent
+        return [
+            str(repo_root / "tools" / ".bin" / "httpx"),
+            str(repo_root / "tools" / ".bin" / "httpx_pd"),
+            str(repo_root / "tools" / ".bin" / "httpx-projectdiscovery"),
+        ]
+
+    def _is_projectdiscovery_httpx(self, executable: str) -> bool:
+        try:
+            proc = subprocess.run(
+                [executable, "-h"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+        except Exception:
+            return False
+
+        help_text = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        help_text = help_text.lower()
+
+        # ProjectDiscovery httpx has scanner/probing flags. Python httpx (HTTP client) does not.
+        required_markers = ["-tech-detect", "-status-code", "-title", "-json", "-threads", "-timeout"]
+        return all(m in help_text for m in required_markers)
+
+    def _find_projectdiscovery_httpx(self) -> str | None:
+        cfg = (self.config or {}).get("tools", {}).get("httpx", {})
+        override = (
+            cfg.get("binary")
+            or os.environ.get("GUARDIAN_HTTPX_BIN")
+            or os.environ.get("GUARDIAN_PD_HTTPX_BIN")
+        )
+        candidates: List[str] = []
+        if override:
+            candidates.append(str(override))
+
+        # Prefer repo-local binaries if present.
+        candidates.extend(self._repo_bin_candidates())
+
+        # Look for httpx variants in PATH.
+        for name in ("httpx", "httpx_pd", "httpx-projectdiscovery", "pdhttpx"):
+            found = shutil.which(name)
+            if found:
+                candidates.append(found)
+
+        # Also search all PATH hits for "httpx" (venv can shadow with the Python HTTP client).
+        try:
+            which_all = subprocess.run(
+                ["which", "-a", "httpx"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if which_all.returncode == 0:
+                for line in which_all.stdout.splitlines():
+                    line = line.strip()
+                    if line:
+                        candidates.append(line)
+        except Exception:
+            pass
+
+        seen = set()
+        for candidate in candidates:
+            if not candidate or candidate in seen:
+                continue
+            seen.add(candidate)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK) and self._is_projectdiscovery_httpx(candidate):
+                return candidate
+
+        return None
+
+    def _check_installation(self) -> bool:
         self.tool_name = "httpx"
+        self._executable = self._find_projectdiscovery_httpx()
+        if not self._executable:
+            self.logger.warning(
+                "ProjectDiscovery httpx not found (the installed Python 'httpx' CLI is incompatible); "
+                "install ProjectDiscovery httpx or run `python scripts/install_projectdiscovery_httpx.py`."
+            )
+            return False
+        return True
     
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build httpx command"""
+        if not self._executable:
+            raise RuntimeError("ProjectDiscovery httpx executable not resolved")
+
         config = self.config.get("tools", {}).get("httpx", {})
         
-        command = ["httpx"]
+        command = [self._executable]
         
         # JSON output for easy parsing
         command.extend(["-json"])
+
+        # Suppress banner/progress noise so stdout is parseable
+        command.append("-silent")
         
         # Threads
         threads = config.get("threads", 50)
@@ -43,7 +136,8 @@ class HttpxTool(BaseTool):
         
         # Target (from stdin or direct)
         if kwargs.get("from_file"):
-            command.extend(["-l", kwargs["from_file"]])
+            from_file = os.path.expandvars(os.path.expanduser(kwargs["from_file"]))
+            command.extend(["-l", from_file])
         else:
             command.extend(["-u", target])
         

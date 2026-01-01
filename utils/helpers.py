@@ -15,9 +15,28 @@ import ssl
 def load_config(config_path: str = "config/guardian.yaml") -> Dict[str, Any]:
     """Load configuration from YAML file"""
     try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        return config
+        def _load(path: str) -> Dict[str, Any]:
+            with open(path, "r") as f:
+                return yaml.safe_load(f) or {}
+
+        def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+            merged = dict(base)
+            for key, value in override.items():
+                if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                    merged[key] = _deep_merge(merged[key], value)
+                else:
+                    merged[key] = value
+            return merged
+
+        cfg = _load(config_path)
+
+        # Compatibility: many users edit repo-root `guardian.yaml` but CLI defaults to `config/guardian.yaml`.
+        # When using the default path, treat `guardian.yaml` (if present) as an override layer.
+        if config_path == "config/guardian.yaml" and Path("guardian.yaml").exists():
+            override = _load("guardian.yaml")
+            cfg = _deep_merge(cfg, override)
+
+        return cfg
     except Exception as e:
         print(f"Warning: Could not load config from {config_path}: {e}")
         return {}

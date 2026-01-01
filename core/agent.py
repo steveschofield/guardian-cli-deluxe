@@ -39,11 +39,21 @@ class BaseAgent(ABC):
         Returns:
             Dict with 'reasoning' and 'response' keys
         """
+        ai_cfg = (self.config or {}).get("ai", {}) or {}
+        pentest_cfg = (self.config or {}).get("pentest", {}) or {}
+
+        # Backwards compatible: config/guardian.yaml uses ai.timeout, while newer configs use ai.llm_timeout_seconds.
         llm_timeout = (
-            self.config.get("ai", {}).get("llm_timeout_seconds")
-            or self.config.get("pentest", {}).get("llm_timeout_seconds")
+            ai_cfg.get("llm_timeout_seconds")
+            or ai_cfg.get("timeout")
+            or pentest_cfg.get("llm_timeout_seconds")
+            or pentest_cfg.get("timeout")
             or 120
         )
+        try:
+            llm_timeout = float(llm_timeout)
+        except Exception:
+            llm_timeout = 120.0
 
         started = time.time()
         try:

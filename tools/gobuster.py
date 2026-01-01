@@ -2,6 +2,7 @@
 Gobuster tool wrapper for directory and file brute forcing
 """
 
+import os
 import re
 from typing import Dict, Any, List
 
@@ -24,6 +25,7 @@ class GobusterTool(BaseTool):
         
         # Wordlist
         wordlist = kwargs.get("wordlist", "/usr/share/wordlists/dirb/common.txt")
+        wordlist = os.path.expandvars(os.path.expanduser(wordlist))
         command.extend(["-w", wordlist])
         
         # Threads

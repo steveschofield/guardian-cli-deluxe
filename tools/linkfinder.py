@@ -3,6 +3,7 @@ LinkFinder wrapper for extracting endpoints from JS
 """
 
 import re
+import sys
 from typing import Dict, Any, List
 from importlib.util import find_spec
 from tools.base_tool import BaseTool
@@ -21,7 +22,7 @@ class LinkfinderTool(BaseTool):
             self.logger.warning("Tool linkfinder is not installed or importable")
 
     def get_command(self, target: str, **kwargs) -> List[str]:
-        command = ["python", "-m", "linkfinder", "-i", target, "-o", "cli"]
+        command = [sys.executable, "-m", "linkfinder", "-i", target, "-o", "cli"]
         if kwargs.get("custom_regex"):
             command.extend(["-r", kwargs["custom_regex"]])
         return command

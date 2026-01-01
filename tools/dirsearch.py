@@ -2,6 +2,7 @@
 dirsearch wrapper for content discovery
 """
 
+import os
 import re
 from typing import Dict, Any, List
 from tools.base_tool import BaseTool
@@ -16,6 +17,7 @@ class DirsearchTool(BaseTool):
 
         wordlist = kwargs.get("wordlist") or config.get("wordlist")
         if wordlist:
+            wordlist = os.path.expandvars(os.path.expanduser(wordlist))
             command.extend(["-w", wordlist])
 
         extensions = kwargs.get("extensions") or config.get("extensions")

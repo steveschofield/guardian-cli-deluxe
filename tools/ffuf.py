@@ -2,6 +2,7 @@
 FFuf tool wrapper for fast web fuzzing
 """
 
+import os
 import json
 from typing import Dict, Any, List
 
@@ -29,6 +30,7 @@ class FFufTool(BaseTool):
         
         # Wordlist (required)
         wordlist = kwargs.get("wordlist", config.get("wordlist", "/usr/share/wordlists/dirb/common.txt"))
+        wordlist = os.path.expandvars(os.path.expanduser(wordlist))
         command.extend(["-w", wordlist])
         
         # JSON output for parsing

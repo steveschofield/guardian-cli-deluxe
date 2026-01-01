@@ -43,6 +43,32 @@ link_into_venv() {
   ln -sf "${src}" "${VENV_BIN}/${name}"
 }
 
+write_python_wrapper_into_venv() {
+  local script="$1"
+  local name="$2"
+  cat > "${VENV_BIN}/${name}" <<EOF
+#!/usr/bin/env bash
+exec "${VENV_BIN}/python" "${script}" "\$@"
+EOF
+  chmod +x "${VENV_BIN}/${name}"
+}
+
+install_projectdiscovery_binaries() {
+  # Prefer pinned, repo-local binaries to avoid PATH conflicts (e.g., Python httpx CLI shadowing PD httpx).
+  local bin_dir="${BASE_DIR}/tools/.bin"
+  mkdir -p "${bin_dir}"
+
+  if [[ ! -x "${bin_dir}/httpx" ]]; then
+    echo "Installing ProjectDiscovery httpx into ${bin_dir} ..."
+    python "${BASE_DIR}/scripts/install_projectdiscovery_httpx.py" || echo "WARN: PD httpx install failed; install manually or set GUARDIAN_HTTPX_BIN" >&2
+  fi
+
+  if [[ ! -x "${bin_dir}/nuclei" ]]; then
+    echo "Installing ProjectDiscovery nuclei into ${bin_dir} ..."
+    python "${BASE_DIR}/scripts/install_projectdiscovery_nuclei.py" || echo "WARN: PD nuclei install failed; install manually or set GUARDIAN_NUCLEI_BIN" >&2
+  fi
+}
+
 install_testssl() {
   local repo="${TOOLS_DIR}/testssl.sh"
   if [[ ! -d "${repo}/.git" ]]; then
@@ -57,8 +83,7 @@ install_xsstrike() {
     git clone https://github.com/s0md3v/XSStrike.git "${repo}"
   fi
   pip install -r "${repo}/requirements.txt"
-  chmod +x "${repo}/xsstrike.py"
-  link_into_venv "${repo}/xsstrike.py" "xsstrike"
+  write_python_wrapper_into_venv "${repo}/xsstrike.py" "xsstrike"
 }
 
 install_cmseek() {
@@ -67,7 +92,7 @@ install_cmseek() {
     git clone https://github.com/Tuhinshubhra/CMSeeK.git "${repo}"
   fi
   pip install -r "${repo}/requirements.txt"
-  link_into_venv "${repo}/cmseek.py" "cmseek"
+  write_python_wrapper_into_venv "${repo}/cmseek.py" "cmseek"
 }
 
 install_gitleaks() {
@@ -97,6 +122,7 @@ install_nikto() {
 }
 
 echo "Installing optional tools: testssl, xsstrike, cmseek, gitleaks, nikto"
+install_projectdiscovery_binaries
 install_testssl
 install_xsstrike
 install_cmseek

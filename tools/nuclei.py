@@ -2,7 +2,11 @@
 Nuclei tool wrapper for vulnerability scanning
 """
 
+import os
 import json
+import shutil
+import subprocess
+from pathlib import Path
 from typing import Dict, Any, List
 
 from tools.base_tool import BaseTool
@@ -12,18 +16,98 @@ class NucleiTool(BaseTool):
     """Nuclei vulnerability scanner wrapper"""
     
     def __init__(self, config):
+        self._executable: str | None = None
         super().__init__(config)
         self.tool_name = "nuclei"
+
+    def _repo_bin_candidates(self) -> List[str]:
+        repo_root = Path(__file__).resolve().parent.parent
+        return [
+            str(repo_root / "tools" / ".bin" / "nuclei"),
+            str(repo_root / "tools" / ".bin" / "nuclei_pd"),
+            str(repo_root / "tools" / ".bin" / "nuclei-projectdiscovery"),
+        ]
+
+    def _is_projectdiscovery_nuclei(self, executable: str) -> bool:
+        # Nuclei supports -version across versions; fall back to -h.
+        for args in ([executable, "-version"], [executable, "-h"]):
+            try:
+                proc = subprocess.run(
+                    args,
+                    capture_output=True,
+                    text=True,
+                    timeout=3,
+                )
+            except Exception:
+                continue
+
+            out = ((proc.stdout or "") + "\n" + (proc.stderr or "")).lower()
+            if "nuclei" in out and ("projectdiscovery" in out or "templates" in out or "-jsonl" in out):
+                return True
+        return False
+
+    def _find_projectdiscovery_nuclei(self) -> str | None:
+        cfg = (self.config or {}).get("tools", {}).get("nuclei", {})
+        override = cfg.get("binary") or os.environ.get("GUARDIAN_NUCLEI_BIN")
+
+        candidates: List[str] = []
+        if override:
+            candidates.append(str(override))
+
+        candidates.extend(self._repo_bin_candidates())
+
+        found = shutil.which("nuclei")
+        if found:
+            candidates.append(found)
+
+        try:
+            which_all = subprocess.run(
+                ["which", "-a", "nuclei"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if which_all.returncode == 0:
+                for line in which_all.stdout.splitlines():
+                    line = line.strip()
+                    if line:
+                        candidates.append(line)
+        except Exception:
+            pass
+
+        seen = set()
+        for candidate in candidates:
+            if not candidate or candidate in seen:
+                continue
+            seen.add(candidate)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK) and self._is_projectdiscovery_nuclei(candidate):
+                return candidate
+
+        return None
+
+    def _check_installation(self) -> bool:
+        self.tool_name = "nuclei"
+        self._executable = self._find_projectdiscovery_nuclei()
+        if not self._executable:
+            self.logger.warning(
+                "ProjectDiscovery nuclei not found; install it or run `python scripts/install_projectdiscovery_nuclei.py`."
+            )
+            return False
+        return True
     
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build nuclei command"""
+        if not self._executable:
+            raise RuntimeError("ProjectDiscovery nuclei executable not resolved")
+
         config = self.config.get("tools", {}).get("nuclei", {})
         
-        command = ["nuclei"]
+        command = [self._executable]
         
         # Target
         if kwargs.get("from_file"):
-            command.extend(["-l", kwargs["from_file"]])
+            from_file = os.path.expandvars(os.path.expanduser(kwargs["from_file"]))
+            command.extend(["-l", from_file])
         else:
             command.extend(["-u", target])
         
@@ -46,13 +130,15 @@ class NucleiTool(BaseTool):
             if isinstance(templates_paths, str):
                 templates_paths = [templates_paths]
             for path in templates_paths:
+                path = os.path.expandvars(os.path.expanduser(path))
                 command.extend(["-t", path])
         
         # Silent mode
         command.append("-silent")
         
         # Rate limit
-        command.extend(["-rate-limit", "150"])
+        rate = config.get("rate_limit", 150)
+        command.extend(["-rate-limit", str(rate)])
         
         return command
     

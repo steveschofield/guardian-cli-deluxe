@@ -60,3 +60,6 @@ Thumbs.db
 # Guardian specific
 guardian_state.json
 *.scope
+
+# Local tool binaries (don’t commit)
+tools/.bin/

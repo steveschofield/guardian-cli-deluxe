@@ -76,8 +76,13 @@ class BaseTool(ABC):
             output = stdout.decode('utf-8', errors='replace')
             error = stderr.decode('utf-8', errors='replace')
             
-            # Parse results
+            # Parse results (prefer stdout; keep stderr for diagnostics)
             parsed = self.parse_output(output)
+
+            # Combine stderr into raw output when stdout is empty or the tool failed.
+            combined_output = output
+            if error and (not output.strip() or process.returncode != 0):
+                combined_output = (output + "\n" + error).strip()
             
             result = {
                 "tool": self.tool_name,
@@ -85,7 +90,7 @@ class BaseTool(ABC):
                 "command": " ".join(command),
                 "exit_code": process.returncode,
                 "duration": duration,
-                "raw_output": output,
+                "raw_output": combined_output,
                 "error": error if error else None,
                 "parsed": parsed
             }
