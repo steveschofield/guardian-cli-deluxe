@@ -66,6 +66,38 @@ ensure_go() {
 ensure_go
 ensure_node_and_npm
 
+ensure_gcloud() {
+  # Optional: required only if you want Gemini via Vertex AI / ADC (higher limits).
+  if command -v gcloud >/dev/null 2>&1; then
+    return
+  fi
+
+  if [[ "${GUARDIAN_INSTALL_GCLOUD:-0}" != "1" ]]; then
+    echo "INFO: gcloud not found. To enable Gemini Vertex AI / ADC auth, install Google Cloud SDK and run:" >&2
+    echo "      gcloud auth application-default login" >&2
+    echo "      Re-run setup with GUARDIAN_INSTALL_GCLOUD=1 to attempt automatic install (apt-based systems)." >&2
+    return
+  fi
+
+  if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+    if sudo -n true 2>/dev/null; then
+      echo "Installing Google Cloud SDK (gcloud) via apt (optional; used for `gcloud auth application-default login`)..."
+      if ! sudo apt-get update && sudo apt-get install -y google-cloud-cli; then
+        echo "WARN: google-cloud-cli package install failed. Install gcloud manually using Google's official instructions:" >&2
+        echo "      https://cloud.google.com/sdk/docs/install" >&2
+      fi
+    else
+      echo "WARN: gcloud not found and sudo requires a password; install Google Cloud SDK manually if you want Vertex AI / ADC auth:" >&2
+      echo "      https://cloud.google.com/sdk/docs/install" >&2
+    fi
+  else
+    echo "INFO: gcloud not found; install Google Cloud SDK manually if you want Vertex AI / ADC auth:" >&2
+    echo "      https://cloud.google.com/sdk/docs/install" >&2
+  fi
+}
+
+ensure_gcloud
+
 echo "Using virtualenv: ${VIRTUAL_ENV}"
 mkdir -p "${TOOLS_DIR}"
 
@@ -442,3 +474,4 @@ echo "Installing metasploit (optional, for MetasploitTool)..."
 install_metasploit
 
 echo "Setup complete. Ensure ${VENV_BIN} is in your PATH."
+echo "If using Gemini via Vertex AI / ADC, run: gcloud auth application-default login"
