@@ -45,6 +45,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping iputils-tracepath iputils-arping traceroute \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# XRDP runtime dirs (containers don't always have them)
+RUN mkdir -p /run/xrdp /var/run/xrdp /run/dbus && \
+    chown -R xrdp:xrdp /run/xrdp /var/run/xrdp || true
+
 # XRDP: listen on non-default port to avoid conflicts
 RUN sed -i "s/^port=3389$/port=${RDP_PORT}/g" /etc/xrdp/xrdp.ini || true
 
@@ -93,5 +97,5 @@ ENV PATH="/opt/guardian/venv/bin:${PATH}" \
 
 EXPOSE 3390
 
-# Start XRDP and keep container alive (use docker exec to run guardian commands)
-CMD service xrdp start && tail -f /var/log/xrdp.log
+# Start XRDP (sesman + xrdp) and keep container alive (use docker exec to run guardian commands)
+CMD service dbus start || true; service xrdp-sesman start || true; service xrdp start || true; tail -f /var/log/xrdp.log
