@@ -131,6 +131,7 @@ COPY ai/ ./ai/
 COPY cli/ ./cli/
 COPY core/ ./core/
 COPY tools/ ./tools/
+COPY reports/ ./reports/
 COPY utils/ ./utils/
 COPY workflows/ ./workflows/
 COPY config/ ./config/
