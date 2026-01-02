@@ -192,6 +192,12 @@ python -m venv venv
 pip install -e .
 ```
 
+Optional (Linux/macOS): run the setup helper to install additional tools, and keep a log of the output:
+
+```bash
+./setup.sh 2>&1 | tee setup.log
+```
+
 #### Step 3: Initialize Configuration
 
 ```bash

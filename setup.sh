@@ -335,6 +335,39 @@ install_recon_extras() {
   # hakrawler: Kali provides a package; extract without requiring sudo.
   install_deb_binary_and_link "hakrawler" "hakrawler" || true
 
+  install_go_recon_tools() {
+    go_install_and_link "github.com/OJ/gobuster/v3@latest" "gobuster"
+    go_install_and_link "github.com/ffuf/ffuf/v2@latest" "ffuf"
+    go_install_and_link "github.com/owasp-amass/amass/v4/...@master" "amass"
+  }
+
+  install_masscan() {
+    if command -v masscan >/dev/null 2>&1; then
+      return 0
+    fi
+    if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+      if sudo -n true 2>/dev/null; then
+        echo "Installing masscan via apt (requires sudo)..."
+        sudo apt-get update -y && sudo apt-get install -y masscan || echo "WARN: masscan install failed; install manually" >&2
+      else
+        echo "WARN: masscan not found and sudo requires a password; install manually (apt install masscan)" >&2
+      fi
+    else
+      echo "WARN: masscan not installed and apt/sudo not available; install manually" >&2
+    fi
+  }
+
+  install_dnsrecon() {
+    if command -v dnsrecon >/dev/null 2>&1; then
+      return 0
+    fi
+    pip install dnsrecon
+  }
+
+  install_go_recon_tools
+  install_masscan
+  install_dnsrecon
+
   # waybackurls: no deps (stdlib only) and no release assets; build from source in GOPATH mode.
   install_waybackurls() {
     if [[ -x "${VENV_BIN}/waybackurls" ]]; then
@@ -467,7 +500,7 @@ install_libpcap_dev() {
 echo "Fetching extra nuclei templates (CVE packs)..."
 install_nuclei_templates
 
-echo "Installing recon extras (dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog)..."
+echo "Installing recon extras (gobuster, ffuf, amass, masscan, dnsrecon, dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog)..."
 install_recon_extras
 
 echo "Installing metasploit (optional, for MetasploitTool)..."

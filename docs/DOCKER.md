@@ -23,6 +23,12 @@ docker-compose -f docker-compose.kali.yml up
 
 RDP will be exposed on `localhost:3390` by default (see `Dockerfile.kali`).
 
+During the Kali build, `setup.sh` runs inside the image. Output streams to the build log and is also written to `/opt/guardian/setup.log`. After the container starts, you can inspect it with:
+
+```bash
+docker exec -it guardian-kali tail -n 200 /opt/guardian/setup.log
+```
+
 ### 2. Set Up Environment
 
 Create a `.env` file in the project root:
