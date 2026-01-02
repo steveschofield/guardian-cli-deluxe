@@ -62,6 +62,7 @@ COPY pyproject.toml README.md ./
 COPY ai/ ./ai/
 COPY cli/ ./cli/
 COPY core/ ./core/
+COPY reports/ ./reports/
 COPY tools/ ./tools/
 COPY utils/ ./utils/
 COPY workflows/ ./workflows/
@@ -80,4 +81,3 @@ EXPOSE 3390
 
 # Start XRDP and keep container alive (use docker exec to run guardian commands)
 CMD service xrdp start && tail -f /var/log/xrdp.log
-
