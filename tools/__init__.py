@@ -40,6 +40,7 @@ from .paramspider import ParamspiderTool
 from .schemathesis import SchemathesisTool
 from .trufflehog import TrufflehogTool
 from .metasploit import MetasploitTool
+from .zap import ZapTool
 
 __all__ = [
     "BaseTool",
@@ -82,4 +83,5 @@ __all__ = [
     "SchemathesisTool",
     "TrufflehogTool",
     "MetasploitTool",
+    "ZapTool",
 ]

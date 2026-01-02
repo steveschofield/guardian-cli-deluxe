@@ -111,6 +111,10 @@ class AuditLogger:
     def error(self, message: str, *args):
         """Standard error logging"""
         self.logger.error(message, *args)
+
+    def exception(self, message: str, *args):
+        """Log an exception with traceback (mirrors logging.Logger.exception)."""
+        self.logger.exception(message, *args)
     
     def debug(self, message: str, *args):
         """Standard debug logging"""
