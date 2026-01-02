@@ -1,0 +1,83 @@
+# Kali Linux + Guardian CLI (optionally with XFCE + XRDP)
+#
+# Notes:
+# - This image is intentionally large (Kali desktop + meta tool bundles).
+# - Default CMD starts XRDP for remote desktop access.
+# - Guardian runs inside the container; reports/logs should be volume-mounted.
+#
+# Build:
+#   docker build -f Dockerfile.kali -t guardian-kali:latest .
+#
+# Run (RDP on 3390):
+#   docker run --rm -it -p 3390:3390 guardian-kali:latest
+
+FROM kalilinux/kali-rolling
+
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-lc"]
+
+ARG KALI_USER=kali
+ARG KALI_PASSWORD=kali
+ARG RDP_PORT=3390
+
+# Base packages + Kali tool bundles + Guardian deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl git \
+    bash-completion \
+    python3 python3-venv python3-pip \
+    build-essential pkg-config \
+    libpcap-dev \
+    ruby ruby-dev \
+    nodejs npm \
+    golang-go \
+    # Optional desktop + RDP (remove if you want a headless container)
+    kali-desktop-xfce xrdp xorgxrdp dbus-x11 \
+    # Kali meta-packages (broad tool coverage)
+    kali-tools-vulnerability \
+    kali-tools-web \
+    kali-tools-database \
+    kali-tools-passwords \
+    kali-tools-wireless \
+    kali-tools-reverse-engineering \
+    kali-tools-exploitation \
+    kali-tools-sniffing-spoofing \
+    kali-tools-post-exploitation \
+    iputils-ping iputils-tracepath iputils-arping traceroute \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# XRDP: listen on non-default port to avoid conflicts
+RUN sed -i "s/^port=3389$/port=${RDP_PORT}/g" /etc/xrdp/xrdp.ini || true
+
+# Create a user for RDP access
+RUN useradd -m -s /bin/bash "${KALI_USER}" && \
+    echo "${KALI_USER}:${KALI_PASSWORD}" | chpasswd
+
+# XFCE default session for the user
+RUN echo "startxfce4" > "/home/${KALI_USER}/.xsession" && \
+    chown "${KALI_USER}:${KALI_USER}" "/home/${KALI_USER}/.xsession"
+
+# Install Guardian into a virtualenv (editable install)
+WORKDIR /opt/guardian
+COPY pyproject.toml README.md ./
+COPY ai/ ./ai/
+COPY cli/ ./cli/
+COPY core/ ./core/
+COPY tools/ ./tools/
+COPY utils/ ./utils/
+COPY workflows/ ./workflows/
+COPY config/ ./config/
+
+RUN python3 -m venv /opt/guardian/venv && \
+    /opt/guardian/venv/bin/pip install -U pip setuptools wheel && \
+    /opt/guardian/venv/bin/pip install -e . && \
+    mkdir -p /opt/guardian/reports /opt/guardian/logs && \
+    chmod 777 /opt/guardian/reports /opt/guardian/logs
+
+ENV PATH="/opt/guardian/venv/bin:${PATH}" \
+    GUARDIAN_HOME=/opt/guardian
+
+EXPOSE 3390
+
+# Start XRDP and keep container alive (use docker exec to run guardian commands)
+CMD service xrdp start && tail -f /var/log/xrdp.log
+
