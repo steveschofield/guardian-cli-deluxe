@@ -86,6 +86,7 @@ python -m cli.main <command> --help
 ### API errors
 - Verify your Gemini API key in `.env` or `.guardian/.env`
 - If using OpenRouter, verify `OPENROUTER_API_KEY` in `.env` or `.guardian/.env`
+- If using Gemini Vertex/ADC, ensure `gcloud auth application-default login` has been run and `ai.project` is set in your config
 - Check internet connectivity
 
 ## Next Steps

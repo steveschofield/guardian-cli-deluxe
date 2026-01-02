@@ -45,7 +45,7 @@ USE AT YOUR OWN RISK - NO WARRANTY PROVIDED
 ### 🤖 AI-Powered Intelligence
 
 - **Multi-Agent Architecture**: Specialized AI agents (Planner, Tool Selector, Analyst, Reporter) collaborate for comprehensive security assessments
-- **Flexible LLM Backends**: Use Google Gemini or a local LLM (e.g., Ollama with Llama 3.x) via config
+- **Flexible LLM Backends**: Use Google Gemini (API key or Vertex/ADC), OpenRouter, or a local LLM (e.g., Ollama) via config
 - **Strategic Decision Making**: LLM analyzes findings and determines optimal next steps
 - **Adaptive Testing**: AI adjusts tactics based on discovered vulnerabilities and system responses
 - **False Positive Filtering**: Intelligent analysis reduces noise and focuses on real vulnerabilities
@@ -60,6 +60,7 @@ USE AT YOUR OWN RISK - NO WARRANTY PROVIDED
 - **URL/Content Discovery**: Katana (crawler), Gospider, Hakrawler, Waybackurls, Subjs, Dirsearch/Gobuster/FFuf
 - **JS/API Analysis**: LinkFinder/xnLinkFinder (JS endpoint discovery), ParamSpider/Arjun (parameter discovery), Schemathesis (OpenAPI fuzzing)
 - **Vulnerability Scanning**: Nuclei (templates), Nikto (web vulns), SQLMap (SQLi), WPScan (WordPress)
+- **Web App Scanning**: OWASP ZAP (headless baseline/full scans via Docker)
 - **Secrets/Leak Detection**: Gitleaks, TruffleHog
 - **SSL/TLS Testing**: TestSSL (cipher analysis), SSLyze (advanced configuration analysis)
 
@@ -209,6 +210,21 @@ During initialization, you can provide a Gemini API key (optional if using a loc
 echo "GOOGLE_API_KEY=your_api_key_here" > .env  # only if using Gemini
 ```
 
+To use Gemini via Vertex AI / ADC (recommended for higher limits, no API key):
+
+```bash
+pip install -U google-genai
+gcloud auth application-default login
+
+# In config/guardian.yaml (or your copied ~/.guardian/guardian.yaml)
+ai:
+  provider: gemini
+  model: "gemini-2.5-flash"
+  vertexai: true
+  project: "your-gcp-project-id-or-number"
+  location: "us-central1"
+```
+
 To use OpenRouter (hosted models via OpenAI-compatible API):
 
 ```bash
@@ -229,6 +245,19 @@ ai:
   provider: ollama
   model: "llama3.1:8b"
   base_url: "http://127.0.0.1:11434"  # adjust if remote host
+```
+
+To enable OWASP ZAP scans (headless via Docker):
+
+```bash
+docker pull owasp/zap2docker-stable
+
+# In config/guardian.yaml
+tools:
+  zap:
+    enabled: true
+    mode: docker
+    scan: baseline   # full requires pentest.safe_mode: false
 ```
 
 ---
