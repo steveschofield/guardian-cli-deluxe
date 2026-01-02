@@ -12,12 +12,29 @@ docker-compose build
 
 This will create a Docker image with all security tools installed (~1.5GB).
 
+### Kali Desktop Image (Optional)
+
+If you prefer a Kali rolling image (optionally with XFCE + XRDP) instead of the Alpine-based image, use:
+
+```bash
+docker-compose -f docker-compose.kali.yml build
+docker-compose -f docker-compose.kali.yml up
+```
+
+RDP will be exposed on `localhost:3390` by default (see `Dockerfile.kali`).
+
 ### 2. Set Up Environment
 
 Create a `.env` file in the project root:
 
 ```bash
 GOOGLE_API_KEY=your_gemini_api_key_here
+```
+
+If using Gemini via Vertex AI / ADC, install gcloud in your environment and run:
+
+```bash
+gcloud auth application-default login
 ```
 
 ### 3. Run Guardian
@@ -34,6 +51,13 @@ docker-compose run --rm guardian workflow run --name web --target https://exampl
 
 # Get help
 docker-compose run --rm guardian --help
+```
+
+For the Kali image, run commands via `docker exec` (the container’s default CMD starts XRDP):
+
+```bash
+docker exec -it guardian-kali guardian --help
+docker exec -it guardian-kali python -m cli.main workflow list
 ```
 
 ---
