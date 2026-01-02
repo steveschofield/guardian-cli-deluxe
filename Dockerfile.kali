@@ -52,8 +52,12 @@ RUN sed -i "s/^port=3389$/port=${RDP_PORT}/g" /etc/xrdp/xrdp.ini || true
 RUN useradd -m -s /bin/bash "${KALI_USER}" && \
     echo "${KALI_USER}:${KALI_PASSWORD}" | chpasswd
 
-# XFCE default session for the user
-RUN echo "startxfce4" > "/home/${KALI_USER}/.xsession" && \
+# Ensure XRDP starts an XFCE session (panel/menu) instead of the default X session.
+# This avoids the common "desktop without start menu/panel" issue.
+RUN cat > /etc/xrdp/startwm.sh <<'EOF'\n#!/bin/sh\nset -eu\n\n# Load env if present\n[ -r /etc/profile ] && . /etc/profile\n[ -r \"$HOME/.profile\" ] && . \"$HOME/.profile\"\n\n# Start XFCE with a dbus session so panel/menu services work.\nexec dbus-launch --exit-with-session startxfce4\nEOF\n && chmod +x /etc/xrdp/startwm.sh
+
+# XFCE default session for the user (also used by /etc/X11/Xsession on some setups)
+RUN echo "dbus-launch --exit-with-session startxfce4" > "/home/${KALI_USER}/.xsession" && \
     chown "${KALI_USER}:${KALI_USER}" "/home/${KALI_USER}/.xsession"
 
 # Install Guardian into a virtualenv (editable install)
