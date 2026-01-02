@@ -30,6 +30,17 @@ export LLM_SMART_MODEL=llama3.1:8b
 export LLM_CODE_MODEL=llama3.1:8b
 export LLM_MODEL=llama3.1:8b
 
+export LSG_ALLOW_PRIVATE=1
+export LSG_LOG_LLM_REQUESTS=1
+export LSG_DEBUG_SAVE_OUTPUT=1
+export LLM_FAST_MODEL=gurubot/gpt-oss-derestricted:20b
+export LLM_PROVIDER=ollama
+export LLM_BASE_URL=http://192.168.1.69:11434/v1
+export LLM_SMART_MODEL=gurubot/gpt-oss-derestricted:20b
+export LLM_CODE_MODEL=gurubot/gpt-oss-derestricted:20b
+export LLM_MODEL=gurubot/gpt-oss-derestricted:20b
+
+
 python -m cli.main workflow run --name autonomous --target http://192.168.1.130:3000
  
 Gap snapshot

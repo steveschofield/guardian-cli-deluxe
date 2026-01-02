@@ -7,9 +7,10 @@ ai:
   # base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama (uncomment to use):
-  # provider: ollama
+  provider: ollama
   # model: "llama3.1:8b"
-  # base_url: "http://127.0.0.1:11434"
+  model: "gurubot/gpt-oss-derestricted:20b"
+  base_url: "http://192.168.1.69:11434"
   temperature: 0.2
   llm_timeout_seconds: 300
 
