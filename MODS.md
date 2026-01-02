@@ -15,7 +15,7 @@ Quick pointers for extending Guardian with new tools, workflows, or AI backends.
 - Update docs/README if the workflow should be user-facing.
 
 ## Changing AI Providers
-- Guardian now supports Gemini, local LLMs via Ollama, and hosted models via OpenRouter (OpenAI-compatible API).
+- Guardian now supports Gemini (API key or Vertex/ADC), local LLMs via Ollama, and hosted models via OpenRouter (OpenAI-compatible API).
 - Configure in `config/guardian.yaml` (or `~/.guardian/guardian.yaml`):
   ```yaml
   ai:
@@ -25,6 +25,11 @@ Quick pointers for extending Guardian with new tools, workflows, or AI backends.
   ```
 - To add a new provider, implement a client in `ai/`, extend `ai/provider_factory.py`, and ensure it exposes `generate`, `generate_sync`, and `generate_with_reasoning`.
 - Add any needed pip deps to `pyproject.toml` and Dockerfile.
+- For Gemini higher limits without API keys, use Vertex AI + ADC: `gcloud auth application-default login` and set `ai.vertexai: true`, `ai.project`, `ai.location`.
+
+## Adding OWASP ZAP
+- ZAP is integrated as a Docker-first headless scanner (`tools/zap.py`) and can be enabled in `config/guardian.yaml` under `tools.zap`.
+- Baseline scan is passive (safer). Full scan is active and should be gated behind `pentest.safe_mode: false` + confirmation.
 
 ## Scope/Safety
 - Default scope blacklist lives in `config/guardian.yaml` (`scope.blacklist`). Adjust for lab/production needs.
