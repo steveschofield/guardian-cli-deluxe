@@ -144,9 +144,9 @@ RUN apt-get update && apt-get install -y sudo && \
     chmod 0440 /etc/sudoers.d/kali && \
     rm -rf /var/lib/apt/lists/*
 USER kali
-RUN VIRTUAL_ENV=/opt/guardian/venv \
-    PATH="/opt/guardian/venv/bin:${PATH}" \
-    ./setup.sh
+RUN set -o pipefail; \
+    VIRTUAL_ENV=/opt/guardian/venv PATH="/opt/guardian/venv/bin:${PATH}" \
+    ./setup.sh 2>&1 | tee /opt/guardian/setup.log
 USER root
 # Create an entrypoint script for proper service startup
 RUN printf '%s\n' \
