@@ -1,18 +1,27 @@
 # Guardian Configuration
 ai:
   # Supported providers: gemini, ollama, openrouter
+  #
+  # Gemini (Google) (uncomment to use):
+  # - API key goes in env var: GOOGLE_API_KEY (do NOT put keys in this file)
+  # - Guardian uses LangChain's Gemini client; you do not need to set the REST base URL here.
+  # - Reference REST base URL (for manual calls): https://generativelanguage.googleapis.com/v1beta/
+  provider: gemini
+  model: "gemini-2.0-flash"
+  # temperature: 0.2
+
   # OpenRouter (uncomment to use):
   # provider: openrouter
   # model: "xiaomi/mimo-v2-flash:free"
   # base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama (uncomment to use):
-  provider: ollama
+  #provider: ollama
   # model: "llama3.1:8b"
-  model: "gdisney/mistral-uncensored:latest"
-  base_url: "http://192.168.1.69:11434"
-  temperature: 0.2
-  llm_timeout_seconds: 300
+  #model: "qwen2.5-coder:7b-instruct"
+  #base_url: "http://192.168.1.69:11434"
+  #temperature: 0.2
+  llm_timeout_seconds: 600
 
 pentest:
   safe_mode: true
