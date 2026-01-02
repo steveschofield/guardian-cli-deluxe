@@ -9,6 +9,16 @@ git clone https://github.com/steveschofield/guardian-cli-deluxe
 
 ============
 
+export LSG_ALLOW_PRIVATE=1
+export LSG_LOG_LLM_REQUESTS=1
+export LSG_DEBUG_SAVE_OUTPUT=1
+export LLM_FAST_MODEL=xiaomi/mimo-v2-flash:free
+export LLM_PROVIDER=openrouter
+export LLM_BASE_URL=https://openrouter.ai/api/v1
+export LLM_SMART_MODEL=xiaomi/mimo-v2-flash:free
+export LLM_CODE_MODEL=xiaomi/mimo-v2-flash:free
+export LLM_MODEL=xiaomi/mimo-v2-flash:free
+export OPENROUTER_API_KEY=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
 
 export LSG_ALLOW_PRIVATE=1
 export LSG_LOG_LLM_REQUESTS=1

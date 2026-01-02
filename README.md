@@ -209,6 +209,18 @@ During initialization, you can provide a Gemini API key (optional if using a loc
 echo "GOOGLE_API_KEY=your_api_key_here" > .env  # only if using Gemini
 ```
 
+To use OpenRouter (hosted models via OpenAI-compatible API):
+
+```bash
+echo "OPENROUTER_API_KEY=your_key_here" > .env
+
+# In config/guardian.yaml (or your copied ~/.guardian/guardian.yaml)
+ai:
+  provider: openrouter
+  model: "openai/gpt-4o-mini"   # pick any OpenRouter model slug
+  base_url: "https://openrouter.ai/api/v1"
+```
+
 To use a local LLM (e.g., Ollama Llama 3.x):
 
 ```bash
@@ -346,7 +358,7 @@ Edit `config/guardian.yaml` to customize:
 
 ```yaml
 ai:
-  provider: gemini
+  provider: gemini   # or ollama / openrouter
   model: gemini-1.5-pro
   temperature: 0.2
 
