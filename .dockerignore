@@ -30,7 +30,8 @@ docs/
 !README.md
 
 # Generated files
-reports/
+reports/*
+!reports/__init__.py
 logs/
 *.log
 
