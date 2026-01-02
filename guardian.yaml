@@ -4,11 +4,16 @@ ai:
   #
   # Gemini (Google) (uncomment to use):
   # - API key goes in env var: GOOGLE_API_KEY (do NOT put keys in this file)
-  # - Guardian uses LangChain's Gemini client; you do not need to set the REST base URL here.
-  # - Reference REST base URL (for manual calls): https://generativelanguage.googleapis.com/v1beta/
+  # - Guardian uses the google-genai SDK when installed.
+  # - For higher limits without an API key, use Vertex AI + ADC:
+  #   1) gcloud auth application-default login
+  #   2) set vertexai: true and project: "<your project id or project number>"
   provider: gemini
   model: "gemini-2.5-flash"
   # temperature: 0.2
+  vertexai: true
+  project: "539730635772"
+  location: "us-central1"
 
   # OpenRouter (uncomment to use):
   # provider: openrouter

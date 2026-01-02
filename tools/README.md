@@ -66,6 +66,10 @@ This directory contains wrappers for various penetration testing tools.
   - Installation: `gem install wpscan` or download from [wpscan.com](https://wpscan.com/)
   - Features: Plugin/theme enumeration, vulnerability database, user enumeration
 
+- **OWASP ZAP (headless)**: Web app scanning (baseline passive or full active)
+  - Installation: Docker recommended: `docker pull owasp/zap2docker-stable`
+  - Features: Passive scan (baseline), optional active scan (full) when safe_mode is disabled
+
 ### SSL/TLS Testing
 - **TestSSL**: SSL/TLS security testing
   - Installation: Download from https://testssl.sh/

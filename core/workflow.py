@@ -5,6 +5,7 @@ Coordinates agents and manages pentest execution flow
 
 import asyncio
 import re
+import os
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 from datetime import datetime
@@ -24,6 +25,9 @@ class WorkflowEngine:
         self.config = config
         self.target = target
         self.logger = get_logger(config)
+
+        # Preflight checks for common LLM auth failures so we fail early with actionable guidance.
+        self._preflight_llm_auth()
         
         # Initialize components
         self.memory = PentestMemory(target)
@@ -52,6 +56,44 @@ class WorkflowEngine:
         self.current_step = 0
         self.max_steps = config.get("workflows", {}).get("max_steps", 20)
         self._step_durations: List[float] = []
+
+    def _preflight_llm_auth(self) -> None:
+        ai_cfg = (self.config or {}).get("ai", {}) or {}
+        provider = (ai_cfg.get("provider") or "gemini").lower()
+
+        if provider != "gemini":
+            return
+
+        vertexai = bool(ai_cfg.get("vertexai", False) or ai_cfg.get("use_vertexai", False))
+        has_api_key = bool(os.getenv("GOOGLE_API_KEY"))
+
+        # If vertexai is explicitly enabled, or no API key is present, users likely intend ADC.
+        if not vertexai and has_api_key:
+            return
+
+        project = (
+            ai_cfg.get("project")
+            or ai_cfg.get("project_id")
+            or ai_cfg.get("gcp_project")
+            or os.getenv("GOOGLE_CLOUD_PROJECT")
+        )
+        if not project:
+            self.logger.error(
+                "Gemini is configured without GOOGLE_API_KEY. For Vertex AI/ADC, set `ai.project` "
+                "(project id or project number) in your config and run `gcloud auth application-default login`."
+            )
+            raise ValueError("Missing Gemini project for Vertex AI/ADC auth.")
+
+        # Fast local check for ADC file. (Google auth will still be the source of truth.)
+        adc_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        adc_default = Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
+        has_adc = bool(adc_env and Path(adc_env).exists()) or adc_default.exists()
+        if not has_adc:
+            self.logger.error(
+                "Gemini Vertex AI requires Application Default Credentials (ADC) but none were found. "
+                "Run `gcloud auth application-default login` and re-run Guardian."
+            )
+            raise ValueError("Missing ADC credentials for Gemini Vertex AI.")
     
     async def run_workflow(self, workflow_name: str) -> Dict[str, Any]:
         """

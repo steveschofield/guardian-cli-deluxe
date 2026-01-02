@@ -48,6 +48,7 @@ Available Tools (pick only those appropriate for the target type and objective):
 - gitleaks: Secret scanning
 - cmseek: CMS detection and scanning
 - retire: JavaScript library vulnerability scanning
+- zap: OWASP ZAP baseline/full scan (Docker-based headless)
 - metasploit: Scripted Metasploit module execution
 
 You must:
@@ -112,6 +113,7 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - gitleaks: Secret scanning
 - cmseek: CMS scanning
 - retire: JS library scanning
+- zap: OWASP ZAP scanning
 - metasploit: Scripted module execution
 
 Consider:
