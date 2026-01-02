@@ -175,6 +175,18 @@ class ToolAgent(BaseAgent):
                 "expected_output": ""
             }
 
+        # Fail closed: if the model returns a tool name we don't have registered, do not attempt execution.
+        if tool_selection["tool"] not in self.available_tools:
+            self.logger.warning(
+                f"Model selected unknown tool '{tool_selection['tool']}'; skipping selection"
+            )
+            return {
+                "tool": "",
+                "arguments": "",
+                "reasoning": f"Unknown tool selected by model: {tool_selection['tool']}",
+                "expected_output": ""
+            }
+
         # Gate DNS/subdomain tools when target is IP-only
         dns_like = {"subfinder", "amass", "dnsrecon", "dnsx", "shuffledns", "puredns", "altdns", "asnmap"}
         if target_type == "ip" and tool_selection["tool"] in dns_like:

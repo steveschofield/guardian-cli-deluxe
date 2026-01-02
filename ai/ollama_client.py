@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
+from dotenv import load_dotenv
 
 from utils.logger import get_logger
 
@@ -16,6 +17,8 @@ class OllamaClient:
     """Ollama client wrapper"""
 
     def __init__(self, config: Dict[str, Any]):
+        load_dotenv()
+
         self.config = config
         self.logger = get_logger(config)
 

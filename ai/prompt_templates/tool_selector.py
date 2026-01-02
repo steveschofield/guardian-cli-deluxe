@@ -13,23 +13,42 @@ Your role is to:
 
 Available Tools (pick only those appropriate for the target type and objective):
 - nmap: Port scanning, service detection, OS fingerprinting
+- masscan: Fast port scanning (noisy; use carefully)
+- naabu: Fast TCP port discovery
 - httpx: HTTP probing, technology detection, response analysis
-- subfinder: Subdomain enumeration from various sources (domain-only)
-- nuclei: Vulnerability scanning using community templates
 - whatweb: Web technology fingerprinting and CMS detection
 - wafw00f: Web Application Firewall (WAF) detection
-- nikto: Comprehensive web vulnerability scanning
-- testssl: SSL/TLS security testing and cipher analysis
-- gobuster: Directory and file brute forcing
+- nikto: Web vulnerability scanning
+- nuclei: Vulnerability scanning using templates
+- testssl: SSL/TLS testing
+- sslyze: SSL/TLS scanning and analysis
+- gobuster: Directory/file brute forcing
 - dirsearch: Content discovery and brute forcing
-- subjs: Extract URLs from JavaScript responses
+- ffuf: Fast web fuzzing (paths/params)
+- sqlmap: SQL injection testing (use carefully)
+- wpscan: WordPress scanning (use carefully)
+- subfinder: Subdomain enumeration (domain-only)
+- amass: Subdomain/enum framework (domain-only)
+- dnsrecon: DNS enumeration (domain-only)
+- dnsx: DNS probing/validation (domain-only)
+- shuffledns: High-performance DNS resolution (domain-only)
+- puredns: DNS resolving/bruteforce helper (domain-only)
+- altdns: Permutation-based subdomain discovery (domain-only)
+- asnmap: ASN/org → IP range mapping
+- katana: Web crawling/spidering
+- hakrawler: Web crawling
+- gospider: Web crawling
+- waybackurls: Historical URL collection
+- subjs: Extract JS URLs
 - linkfinder / xnlinkfinder: Discover endpoints inside JavaScript
 - paramspider: Parameter discovery from crawled URLs
-- waybackurls: Historical URL collection
 - schemathesis: OpenAPI-based API fuzzing (requires known OpenAPI URL)
+- arjun: Parameter discovery/bruteforce
 - trufflehog: Secret scanning in repos/URLs
+- gitleaks: Secret scanning
+- cmseek: CMS detection and scanning
+- retire: JavaScript library vulnerability scanning
 - metasploit: Scripted Metasploit module execution
-- custom_tools: Python-based custom scanning logic
 
 You must:
 - Choose tools based on the specific objective
@@ -57,24 +76,43 @@ CONTEXT:
 
 AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requires an OpenAPI URL):
 - nmap: Port scanning and service detection
+- masscan: Fast port scanning
+- naabu: Fast TCP port discovery
 - httpx: HTTP probing and web analysis
-- subfinder: Subdomain discovery
-- nuclei: Vulnerability template scanning
 - whatweb: Web technology fingerprinting
 - wafw00f: WAF detection
 - nikto: Web vulnerability scanner
+- nuclei: Vulnerability template scanning
 - testssl: SSL/TLS security testing
+- sslyze: SSL/TLS scanning
 - gobuster: Directory/file brute forcing
 - dirsearch: Content discovery
+- ffuf: Web fuzzing
+- sqlmap: SQL injection testing
+- wpscan: WordPress scanning
+- subfinder: Subdomain discovery
+- amass: Subdomain/enum framework
+- dnsrecon: DNS enumeration
+- dnsx: DNS probing/validation
+- shuffledns: DNS resolution
+- puredns: DNS resolution helper
+- altdns: Subdomain permutations
+- asnmap: ASN/org mapping
+- katana: Web crawling
+- hakrawler: Web crawling
+- gospider: Web crawling
+- waybackurls: Historical URLs
 - subjs: JS URL extraction
 - linkfinder: JS endpoint discovery
 - xnlinkfinder: Advanced JS endpoint discovery
 - paramspider: Parameter discovery
-- waybackurls: Historical URLs
 - schemathesis: API schema fuzzing
+- arjun: Parameter discovery
 - trufflehog: Secret scanning
+- gitleaks: Secret scanning
+- cmseek: CMS scanning
+- retire: JS library scanning
 - metasploit: Scripted module execution
-- custom: Python-based custom tools
 
 Consider:
 - What information are we trying to gather?
