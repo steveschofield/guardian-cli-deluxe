@@ -1,0 +1,169 @@
+"""
+OWASP ZAP tool wrapper (headless) for Guardian.
+
+Default execution uses the official Docker image (owasp/zap2docker-stable) and runs:
+- zap-baseline.py (passive scan, safer)
+
+Active scans are intentionally gated behind safe_mode=false and an explicit config choice.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shlex
+import shutil
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from tools.base_tool import BaseTool
+
+
+class ZapTool(BaseTool):
+    """OWASP ZAP wrapper (Docker-first)."""
+
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__(config)
+        self.tool_name = "zap"
+
+    def _check_installation(self) -> bool:
+        cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
+        mode = (cfg.get("mode") or "docker").lower()
+
+        if mode == "docker":
+            return shutil.which("docker") is not None
+
+        # "local" mode expects a zap script in PATH (user-managed)
+        # Common entrypoints are "zap.sh" (Linux) or "zap.bat" (Windows).
+        zap_bin = cfg.get("binary") or os.environ.get("GUARDIAN_ZAP_BIN")
+        if zap_bin:
+            return os.path.isfile(str(zap_bin)) and os.access(str(zap_bin), os.X_OK)
+
+        return (shutil.which("zap.sh") is not None) or (shutil.which("zap-baseline.py") is not None)
+
+    def _reports_dir(self) -> Path:
+        base = Path((self.config or {}).get("output", {}).get("save_path", "./reports"))
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+
+    def _build_docker_command(self, target: str, scan: str, timeout_min: int) -> List[str]:
+        cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
+        image = cfg.get("docker_image") or "owasp/zap2docker-stable"
+
+        out_dir = self._reports_dir() / "zap"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        json_name = f"zap_{scan}_{ts}.json"
+        html_name = f"zap_{scan}_{ts}.html"
+        md_name = f"zap_{scan}_{ts}.md"
+
+        # Host path mount for reports.
+        host_out = str(out_dir.resolve())
+
+        # ZAP scripts live inside the container image.
+        if scan == "full":
+            script = "zap-full-scan.py"
+            # -a is "active scan"; full scan is inherently active.
+            scan_flags = "-a"
+        else:
+            script = "zap-baseline.py"
+            scan_flags = ""
+
+        # Use bash so we can always emit the JSON report content to stdout for parsing.
+        # Keep it simple and rely on file artifacts for humans.
+        container_cmd = (
+            "set -euo pipefail; "
+            f"{script} -t {shlex.quote(target)} "
+            f"-J /zap/wrk/{shlex.quote(json_name)} "
+            f"-r /zap/wrk/{shlex.quote(html_name)} "
+            f"-w /zap/wrk/{shlex.quote(md_name)} "
+            f"-m {int(timeout_min)} "
+            f"{scan_flags} "
+            "|| true; "
+            f"cat /zap/wrk/{shlex.quote(json_name)} 2>/dev/null || true"
+        )
+
+        return [
+            "bash",
+            "-lc",
+            " ".join(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--pull=missing",
+                    "-v",
+                    f"{shlex.quote(host_out)}:/zap/wrk",
+                    image,
+                    "bash",
+                    "-lc",
+                    shlex.quote(container_cmd),
+                ]
+            ),
+        ]
+
+    def get_command(self, target: str, **kwargs) -> List[str]:
+        cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
+
+        scan = (cfg.get("scan") or "baseline").lower()
+        if scan not in {"baseline", "full"}:
+            scan = "baseline"
+
+        # Gate active scans behind safe_mode=false.
+        safe_mode = (self.config or {}).get("pentest", {}).get("safe_mode", True)
+        if safe_mode and scan == "full":
+            scan = "baseline"
+
+        # Default time budget (minutes) for the ZAP scripts.
+        timeout_min = int(cfg.get("max_minutes", 10))
+
+        mode = (cfg.get("mode") or "docker").lower()
+        if mode == "docker":
+            return self._build_docker_command(target=target, scan=scan, timeout_min=timeout_min)
+
+        # Local mode not fully standardized across OSes; keep a minimal hook.
+        # Expect user to supply a command like "zap-baseline.py" in PATH.
+        local_cmd = cfg.get("local_command")
+        if not local_cmd:
+            raise RuntimeError(
+                "ZAP local mode requires tools.zap.local_command (e.g., 'zap-baseline.py'). "
+                "Prefer tools.zap.mode=docker."
+            )
+        return [local_cmd, "-t", target]
+
+    def parse_output(self, output: str) -> Dict[str, Any]:
+        """
+        Parse ZAP JSON report (when available). If not JSON, return raw text summary.
+        """
+        output = (output or "").strip()
+
+        # Try to parse JSON (zap-baseline.py -J output).
+        try:
+            data = json.loads(output) if output else {}
+        except Exception:
+            return {"alerts": [], "count": 0, "raw": output[:2000]}
+
+        alerts: list[dict[str, Any]] = []
+        for site in (data.get("site") or []):
+            for alert in (site.get("alerts") or []):
+                alerts.append(
+                    {
+                        "name": alert.get("name"),
+                        "risk": alert.get("risk"),
+                        "confidence": alert.get("confidence"),
+                        "desc": alert.get("desc"),
+                        "solution": alert.get("solution"),
+                        "reference": alert.get("reference"),
+                        "instances": alert.get("instances") or [],
+                    }
+                )
+
+        return {
+            "alerts": alerts,
+            "count": len(alerts),
+            "summary": {
+                "sites": len(data.get("site") or []),
+            },
+        }
+

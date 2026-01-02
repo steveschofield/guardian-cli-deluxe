@@ -34,7 +34,7 @@ class ToolAgent(BaseAgent):
             HakrawlerTool, GospiderTool, RetireTool, NaabuTool, KatanaTool,
             AsnmapTool, WaybackurlsTool, SubjsTool, DirsearchTool,
             LinkfinderTool, XnlinkfinderTool, ParamspiderTool,
-            SchemathesisTool, TrufflehogTool, MetasploitTool
+            SchemathesisTool, TrufflehogTool, MetasploitTool, ZapTool
         )
 
         self.available_tools = {
@@ -77,6 +77,7 @@ class ToolAgent(BaseAgent):
             "schemathesis": SchemathesisTool(config),
             "trufflehog": TrufflehogTool(config),
             "metasploit": MetasploitTool(config),
+            "zap": ZapTool(config),
         }
 
     def log_tool_availability(self):
@@ -121,6 +122,7 @@ class ToolAgent(BaseAgent):
             "schemathesis": "pip install schemathesis",
             "trufflehog": "pip install trufflehog",
             "metasploit": "install via https://www.metasploit.com/ (msfconsole on PATH)",
+            "zap": "docker pull owasp/zap2docker-stable (requires Docker)",
         }
 
         missing = []
