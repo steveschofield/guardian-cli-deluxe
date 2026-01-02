@@ -55,6 +55,11 @@ class BaseTool(ABC):
         timeout = self.config.get("pentest", {}).get("tool_timeout", 300)
         
         start_time = datetime.now()
+        status = "unknown"
+        exit_code: Optional[int] = None
+        stdout_len = 0
+        stderr_len = 0
+        process: Optional[asyncio.subprocess.Process] = None
         
         try:
             # Execute tool
@@ -71,10 +76,13 @@ class BaseTool(ABC):
             )
             
             duration = (datetime.now() - start_time).total_seconds()
+            exit_code = process.returncode
             
             # Decode output
-            output = stdout.decode('utf-8', errors='replace')
-            error = stderr.decode('utf-8', errors='replace')
+            stdout_len = len(stdout or b"")
+            stderr_len = len(stderr or b"")
+            output = (stdout or b"").decode('utf-8', errors='replace')
+            error = (stderr or b"").decode('utf-8', errors='replace')
             
             # Parse results (prefer stdout; keep stderr for diagnostics)
             parsed = self.parse_output(output)
@@ -88,23 +96,37 @@ class BaseTool(ABC):
                 "tool": self.tool_name,
                 "target": target,
                 "command": " ".join(command),
+                "timestamp": start_time.isoformat(),
                 "exit_code": process.returncode,
                 "duration": duration,
                 "raw_output": combined_output,
                 "error": error if error else None,
                 "parsed": parsed
             }
-            
-            self.logger.info(f"Tool {self.tool_name} completed in {duration:.2f}s")
-            
+
+            status = "completed" if process.returncode == 0 else "failed"
             return result
             
         except asyncio.TimeoutError:
+            status = "timed_out"
             self.logger.error(f"Tool {self.tool_name} timed out after {timeout}s")
+            try:
+                if process and process.returncode is None:
+                    process.kill()
+                    await process.communicate()
+            except Exception:
+                pass
             raise
         except Exception as e:
+            status = "exception"
             self.logger.error(f"Tool {self.tool_name} failed: {e}")
             raise
+        finally:
+            duration = (datetime.now() - start_time).total_seconds()
+            exit_str = f"{exit_code}" if exit_code is not None else "n/a"
+            self.logger.info(
+                f"Tool {self.tool_name} finished in {duration:.2f}s (status={status}, exit={exit_str}, stdout={stdout_len}B, stderr={stderr_len}B)"
+            )
     
     def _check_installation(self) -> bool:
         """Check if tool is installed and in PATH"""

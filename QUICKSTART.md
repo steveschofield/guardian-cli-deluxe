@@ -67,7 +67,7 @@ python -m cli.main <command> --help
 ## Important Notes
 
 - **Windows**: Use `python -m cli.main` or `.\guardian.bat` instead of `guardian`
-- **API Key**: Required for AI features (get from https://makersuite.google.com/app/apikey)
+- **API Key**: Required for hosted LLMs (Gemini: https://makersuite.google.com/app/apikey, OpenRouter: https://openrouter.ai/keys). Not required for local Ollama.
 - **External Tools**: Optional but recommended (nmap, httpx, subfinder, nuclei, **nikto**)
 - **Authorization**: Only scan systems you have explicit permission to test
 - **Workflow steps**: Recon/web/full_vuln workflows will run Nikto if present; install via `apt install nikto` (or equivalent) to enable that step.
@@ -85,6 +85,7 @@ python -m cli.main <command> --help
 
 ### API errors
 - Verify your Gemini API key in `.env` or `.guardian/.env`
+- If using OpenRouter, verify `OPENROUTER_API_KEY` in `.env` or `.guardian/.env`
 - Check internet connectivity
 
 ## Next Steps

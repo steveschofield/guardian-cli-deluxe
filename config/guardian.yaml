@@ -3,9 +3,14 @@
 
 # AI Configuration
 ai:
-  provider: ollama
-  model: "llama3.1:8b"
-  base_url: "http://192.168.1.69:11434"
+  # Supported providers: gemini, ollama, openrouter
+  #provider: ollama
+  #model: "llama3.1:8b"
+  #base_url: "http://192.168.1.69:11434"
+  # OpenRouter example:
+  provider: openrouter
+  model: "xiaomi/mimo-v2-flash:free"
+  base_url: "https://openrouter.ai/api/v1"
   temperature: 0.2
   max_tokens: 8000
   timeout: 60

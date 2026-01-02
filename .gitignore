@@ -63,3 +63,6 @@ guardian_state.json
 
 # Local tool binaries (don’t commit)
 tools/.bin/
+
+# Prevent accidental check-in of a file literally named '-'
+/-

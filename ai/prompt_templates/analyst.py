@@ -21,6 +21,8 @@ You must:
 - Suggest mitigation strategies
 - Avoid hallucinating vulnerabilities that don't exist
 - Do not infer vulnerabilities without concrete evidence from the raw output. If evidence is missing, state that no findings are available.
+- Evidence must be a verbatim snippet copied from RAW OUTPUT (exact substring).
+- Do not label generic headers (e.g., permissive CORS, Feature/Permissions-Policy) as high-impact vulnerabilities without explicit proof of exploitation or sensitive endpoints in the output; treat these as Low/Info unless the tool output explicitly flags a vulnerability/CVE.
 
 Security Assessment Criteria:
 - Is this a confirmed vulnerability or potential issue?
