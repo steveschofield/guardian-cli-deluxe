@@ -15,11 +15,11 @@ Quick pointers for extending Guardian with new tools, workflows, or AI backends.
 - Update docs/README if the workflow should be user-facing.
 
 ## Changing AI Providers
-- Guardian now supports Gemini and local LLMs via Ollama/OpenAI-compatible endpoints.
+- Guardian now supports Gemini, local LLMs via Ollama, and hosted models via OpenRouter (OpenAI-compatible API).
 - Configure in `config/guardian.yaml` (or `~/.guardian/guardian.yaml`):
   ```yaml
   ai:
-    provider: ollama   # or gemini
+    provider: ollama   # or gemini / openrouter
     model: "llama3.1:8b"
     base_url: "http://127.0.0.1:11434"
   ```

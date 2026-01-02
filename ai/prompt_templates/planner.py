@@ -47,11 +47,16 @@ Analyze the situation and decide:
 3. What specific parameters should be used?
 4. What findings or information are you hoping to discover?
 
-Provide your decision in the following format:
-REASONING: <your strategic reasoning>
-NEXT_ACTION: <chosen action>
-PARAMETERS: <specific parameters for the action>
-EXPECTED_OUTCOME: <what you expect to find>
+Return your decision as STRICT JSON (no markdown, no code fences, no extra keys):
+{{
+  "next_action": "<one of the AVAILABLE ACTIONS action tokens>",
+  "parameters": "<short, concrete parameters string>",
+  "expected_outcome": "<short expected outcome string>"
+}}
+
+Rules:
+- Use an action token exactly as shown in AVAILABLE ACTIONS (the part before " - ").
+- If you are uncertain, pick the safest next reconnaissance/scanning action that is not redundant.
 """
 
 PLANNER_ANALYSIS_PROMPT = """Analyze the penetration test results and provide strategic insights.

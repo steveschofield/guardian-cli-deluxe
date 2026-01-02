@@ -3,7 +3,8 @@ Analyst Agent
 Interprets scan results and identifies security vulnerabilities
 """
 
-from typing import Dict, Any, List
+import re
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 from core.agent import BaseAgent
 from core.memory import Finding
@@ -84,13 +85,30 @@ class AnalystAgent(BaseAgent):
         output_lower = output.lower()
         low_signal_tools = {"nmap", "whatweb", "httpx"}
         for f in findings:
-            if f.evidence and f.evidence.lower() in output_lower:
-                if f.tool in low_signal_tools and f.severity in {"critical", "high", "medium"}:
-                    ev = f.evidence.lower()
-                    if not any(token in ev for token in ["cve", "vulnerab", "exploit", "xss", "sqli", "sql injection", "rce", "csrf"]):
-                        continue
-                filtered.append(f)
+            if not f.evidence:
+                continue
+
+            evidence = f.evidence.strip()
+            candidates = [
+                evidence,
+                evidence.strip("`"),
+                evidence.strip("\"'"),
+                evidence.strip("`\"'"),
+            ]
+            if not any(c and c.lower() in output_lower for c in candidates):
+                continue
+
+            # High/medium severity from low-signal tools is often speculative; downgrade unless we have a strong signature.
+            if f.tool in low_signal_tools and f.severity in {"critical", "high", "medium"}:
+                has_cve = bool(re.search(r"\bCVE-\d{4}-\d+\b", output, re.IGNORECASE) or re.search(r"\bCVE-\d{4}-\d+\b", evidence, re.IGNORECASE))
+                has_strong_flag = any(token in evidence.lower() for token in ["cve", "vulnerab", "exploit", "sqli", "sql injection", "rce", "ssrf", "lfi", "rfi"])
+                if not (has_cve or has_strong_flag):
+                    f.severity = "low"
+
+            filtered.append(f)
         findings = filtered
+
+        findings = self._postprocess_findings(findings, tool=tool, output=output)
 
         # If still nothing with evidence, return empty
         if not findings:
@@ -115,6 +133,32 @@ class AnalystAgent(BaseAgent):
             "reasoning": result["reasoning"],
             "tool": tool
         }
+
+    def _postprocess_findings(self, findings: List[Finding], tool: str, output: str) -> List[Finding]:
+        """
+        Apply conservative normalization rules so we don't overstate impact from low-signal inputs.
+        """
+        for f in findings:
+            ev = (f.evidence or "").lower()
+
+            # Header-only observations are usually informational without endpoint context.
+            if "access-control-allow-origin" in ev and "*" in ev:
+                if f.severity in {"critical", "high", "medium"}:
+                    f.severity = "low"
+                if not f.title:
+                    f.title = "Permissive CORS policy"
+
+            if "feature-policy" in ev or "permissions-policy" in ev:
+                f.severity = "info"
+                if not f.title:
+                    f.title = "Browser feature policy header present"
+
+            # "Service exposed" is generally informational unless coupled with auth bypass, CVE, etc.
+            if tool in {"nmap", "httpx"} and ("port" in ev or "scheme" in ev) and f.severity in {"critical", "high", "medium"}:
+                if not re.search(r"\bCVE-\d{4}-\d+\b", output, re.IGNORECASE):
+                    f.severity = "info"
+
+        return findings
     
     async def correlate_findings(self) -> Dict[str, Any]:
         """
@@ -179,14 +223,12 @@ class AnalystAgent(BaseAgent):
     def _parse_findings(self, ai_response: str, tool: str, target: str) -> List[Finding]:
         """Parse findings from AI analysis response"""
         findings: List[Finding] = []
-        severity_markers = ["critical", "high", "medium", "low", "info"]
 
         lines = [l.strip() for l in ai_response.splitlines() if l.strip()]
         current: Optional[Finding] = None
 
         for line in lines:
             # Match patterns like "[High]" or "1. [Critical]" or "HIGH:"
-            import re
             sev_match = re.search(r"\[?\b(critical|high|medium|low|info)\b\]?", line, re.IGNORECASE)
             if sev_match:
                 severity = sev_match.group(1).lower()

@@ -64,13 +64,44 @@ class BaseAgent(ABC):
                 ),
                 timeout=llm_timeout
             )
+
+            usage = getattr(self.llm, "last_usage", None)
+            request_id = getattr(self.llm, "last_request_id", None)
+            model = getattr(self.llm, "last_model", None)
+            if isinstance(usage, dict):
+                prompt_tokens = usage.get("prompt_tokens")
+                completion_tokens = usage.get("completion_tokens")
+                total_tokens = usage.get("total_tokens")
+                bits = []
+                if model:
+                    bits.append(f"model={model}")
+                if request_id:
+                    bits.append(f"request_id={request_id}")
+                tok = []
+                if prompt_tokens is not None:
+                    tok.append(f"prompt={prompt_tokens}")
+                if completion_tokens is not None:
+                    tok.append(f"completion={completion_tokens}")
+                if total_tokens is not None:
+                    tok.append(f"total={total_tokens}")
+                if tok:
+                    bits.append("tokens(" + ", ".join(tok) + ")")
+                if bits:
+                    self.logger.info(f"[{self.name}] LLM usage: " + " ".join(bits))
             
             # Log AI decision
+            context = {"prompt": prompt[:200]}
+            if isinstance(usage, dict):
+                context["llm_usage"] = usage
+            if request_id:
+                context["llm_request_id"] = request_id
+            if model:
+                context["llm_model"] = model
             self.logger.log_ai_decision(
                 agent=self.name,
                 decision=result["response"],
                 reasoning=result["reasoning"],
-                context={"prompt": prompt[:200]}
+                context=context
             )
             self.logger.debug(
                 f"[{self.name}] LLM call completed in {time.time() - started:.2f}s"

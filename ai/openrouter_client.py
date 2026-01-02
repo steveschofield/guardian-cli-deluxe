@@ -1,0 +1,224 @@
+"""
+OpenRouter API client for Guardian
+
+OpenRouter exposes an OpenAI-compatible Chat Completions API:
+https://openrouter.ai/docs
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Any, Dict, List, Optional
+
+import httpx
+from dotenv import load_dotenv
+
+from utils.logger import get_logger
+
+
+def _role_from_message(msg: Any) -> Optional[str]:
+    """
+    Best-effort mapping from common message objects to OpenAI roles.
+    Supports LangChain messages, dicts, and simple tuples.
+    """
+    if msg is None:
+        return None
+
+    if isinstance(msg, dict):
+        role = msg.get("role")
+        if isinstance(role, str):
+            return role
+
+        # LangChain-style serialized dicts sometimes carry "type"
+        msg_type = msg.get("type") or msg.get("message_type")
+        if isinstance(msg_type, str):
+            t = msg_type.lower()
+            if t in {"system", "human", "ai", "assistant", "user"}:
+                return {"human": "user", "ai": "assistant"}.get(t, t)
+
+    # LangChain message objects typically expose `.type`
+    msg_type = getattr(msg, "type", None)
+    if isinstance(msg_type, str):
+        t = msg_type.lower()
+        if t in {"system", "human", "ai", "assistant", "user"}:
+            return {"human": "user", "ai": "assistant"}.get(t, t)
+
+    return None
+
+
+def _content_from_message(msg: Any) -> Optional[str]:
+    if msg is None:
+        return None
+    if isinstance(msg, dict):
+        content = msg.get("content")
+        return content if isinstance(content, str) else None
+    content = getattr(msg, "content", None)
+    return content if isinstance(content, str) else None
+
+
+class OpenRouterClient:
+    """OpenRouter client wrapper using httpx (OpenAI-compatible chat completions)."""
+
+    def __init__(self, config: Dict[str, Any]):
+        load_dotenv()
+
+        self.config = config
+        self.logger = get_logger(config)
+
+        ai_config = config.get("ai", {}) or {}
+
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OPENROUTER_API_KEY not found in environment. "
+                "Please set it in .env file or environment variables."
+            )
+
+        self.model_name = ai_config.get("model", "openai/gpt-4o-mini")
+        self.temperature = ai_config.get("temperature", 0.2)
+        self.max_tokens = ai_config.get("max_tokens", 8000)
+        self.base_url = (ai_config.get("base_url") or os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").rstrip("/")
+
+        site_url = ai_config.get("site_url") or os.getenv("OPENROUTER_SITE_URL")
+        app_name = ai_config.get("app_name") or os.getenv("OPENROUTER_APP_NAME")
+
+        timeout_s = ai_config.get("timeout", 60)
+        try:
+            timeout_s = float(timeout_s)
+        except Exception:
+            timeout_s = 60.0
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        if site_url:
+            headers["HTTP-Referer"] = site_url
+        if app_name:
+            headers["X-Title"] = app_name
+
+        self._timeout = httpx.Timeout(timeout_s)
+        self._headers = headers
+        self._async = httpx.AsyncClient(base_url=self.base_url, headers=self._headers, timeout=self._timeout)
+        self._sync = httpx.Client(base_url=self.base_url, headers=self._headers, timeout=self._timeout)
+
+        self.last_usage: Optional[Dict[str, Any]] = None
+        self.last_request_id: Optional[str] = None
+        self.last_model: Optional[str] = None
+
+        self.logger.info(f"Initialized OpenRouter model: {self.model_name} @ {self.base_url}")
+
+    def _build_messages(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        context: Optional[list] = None,
+    ) -> List[Dict[str, str]]:
+        messages: List[Dict[str, str]] = []
+
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+
+        if context:
+            for item in context:
+                role = _role_from_message(item)
+                content = _content_from_message(item)
+                if role and content:
+                    messages.append({"role": role, "content": content})
+
+        messages.append({"role": "user", "content": prompt})
+        return messages
+
+    def _payload(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "model": self.model_name,
+            "messages": messages,
+            "temperature": self.temperature,
+        }
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
+        return payload
+
+    def _extract_text(self, data: Dict[str, Any]) -> str:
+        if "error" in data and data["error"]:
+            raise RuntimeError(f"OpenRouter error: {data['error']}")
+
+        self.last_usage = data.get("usage")
+        self.last_model = data.get("model") or self.model_name
+
+        try:
+            return data["choices"][0]["message"]["content"]
+        except Exception:
+            raise RuntimeError(f"Unexpected OpenRouter response shape: {data}")
+
+    async def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        context: Optional[list] = None,
+    ) -> str:
+        messages = self._build_messages(prompt, system_prompt, context)
+        payload = self._payload(messages)
+
+        try:
+            resp = await self._async.post("/chat/completions", json=payload)
+            resp.raise_for_status()
+            self.last_request_id = (
+                resp.headers.get("x-request-id")
+                or resp.headers.get("x-openrouter-request-id")
+                or resp.headers.get("request-id")
+            )
+            return self._extract_text(resp.json())
+        except Exception as e:
+            self.logger.error(f"OpenRouter API error: {e}")
+            raise
+
+    def generate_sync(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        context: Optional[list] = None,
+    ) -> str:
+        messages = self._build_messages(prompt, system_prompt, context)
+        payload = self._payload(messages)
+
+        try:
+            resp = self._sync.post("/chat/completions", json=payload)
+            resp.raise_for_status()
+            self.last_request_id = (
+                resp.headers.get("x-request-id")
+                or resp.headers.get("x-openrouter-request-id")
+                or resp.headers.get("request-id")
+            )
+            return self._extract_text(resp.json())
+        except Exception as e:
+            self.logger.error(f"OpenRouter API error: {e}")
+            raise
+
+    async def generate_with_reasoning(
+        self,
+        prompt: str,
+        system_prompt: str,
+        context: Optional[list] = None,
+    ) -> Dict[str, str]:
+        enhanced_prompt = f"""{prompt}
+
+Please structure your response as:
+1. REASONING: Explain your thought process and decision-making
+2. RESPONSE: Provide your final answer or recommendation
+"""
+
+        response = await self.generate(enhanced_prompt, system_prompt, context)
+
+        parts = {"reasoning": "", "response": ""}
+        if "REASONING:" in response and "RESPONSE:" in response:
+            reasoning_start = response.find("REASONING:") + len("REASONING:")
+            response_start = response.find("RESPONSE:") + len("RESPONSE:")
+
+            parts["reasoning"] = response[reasoning_start : response.find("RESPONSE:")].strip()
+            parts["response"] = response[response_start:].strip()
+        else:
+            parts["response"] = response
+            parts["reasoning"] = "No explicit reasoning provided"
+
+        return parts

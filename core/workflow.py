@@ -163,7 +163,7 @@ class WorkflowEngine:
             }
             
         except Exception as e:
-            self.logger.error(f"Autonomous workflow failed: {e}")
+            self.logger.exception(f"Autonomous workflow failed: {e}")
             self._save_session()
             raise
         finally:
@@ -231,6 +231,54 @@ class WorkflowEngine:
                 self.logger.info(f"Report saved to: {report_file}")
         
         self.memory.mark_action_complete(step["name"])
+
+    def _run_ip_enrichment(self, target_ip: str) -> None:
+        """Perform lightweight enrichment for IP targets (PTR + TLS cert name harvesting)."""
+        from urllib.parse import urlparse
+        from utils.helpers import reverse_lookup_ip, fetch_tls_names
+        from core.memory import ToolExecution
+
+        hostname = reverse_lookup_ip(target_ip)
+        if hostname:
+            self.logger.info(f"Reverse DNS for {target_ip}: {hostname}")
+            self.memory.update_context("discovered_assets", [hostname])
+            self.memory.add_tool_execution(ToolExecution(
+                tool="reverse_dns",
+                command=f"PTR {target_ip}",
+                target=target_ip,
+                timestamp=datetime.now().isoformat(),
+                exit_code=0,
+                output=hostname,
+                duration=0.0
+            ))
+        else:
+            self.logger.info(f"Reverse DNS for {target_ip}: no PTR found")
+
+        # Probe standard TLS port, plus an explicit port if the target URL included one.
+        ports: list[int] = [443]
+        try:
+            parsed = urlparse(self.target if "://" in self.target else f"//{self.target}")
+            if parsed.port and parsed.port not in ports:
+                ports.append(int(parsed.port))
+        except Exception:
+            pass
+
+        for port in ports:
+            tls_names = fetch_tls_names(target_ip, port)
+            if tls_names:
+                self.logger.info(f"TLS names for {target_ip}:{port}: {', '.join(tls_names)}")
+                self.memory.update_context("discovered_assets", tls_names)
+                self.memory.add_tool_execution(ToolExecution(
+                    tool="tls_cert_probe",
+                    command=f"TLS SAN/CN from {target_ip}:{port}",
+                    target=target_ip,
+                    timestamp=datetime.now().isoformat(),
+                    exit_code=0,
+                    output=", ".join(tls_names),
+                    duration=0.0
+                ))
+            else:
+                self.logger.info(f"TLS names for {target_ip}:{port}: none or TLS unavailable")
     
     async def _execute_ai_decision(self, decision: Dict[str, Any]):
         """Execute an AI-decided action"""
@@ -239,9 +287,15 @@ class WorkflowEngine:
         self.logger.info(f"Executing AI decision: {action}")
 
         if not action or action == "unknown":
-            self.logger.warning("Skipping AI decision because action is unknown/empty")
-            self.memory.mark_action_complete(action or "unknown")
-            return
+            self.logger.warning("Planner returned unknown/empty action; retrying once")
+            retry = await self.planner.decide_next_action()
+            action = retry.get("next_action", "")
+            decision = retry
+            if not action or action == "unknown":
+                self.logger.warning("Planner still returned unknown; falling back to technology_detection")
+                decision = {"next_action": "technology_detection", "parameters": "", "expected_outcome": ""}
+                action = "technology_detection"
+            self.logger.info(f"Recovered AI decision: {action}")
 
         # Handle internal (non-tool) actions without routing through ToolSelector.
         output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
@@ -297,46 +351,43 @@ class WorkflowEngine:
             self.memory.mark_action_complete(action)
             return
 
+        if action == "ssl_analysis":
+            # If the target is a plain-HTTP IP:port and TLS handshakes fail, skip running heavy TLS scanners.
+            from urllib.parse import urlparse
+            from utils.helpers import is_valid_ip, extract_domain_from_url, fetch_tls_names
+            from core.memory import ToolExecution
+
+            host = extract_domain_from_url(self.target) or self.target
+            parsed = urlparse(self.target) if "://" in self.target else urlparse(f"//{self.target}")
+            scheme = parsed.scheme.lower()
+            port = parsed.port
+
+            if is_valid_ip(host) and scheme == "http":
+                ports_to_try = [p for p in [port, 443] if p]
+                tls_names: list[str] = []
+                for p in ports_to_try:
+                    tls_names = fetch_tls_names(host, int(p))
+                    if tls_names:
+                        break
+                if not tls_names:
+                    self.logger.info(f"Skipping ssl_analysis: {host} does not appear to support TLS on {ports_to_try}")
+                    self.memory.add_tool_execution(ToolExecution(
+                        tool="tls_probe",
+                        command=f"TLS handshake probe {host}:{ports_to_try}",
+                        target=host,
+                        timestamp=datetime.now().isoformat(),
+                        exit_code=0,
+                        output="no tls",
+                        duration=0.0
+                    ))
+                    self.memory.mark_action_complete(action)
+                    return
+
         # Skip domain-only actions on IP targets but attempt reverse DNS for recon value
-        from utils.helpers import is_valid_ip, reverse_lookup_ip, fetch_tls_names, extract_domain_from_url
+        from utils.helpers import is_valid_ip, extract_domain_from_url
         target_host = extract_domain_from_url(self.target) or self.target
-        if is_valid_ip(target_host) and action in {"subdomain_enumeration", "dns_enumeration"}:
-            hostname = reverse_lookup_ip(target_host)
-            if hostname:
-                self.logger.info(f"Reverse DNS for {target_host}: {hostname}")
-                self.memory.update_context("discovered_assets", [hostname])
-                # record as a pseudo tool execution for traceability
-                from core.memory import ToolExecution
-                self.memory.add_tool_execution(ToolExecution(
-                    tool="reverse_dns",
-                    command=f"PTR {target_host}",
-                    target=target_host,
-                    timestamp=datetime.now().isoformat(),
-                    exit_code=0,
-                    output=hostname,
-                    duration=0.0
-                ))
-            else:
-                self.logger.info(f"Reverse DNS for {target_host}: no PTR found")
-
-            # Try to harvest TLS SAN/CN names if 443 is listening
-            tls_names = fetch_tls_names(target_host, 443)
-            if tls_names:
-                self.logger.info(f"TLS names for {target_host}: {', '.join(tls_names)}")
-                self.memory.update_context("discovered_assets", tls_names)
-                from core.memory import ToolExecution
-                self.memory.add_tool_execution(ToolExecution(
-                    tool="tls_cert_probe",
-                    command=f"TLS SAN/CN from {target_host}:443",
-                    target=target_host,
-                    timestamp=datetime.now().isoformat(),
-                    exit_code=0,
-                    output=", ".join(tls_names),
-                    duration=0.0
-                ))
-            else:
-                self.logger.info(f"TLS names for {target_host}: none or TLS unavailable")
-
+        if is_valid_ip(target_host) and action in {"subdomain_enumeration", "dns_enumeration", "ip_enrichment"}:
+            self._run_ip_enrichment(target_host)
             self.memory.mark_action_complete(action)
             return
         
