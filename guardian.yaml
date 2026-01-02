@@ -9,7 +9,7 @@ ai:
   # Ollama (uncomment to use):
   provider: ollama
   # model: "llama3.1:8b"
-  model: "gurubot/gpt-oss-derestricted:20b"
+  model: "gdisney/mistral-uncensored:latest"
   base_url: "http://192.168.1.69:11434"
   temperature: 0.2
   llm_timeout_seconds: 300
