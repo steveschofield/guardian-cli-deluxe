@@ -125,7 +125,7 @@ RUN python3 -m venv /opt/guardian/venv && \
     mkdir -p /opt/guardian/reports /opt/guardian/logs && \
     chmod 777 /opt/guardian/reports /opt/guardian/logs
 
-ENV PATH="/opt/guardian/venv/bin:${PATH}" \
+ENV PATH="/opt/guardian/tools/.bin:/opt/guardian/venv/bin:${PATH}" \
     GUARDIAN_HOME=/opt/guardian
 
 # Expose the RDP port
