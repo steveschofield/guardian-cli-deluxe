@@ -12,7 +12,7 @@ ai:
   model: "gemini-2.5-flash"
   # temperature: 0.2
   vertexai: true
-  project: "<replace-with-project>"
+  project: "<replace-with-project"
   location: "us-central1"
 
   # OpenRouter (uncomment to use):
