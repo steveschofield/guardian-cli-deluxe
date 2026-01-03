@@ -131,10 +131,6 @@ ENV PATH="/opt/guardian/venv/bin:${PATH}" \
 # Expose the RDP port
 EXPOSE ${RDP_PORT}
 
-<<<<<<< HEAD
-# Start XRDP (sesman + xrdp) and keep container alive (use docker exec to run guardian commands)
-CMD service dbus start || true; service xrdp-sesman start || true; service xrdp start || true; tail -f /var/log/xrdp.log
-=======
 # Health check to verify xrdp is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD pgrep xrdp > /dev/null || exit 1
@@ -173,4 +169,3 @@ RUN printf '%s\n' \
 
 # Use the entrypoint script
 CMD ["/entrypoint.sh"]
->>>>>>> aca3e40 (update docker kali file)
