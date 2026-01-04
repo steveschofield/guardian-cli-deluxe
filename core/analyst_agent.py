@@ -4,6 +4,7 @@ Interprets scan results and identifies security vulnerabilities
 """
 
 import re
+import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from core.agent import BaseAgent
@@ -67,6 +68,11 @@ class AnalystAgent(BaseAgent):
         # Reduce prompt bloat for Nmap XML by extracting only high-signal elements.
         if tool == "nmap" and output.lstrip().startswith("<?xml") and "<nmaprun" in output:
             output = self._condense_nmap_xml(output)
+
+        # Reduce prompt bloat for Nuclei JSONL by stripping huge fields (request/response/template-encoded)
+        # and keeping only high-signal, evidence-friendly elements.
+        if tool == "nuclei":
+            output = self._condense_nuclei_jsonl(output)
 
         # Truncate very long outputs (configurable)
         ai_cfg = (self.config or {}).get("ai", {}) or {}
@@ -208,6 +214,94 @@ class AnalystAgent(BaseAgent):
             return "\n".join(out)
         except Exception:
             return xml_text
+
+    def _condense_nuclei_jsonl(self, text: str) -> str:
+        """
+        Condense Nuclei JSONL into a smaller, evidence-friendly snippet set:
+        - summary counts by severity
+        - up to N minimal JSON objects (1 per match), stripping very large fields
+
+        Keeps verbatim JSON (minified) so the model can cite evidence directly.
+        """
+        text = (text or "").strip()
+        if not text:
+            return text
+
+        # Nuclei can emit very large JSON fields (e.g., template-encoded, request, response).
+        # We keep only high-signal keys needed for triage and evidence.
+        drop_keys = {
+            "template-encoded",
+            "request",
+            "response",
+            "curl-command",
+            "raw-request",
+            "raw-response",
+            "matcher-status",
+        }
+
+        lines = [ln for ln in text.splitlines() if ln.strip()]
+        # Some environments may produce a single giant JSON object without newlines.
+        if len(lines) == 1 and lines[0].lstrip().startswith("{") and lines[0].rstrip().endswith("}"):
+            candidates = [lines[0]]
+        else:
+            candidates = lines
+
+        items: list[dict[str, Any]] = []
+        for ln in candidates:
+            if not ln.lstrip().startswith("{"):
+                continue
+            try:
+                obj = json.loads(ln)
+            except Exception:
+                continue
+
+            minimal: dict[str, Any] = {}
+            for k, v in obj.items():
+                if k in drop_keys:
+                    continue
+                minimal[k] = v
+
+            # Keep a stable, compact subset if present.
+            info = minimal.get("info") if isinstance(minimal.get("info"), dict) else {}
+            slim = {
+                "template-id": minimal.get("template-id") or minimal.get("templateID") or minimal.get("template"),
+                "name": info.get("name"),
+                "severity": (info.get("severity") or "").lower() if isinstance(info.get("severity"), str) else info.get("severity"),
+                "type": minimal.get("type"),
+                "matched-at": minimal.get("matched-at") or minimal.get("matched") or minimal.get("url"),
+                "host": minimal.get("host") or minimal.get("ip"),
+                "timestamp": minimal.get("timestamp"),
+                "reference": info.get("reference"),
+                "tags": info.get("tags"),
+            }
+            # Remove empty fields
+            slim = {k: v for k, v in slim.items() if v not in (None, "", [], {})}
+            items.append(slim)
+
+        if not items:
+            return text
+
+        by_sev: dict[str, int] = {}
+        for it in items:
+            sev = it.get("severity") or "unknown"
+            if isinstance(sev, str):
+                sev = sev.lower()
+            by_sev[str(sev)] = by_sev.get(str(sev), 0) + 1
+
+        # Keep the first N for evidence; for larger scans, this prevents prompt bloat.
+        max_items = 50
+        kept = items[:max_items]
+
+        out: list[str] = []
+        out.append("NUCLEI_JSONL_CONDENSED: true")
+        out.append(f"NUCLEI_MATCHES: {len(items)}")
+        out.append("NUCLEI_BY_SEVERITY: " + json.dumps(by_sev, sort_keys=True))
+        out.append("NUCLEI_RESULTS_JSON:")
+        for it in kept:
+            out.append(json.dumps(it, separators=(",", ":"), ensure_ascii=False))
+        if len(items) > max_items:
+            out.append(f"... ({len(items) - max_items} more results omitted)")
+        return "\n".join(out)
 
     def _postprocess_findings(self, findings: List[Finding], tool: str, output: str) -> List[Finding]:
         """

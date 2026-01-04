@@ -6,6 +6,8 @@ import os
 import json
 import shutil
 import subprocess
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -109,7 +111,18 @@ class NucleiTool(BaseTool):
             from_file = os.path.expandvars(os.path.expanduser(kwargs["from_file"]))
             command.extend(["-l", from_file])
         else:
-            command.extend(["-u", target])
+            # Nuclei is URL-first; if we get a bare host/IP, try both http and https.
+            target_str = (target or "").strip()
+            if re.match(r"^https?://", target_str, re.IGNORECASE):
+                command.extend(["-u", target_str])
+            else:
+                out_dir = Path((self.config or {}).get("output", {}).get("save_path", "./reports"))
+                out_dir.mkdir(parents=True, exist_ok=True)
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                targets_file = out_dir / f"nuclei_targets_{ts}.txt"
+                with open(targets_file, "w", encoding="utf-8") as f:
+                    f.write(f"http://{target_str}\nhttps://{target_str}\n")
+                command.extend(["-l", str(targets_file)])
         
         # JSONL output (parseable line by line)
         command.extend(["-jsonl"])
