@@ -172,27 +172,28 @@ class AnalystAgent(BaseAgent):
                 out.append(m.group(0))
 
             # Extract open port blocks and then keep only high-signal tags from within each block.
-            port_blocks = re.findall(r"<port\\b[\\s\\S]*?</port>", xml_text)
-            open_blocks = [b for b in port_blocks if re.search(r'<state\\b[^>]*state=\"open\"', b)]
+            # NOTE: use regex word-boundaries like `\b` (not literal backslashes).
+            port_blocks = re.findall(r"<port\b[\s\S]*?</port>", xml_text)
+            open_blocks = [b for b in port_blocks if re.search(r'<state\b[^>]*state="open"', b)]
 
             out.append(f"OPEN_PORTS_FOUND: {len(open_blocks)}")
 
             for block in open_blocks:
                 # Port header (includes protocol + portid)
-                m = re.search(r"<port\\b[^>]+>", block)
+                m = re.search(r"<port\b[^>]+>", block)
                 if m:
                     out.append(m.group(0))
 
-                m = re.search(r"<state\\b[^>]+/>", block)
+                m = re.search(r"<state\b[^>]+/>", block)
                 if m:
                     out.append(m.group(0))
 
-                m = re.search(r"<service\\b[^>]+>", block)
+                m = re.search(r"<service\b[^>]+>", block)
                 if m:
                     out.append(m.group(0))
 
                 # Include script start tags (outputs like http-title, ssl-cert summary, etc.)
-                scripts = re.findall(r"<script\\b[^>]+>", block)
+                scripts = re.findall(r"<script\b[^>]+>", block)
                 # Keep at most a handful per port to prevent bloat.
                 for s in scripts[:12]:
                     out.append(s)
