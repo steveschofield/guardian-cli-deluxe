@@ -8,12 +8,12 @@ ai:
   # - For higher limits without an API key, use Vertex AI + ADC:
   #   1) gcloud auth application-default login
   #   2) set vertexai: true and project: "<your project id or project number>"
-  provider: gemini
-  model: "gemini-2.5-flash"
+  # provider: gemini
+  # model: "gemini-2.5-flash"
   # temperature: 0.2
-  vertexai: true
-  project: "<replace-with-project"
-  location: "us-central1"
+  # vertexai: true
+  # project: "<your-gcp-project-id-or-number>"
+  # location: "us-central1"
 
   # OpenRouter (uncomment to use):
   # provider: openrouter
@@ -21,11 +21,12 @@ ai:
   # base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama (uncomment to use):
-  #provider: ollama
+  # provider: ollama
   # model: "llama3.1:8b"
-  #model: "qwen2.5-coder:7b-instruct"
-  #base_url: "http://192.168.1.69:11434"
-  #temperature: 0.2
+  # base_url: "http://127.0.0.1:11434"
+  # temperature: 0.2
+  # context_window: 8192   # Ollama num_ctx
+  # max_input_chars: 40000
   llm_timeout_seconds: 600
 
 pentest:

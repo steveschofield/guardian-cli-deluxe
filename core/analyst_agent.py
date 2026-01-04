@@ -64,9 +64,19 @@ class AnalystAgent(BaseAgent):
                 "tool": tool
             }
 
-        # Truncate very long outputs
-        if len(output) > 5000:
-            output = output[:5000] + "\n... (truncated)"
+        # Reduce prompt bloat for Nmap XML by extracting only high-signal elements.
+        if tool == "nmap" and output.lstrip().startswith("<?xml") and "<nmaprun" in output:
+            output = self._condense_nmap_xml(output)
+
+        # Truncate very long outputs (configurable)
+        ai_cfg = (self.config or {}).get("ai", {}) or {}
+        max_chars = ai_cfg.get("max_tool_output_chars", 20000)
+        try:
+            max_chars = int(max_chars)
+        except Exception:
+            max_chars = 20000
+        if max_chars > 0 and len(output) > max_chars:
+            output = output[:max_chars] + "\n... (truncated)"
         
         prompt = ANALYST_INTERPRET_PROMPT.format(
             tool=tool,
@@ -133,6 +143,70 @@ class AnalystAgent(BaseAgent):
             "reasoning": result["reasoning"],
             "tool": tool
         }
+
+    def _condense_nmap_xml(self, xml_text: str) -> str:
+        """
+        Condense Nmap XML into a smaller, evidence-friendly snippet set:
+        - host status + hostnames
+        - closed/open counts when present
+        - open ports: <port>, <state>, <service>, and <script ...> start tags
+
+        Keeps verbatim XML tag strings so the model can cite evidence directly.
+        """
+        try:
+            out: list[str] = []
+            out.append("NMAP_XML_CONDENSED: true")
+
+            # Host status line
+            m = re.search(r"<status[^>]+/>", xml_text)
+            if m:
+                out.append(m.group(0))
+
+            # Hostnames
+            for hn in re.findall(r"<hostname[^>]+/>", xml_text):
+                out.append(hn)
+
+            # Extraports summary (closed/filtered counts)
+            m = re.search(r"<extraports[^>]+>", xml_text)
+            if m:
+                out.append(m.group(0))
+
+            # Extract open port blocks and then keep only high-signal tags from within each block.
+            port_blocks = re.findall(r"<port\\b[\\s\\S]*?</port>", xml_text)
+            open_blocks = [b for b in port_blocks if re.search(r'<state\\b[^>]*state=\"open\"', b)]
+
+            out.append(f"OPEN_PORTS_FOUND: {len(open_blocks)}")
+
+            for block in open_blocks:
+                # Port header (includes protocol + portid)
+                m = re.search(r"<port\\b[^>]+>", block)
+                if m:
+                    out.append(m.group(0))
+
+                m = re.search(r"<state\\b[^>]+/>", block)
+                if m:
+                    out.append(m.group(0))
+
+                m = re.search(r"<service\\b[^>]+>", block)
+                if m:
+                    out.append(m.group(0))
+
+                # Include script start tags (outputs like http-title, ssl-cert summary, etc.)
+                scripts = re.findall(r"<script\\b[^>]+>", block)
+                # Keep at most a handful per port to prevent bloat.
+                for s in scripts[:12]:
+                    out.append(s)
+
+                out.append("</port>")
+
+            # Always include run summary if present
+            m = re.search(r"<finished\\b[^>]+/>", xml_text)
+            if m:
+                out.append(m.group(0))
+
+            return "\n".join(out)
+        except Exception:
+            return xml_text
 
     def _postprocess_findings(self, findings: List[Finding], tool: str, output: str) -> List[Finding]:
         """

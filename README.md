@@ -266,6 +266,22 @@ tools:
     scan: baseline   # full requires pentest.safe_mode: false
 ```
 
+To log full LLM request/response payloads (useful for debugging prompt/tool decisions):
+
+```bash
+# Writes JSONL to reports/llm_io_<session>_<timestamp>.jsonl
+export LSG_LOG_LLM_REQUESTS=1
+export LSG_DEBUG_SAVE_OUTPUT=1
+```
+
+The file contains JSONL events per LLM call (`request`, `response`, `error`) correlated by `call_id`.
+
+Prompt size controls:
+- `ai.max_tool_output_chars`: caps raw tool output included in prompts (Analyst).
+- `ai.max_input_chars`: caps total characters sent to the LLM (best-effort across providers).
+- `ai.context_window`: (Ollama only) sets `num_ctx` via `ChatOllama(options=...)`.
+
+TODO (future optimization): Condense other noisy tool outputs (e.g., `httpx` JSONL, `nuclei` JSONL, `testssl`/`sslyze`, crawlers) before sending to the LLM, while keeping raw outputs in session logs for audit.
 ---
 
 ## 🎯 Quick Start

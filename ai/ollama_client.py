@@ -27,14 +27,29 @@ class OllamaClient:
         self.temperature = ai_config.get("temperature", 0.2)
         self.max_tokens = ai_config.get("max_tokens")  # mapped to num_predict if provided
         self.base_url = ai_config.get("base_url") or os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+        # Context window size (Ollama option: num_ctx)
+        self.context_window = (
+            ai_config.get("context_window")
+            or ai_config.get("num_ctx")
+            or ai_config.get("ollama_num_ctx")
+            or os.getenv("OLLAMA_NUM_CTX")
+        )
+        try:
+            self.context_window = int(self.context_window) if self.context_window is not None else None
+        except Exception:
+            self.context_window = None
 
         try:
+            options: Dict[str, Any] = {}  # avoid unsupported defaults
+            if self.context_window:
+                options["num_ctx"] = int(self.context_window)
+
             self.llm = ChatOllama(
                 model=self.model_name,
                 temperature=self.temperature,
                 base_url=self.base_url,
                 num_predict=self.max_tokens,
-                options={},  # avoid unsupported defaults
+                options=options,
             )
             self.logger.info(f"Initialized Ollama model: {self.model_name} @ {self.base_url}")
         except Exception as e:

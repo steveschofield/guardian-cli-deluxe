@@ -28,7 +28,6 @@ During the Kali build, `setup.sh` runs inside the image. Output streams to the b
 ```bash
 docker exec -it guardian-kali tail -n 200 /opt/guardian/setup.log
 ```
-
 ### 2. Set Up Environment
 
 Create a `.env` file in the project root:
