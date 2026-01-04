@@ -25,8 +25,8 @@ ai:
   # - Create a token (fine-grained is recommended) and set env HF_TOKEN
   # - Model is a Hub repo id, e.g. meta-llama/Meta-Llama-3-8B-Instruct
   provider: huggingface
-  model: "meta-llama/Meta-Llama-3-8B-Instruct"
-  base_url: "https://api-inference.huggingface.co/models"
+  model: "meta-llama/Llama-4-Scout-17B-16E"
+  base_url: "https://router.huggingface.co/hf-inference/models"
   timeout: 60
   hf_max_retries: 4
   temperature: 0.2

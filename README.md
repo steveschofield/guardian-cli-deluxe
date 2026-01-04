@@ -252,7 +252,7 @@ echo "HF_TOKEN=your_huggingface_token_here" > .env
 ai:
   provider: huggingface
   model: "meta-llama/Meta-Llama-3-8B-Instruct"   # any public HF model repo id you can access
-  base_url: "https://api-inference.huggingface.co/models"
+  base_url: "https://router.huggingface.co/hf-inference/models"
 ```
 
 To use a local LLM (e.g., Ollama Llama 3.x):

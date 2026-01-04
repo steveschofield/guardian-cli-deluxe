@@ -32,7 +32,7 @@ ai:
   # - Set env HF_TOKEN (or HUGGINGFACEHUB_API_TOKEN)
   # provider: huggingface
   # model: "meta-llama/Meta-Llama-3-8B-Instruct"
-  # base_url: "https://api-inference.huggingface.co/models"
+  # base_url: "https://router.huggingface.co/hf-inference/models"
   # hf_max_retries: 4
   llm_timeout_seconds: 600
 

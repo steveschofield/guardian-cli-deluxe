@@ -42,8 +42,11 @@ class HuggingFaceClient:
             ai_config.get("base_url")
             or ai_config.get("hf_base_url")
             or os.getenv("HF_INFERENCE_BASE_URL")
-            or "https://api-inference.huggingface.co/models"
+            # Hugging Face has migrated serverless routing to router.huggingface.co.
+            # The routed serverless endpoint prefix is /hf-inference/models/<MODEL_ID>.
+            or "https://router.huggingface.co/hf-inference/models"
         ).rstrip("/")
+        self.base_url = self._normalize_base_url(self.base_url)
 
         # Optional: override to a fully qualified endpoint URL (serverless or dedicated endpoint).
         self.endpoint_url = (
@@ -85,6 +88,23 @@ class HuggingFaceClient:
         self.last_model: Optional[str] = None
 
         self.logger.info(f"Initialized HuggingFace model: {self.model_name} @ {self._resolved_endpoint()}")
+
+    @staticmethod
+    def _normalize_base_url(base_url: str) -> str:
+        """
+        Map legacy HF serverless base URLs to the new router endpoint when possible.
+        """
+        b = (base_url or "").strip().rstrip("/")
+        if not b:
+            return b
+
+        # Legacy:
+        #   https://api-inference.huggingface.co/models
+        # New:
+        #   https://router.huggingface.co/hf-inference/models
+        if "api-inference.huggingface.co" in b:
+            return "https://router.huggingface.co/hf-inference/models"
+        return b
 
     def _resolved_endpoint(self) -> str:
         if self.endpoint_url:
@@ -135,7 +155,14 @@ class HuggingFaceClient:
 
     def _extract_text(self, data: Any) -> str:
         if isinstance(data, dict) and data.get("error"):
-            raise RuntimeError(f"HuggingFace error: {data.get('error')}")
+            err = str(data.get("error"))
+            if "api-inference.huggingface.co" in err and "router.huggingface.co" in err:
+                raise RuntimeError(
+                    "HuggingFace Serverless Inference API base URL has changed. "
+                    "Set `ai.base_url` to `https://router.huggingface.co/hf-inference/models` "
+                    "or omit it to use the new default."
+                )
+            raise RuntimeError(f"HuggingFace error: {err}")
 
         # Common shapes:
         # - [{"generated_text": "..."}]
