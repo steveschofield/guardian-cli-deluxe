@@ -168,6 +168,16 @@ class HuggingFaceClient:
                     or resp.headers.get("x-amzn-requestid")
                     or resp.headers.get("x-correlation-id")
                 )
+                if resp.status_code in {404, 410}:
+                    # 410 is commonly returned when a model is not served by the Serverless Inference API.
+                    # 404 is typically an invalid model id or an access-controlled repository without access.
+                    hint = (
+                        "The requested model is not available on the Hugging Face Serverless Inference API, "
+                        "or your token lacks access to it. If the repo is gated (e.g., Llama), accept the model "
+                        "terms on Hugging Face and ensure your token has permission. Otherwise, pick a different "
+                        "serverless-supported model or use a dedicated Inference Endpoint and set `ai.endpoint_url`."
+                    )
+                    raise RuntimeError(f"HTTP {resp.status_code} from Hugging Face for {url}. {hint} Body: {resp.text[:2000]}")
                 if resp.status_code in {503, 429}:
                     # 503 often indicates model is loading. 429 indicates rate limit.
                     last_err = RuntimeError(f"HTTP {resp.status_code}: {resp.text[:2000]}")
@@ -200,6 +210,14 @@ class HuggingFaceClient:
                     or resp.headers.get("x-amzn-requestid")
                     or resp.headers.get("x-correlation-id")
                 )
+                if resp.status_code in {404, 410}:
+                    hint = (
+                        "The requested model is not available on the Hugging Face Serverless Inference API, "
+                        "or your token lacks access to it. If the repo is gated (e.g., Llama), accept the model "
+                        "terms on Hugging Face and ensure your token has permission. Otherwise, pick a different "
+                        "serverless-supported model or use a dedicated Inference Endpoint and set `ai.endpoint_url`."
+                    )
+                    raise RuntimeError(f"HTTP {resp.status_code} from Hugging Face for {url}. {hint} Body: {resp.text[:2000]}")
                 if resp.status_code in {503, 429}:
                     last_err = RuntimeError(f"HTTP {resp.status_code}: {resp.text[:2000]}")
                     time.sleep(backoff_s)
@@ -266,4 +284,3 @@ Please structure your response as:
             parts["reasoning"] = "No explicit reasoning provided"
 
         return parts
-
