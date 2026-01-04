@@ -1,6 +1,6 @@
 # Guardian Configuration
 ai:
-  # Supported providers: gemini, ollama, openrouter
+  # Supported providers: gemini, ollama, openrouter, huggingface
   #
   # Gemini (Google) (uncomment to use):
   # - API key goes in env var: GOOGLE_API_KEY (do NOT put keys in this file)
@@ -27,6 +27,13 @@ ai:
   # temperature: 0.2
   # context_window: 8192   # Ollama num_ctx
   # max_input_chars: 40000
+  #
+  # Hugging Face Serverless Inference API (uncomment to use):
+  # - Set env HF_TOKEN (or HUGGINGFACEHUB_API_TOKEN)
+  # provider: huggingface
+  # model: "meta-llama/Meta-Llama-3-8B-Instruct"
+  # base_url: "https://api-inference.huggingface.co/models"
+  # hf_max_retries: 4
   llm_timeout_seconds: 600
 
 pentest:

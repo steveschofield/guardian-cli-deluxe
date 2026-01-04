@@ -3,21 +3,32 @@
 
 # AI Configuration
 ai:
-  # Supported providers: gemini, ollama, openrouter
-  #provider: openrouter
+  # Supported providers: gemini, ollama, openrouter, huggingface
+  provider: openrouter
   #model: "xiaomi/mimo-v2-flash:free"
-  #base_url: "https://openrouter.ai/api/v1"
+  model: "qwen/qwen3-coder:free"
+  base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama example:
-  provider: ollama
+  #provider: ollama
   # model: "llama3.1:8b"
-  model: deepseek-r1:8b 
-  base_url: "http://192.168.1.69:11434"
+  # model: deepseek-r1:8b 
+  #model: llama3.2:3b
+  #base_url: "http://192.168.1.69:11434"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
   # - Install deps: pip install -U google-genai
   # - Authenticate: gcloud auth application-default login
   # - Configure project id OR project number below (NOT an API key):
+  #
+  # Hugging Face Serverless Inference API example:
+  # - Create a token (fine-grained is recommended) and set env HF_TOKEN
+  # - Model is a Hub repo id, e.g. meta-llama/Meta-Llama-3-8B-Instruct
+  # provider: huggingface
+  # model: "meta-llama/Meta-Llama-3-8B-Instruct"
+  # base_url: "https://api-inference.huggingface.co/models"
+  # timeout: 60
+  # hf_max_retries: 4
   temperature: 0.2
   max_tokens: 8000
   # Limit total characters sent to the LLM (across system prompt + context + current prompt).
@@ -121,19 +132,10 @@ tools:
     enabled: true
 
   zap:
-    enabled: false
-    # Run mode:
-    # - docker  (recommended): runs zap-baseline.py/zap-full-scan.py inside a container per scan
-    # - daemon: connect to an already-running ZAP daemon via API (local or remote)
-    # - local: run a locally-installed ZAP script/command (advanced)
+    enabled: true
+    # Run mode: "docker" recommended, or "local" for a locally-installed ZAP script.
     mode: docker
     docker_image: "ghcr.io/zaproxy/zaproxy:stable"
-    # For mode=daemon: ZAP API endpoint + optional API key.
-    # Start a local daemon (example):
-    #   docker run --rm -d --name zap -p 8080:8080 ghcr.io/zaproxy/zaproxy:stable zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true
-    # api_url: "http://127.0.0.1:8080"
-    # api_key: ""
-    # spider: true
     # baseline = passive (safer), full = active scan (requires pentest.safe_mode: false)
     scan: baseline
     # Time budget for the scan scripts (minutes)
