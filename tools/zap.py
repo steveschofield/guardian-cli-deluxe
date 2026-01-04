@@ -1,7 +1,7 @@
 """
 OWASP ZAP tool wrapper (headless) for Guardian.
 
-Default execution uses the official Docker image (owasp/zap2docker-stable) and runs:
+Default execution uses the official Docker image (`ghcr.io/zaproxy/zaproxy:stable`) and runs:
 - zap-baseline.py (passive scan, safer)
 
 Active scans are intentionally gated behind safe_mode=false and an explicit config choice.
@@ -49,7 +49,7 @@ class ZapTool(BaseTool):
 
     def _build_docker_command(self, target: str, scan: str, timeout_min: int) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
-        image = cfg.get("docker_image") or "owasp/zap2docker-stable"
+        image = cfg.get("docker_image") or "ghcr.io/zaproxy/zaproxy:stable"
 
         out_dir = self._reports_dir() / "zap"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -166,4 +166,3 @@ class ZapTool(BaseTool):
                 "sites": len(data.get("site") or []),
             },
         }
-

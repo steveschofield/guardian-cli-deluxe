@@ -122,7 +122,7 @@ class ToolAgent(BaseAgent):
             "schemathesis": "pip install schemathesis",
             "trufflehog": "pip install trufflehog",
             "metasploit": "install via https://www.metasploit.com/ (msfconsole on PATH)",
-            "zap": "docker pull owasp/zap2docker-stable (requires Docker)",
+            "zap": "docker pull ghcr.io/zaproxy/zaproxy:stable (requires Docker)",
         }
 
         missing = []

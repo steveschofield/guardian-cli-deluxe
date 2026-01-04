@@ -67,7 +67,7 @@ This directory contains wrappers for various penetration testing tools.
   - Features: Plugin/theme enumeration, vulnerability database, user enumeration
 
 - **OWASP ZAP (headless)**: Web app scanning (baseline passive or full active)
-  - Installation: Docker recommended: `docker pull owasp/zap2docker-stable`
+  - Installation: Docker recommended: `docker pull ghcr.io/zaproxy/zaproxy:stable` (alternatives: `:bare`, `:weekly`, `:nightly`)
   - Features: Passive scan (baseline), optional active scan (full) when safe_mode is disabled
 
 ### SSL/TLS Testing

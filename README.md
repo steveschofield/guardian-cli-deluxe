@@ -256,7 +256,7 @@ ai:
 To enable OWASP ZAP scans (headless via Docker):
 
 ```bash
-docker pull owasp/zap2docker-stable
+docker pull ghcr.io/zaproxy/zaproxy:stable
 
 # In config/guardian.yaml
 tools:
@@ -264,6 +264,7 @@ tools:
     enabled: true
     mode: docker
     scan: baseline   # full requires pentest.safe_mode: false
+    docker_image: ghcr.io/zaproxy/zaproxy:stable   # or :bare / :weekly / :nightly
 ```
 
 To log full LLM request/response payloads (useful for debugging prompt/tool decisions):
