@@ -140,7 +140,20 @@ class GeminiClient:
                     parts.append(content.strip())
 
         parts.append(prompt)
-        return "\n\n".join(parts).strip()
+        text = "\n\n".join(parts).strip()
+
+        ai_cfg = (self.config or {}).get("ai", {}) or {}
+        max_input_chars = ai_cfg.get("max_input_chars")
+        try:
+            max_input_chars = int(max_input_chars) if max_input_chars is not None else None
+        except Exception:
+            max_input_chars = None
+
+        if max_input_chars and max_input_chars > 0 and len(text) > max_input_chars:
+            # Keep the tail (usually contains the latest tool output and the user's ask).
+            text = text[-max_input_chars:]
+
+        return text
 
     async def generate(
         self,

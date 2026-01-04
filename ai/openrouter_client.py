@@ -114,6 +114,13 @@ class OpenRouterClient:
         system_prompt: Optional[str] = None,
         context: Optional[list] = None,
     ) -> List[Dict[str, str]]:
+        ai_cfg = (self.config or {}).get("ai", {}) or {}
+        max_input_chars = ai_cfg.get("max_input_chars")
+        try:
+            max_input_chars = int(max_input_chars) if max_input_chars is not None else None
+        except Exception:
+            max_input_chars = None
+
         messages: List[Dict[str, str]] = []
 
         if system_prompt:
@@ -127,6 +134,30 @@ class OpenRouterClient:
                     messages.append({"role": role, "content": content})
 
         messages.append({"role": "user", "content": prompt})
+
+        # Best-effort prompt size cap (keeps system prompt + most recent context).
+        if max_input_chars and max_input_chars > 0:
+            def total_chars(msgs: List[Dict[str, str]]) -> int:
+                return sum(len(m.get("content") or "") for m in msgs)
+
+            # Drop oldest non-system messages until under budget.
+            while len(messages) > 2 and total_chars(messages) > max_input_chars:
+                # Preserve system message at index 0 if present.
+                drop_idx = 1 if messages and messages[0].get("role") == "system" else 0
+                # Never drop the final user message.
+                if drop_idx >= len(messages) - 1:
+                    break
+                messages.pop(drop_idx)
+
+            # If still too big, truncate the final user prompt.
+            over = total_chars(messages) - max_input_chars
+            if over > 0 and messages:
+                last = messages[-1]
+                if last.get("role") == "user":
+                    content = last.get("content") or ""
+                    keep = max(0, len(content) - over)
+                    last["content"] = content[-keep:] if keep else ""
+
         return messages
 
     def _payload(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:

@@ -4,26 +4,34 @@
 # AI Configuration
 ai:
   # Supported providers: gemini, ollama, openrouter
-  #provider: ollama
+  provider: ollama
   #model: "llama3.1:8b"
-  #base_url: "http://192.168.1.69:11434"
+  model: "deepseek-r1:8b"
+  base_url: "http://192.168.1.69:11434"
   # OpenRouter example:
-  provider: openrouter
-  model: "xiaomi/mimo-v2-flash:free"
-  base_url: "https://openrouter.ai/api/v1"
+  #provider: openrouter
+  #model: "xiaomi/mimo-v2-flash:free"
+  #base_url: "https://openrouter.ai/api/v1"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
   # - Install deps: pip install -U google-genai
   # - Authenticate: gcloud auth application-default login
   # - Configure project id OR project number below (NOT an API key):
-  # provider: gemini
-  # model: "gemini-2.5-flash"
-  # vertexai: true
-  # project: "your-gcp-project-id-or-number"
-  # location: "us-central1"
-  temperature: 0.2
+  #provider: gemini
+  #model: "gemini-2.5-flash"
+  #vertexai: true
+  #project: "<project # or put GOOGLE_CLOUD_PROJECT=1234 in .env>"
+  #location: "us-central1"
+  #temperature: 0.2
   max_tokens: 8000
-  timeout: 60
+  # Limit total characters sent to the LLM (across system prompt + context + current prompt).
+  # Helps avoid provider context limits and reduces latency/cost.
+  max_input_chars: 40000
+  # Optional: desired context window size (only enforced for Ollama via num_ctx; other providers may ignore).
+  # context_window: 8192
+  # Max characters of tool output to include in LLM prompts (larger = more context, more tokens/cost)
+  max_tool_output_chars: 20000
+  timeout: 600
 
 # Penetration Testing Settings
 pentest:
