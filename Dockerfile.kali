@@ -1,15 +1,21 @@
-# Kali Linux + Guardian CLI (optionally with XFCE + XRDP)
+# Kali Linux + Guardian CLI (with XFCE + XRDP)
 #
 # Notes:
 # - This image is intentionally large (Kali desktop + meta tool bundles).
 # - Default CMD starts XRDP for remote desktop access.
 # - Guardian runs inside the container; reports/logs should be volume-mounted.
+# - Fixed for proper XFCE desktop rendering and start menu functionality
 #
 # Build:
 #   docker build -f Dockerfile.kali -t guardian-kali:latest .
 #
 # Run (RDP on 3390):
 #   docker run --rm -it -p 3390:3390 guardian-kali:latest
+#
+# Connect via RDP:
+#   - Host: localhost:3390
+#   - Username: kali
+#   - Password: kali
 
 FROM kalilinux/kali-rolling
 
@@ -30,8 +36,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ruby ruby-dev \
     nodejs npm \
     golang-go \
-    # Optional desktop + RDP (remove if you want a headless container)
-    kali-desktop-xfce xrdp xorgxrdp dbus-x11 \
+    # Desktop + RDP components
+    kali-desktop-xfce \
+    xrdp \
+    xorgxrdp \
+    dbus-x11 \
+    xfce4-terminal \
+    xfce4-goodies \
     # Kali meta-packages (broad tool coverage)
     kali-tools-vulnerability \
     kali-tools-web \
@@ -50,41 +61,63 @@ RUN mkdir -p /run/xrdp /var/run/xrdp /run/dbus && \
     chown -R xrdp:xrdp /run/xrdp /var/run/xrdp || true
 
 # XRDP: listen on non-default port to avoid conflicts
-RUN sed -i "s/^port=3389$/port=${RDP_PORT}/g" /etc/xrdp/xrdp.ini || true
+RUN sed -i "s/^port=3389$/port=${RDP_PORT}/g" /etc/xrdp/xrdp.ini
 
 # Create a user for RDP access
 RUN useradd -m -s /bin/bash "${KALI_USER}" && \
-    echo "${KALI_USER}:${KALI_PASSWORD}" | chpasswd
+    echo "${KALI_USER}:${KALI_PASSWORD}" | chpasswd && \
+    usermod -aG sudo "${KALI_USER}"
 
-# Ensure XRDP starts an XFCE session (panel/menu) instead of the default X session.
-# This avoids the common "desktop without start menu/panel" issue.
+# Configure XRDP startwm.sh to properly launch XFCE
 RUN printf '%s\n' \
     '#!/bin/sh' \
-    'set -eu' \
     '' \
-    '# Load env if present' \
-    '[ -r /etc/profile ] && . /etc/profile' \
-    '[ -r "$HOME/.profile" ] && . "$HOME/.profile"' \
+    '# Load system profile' \
+    'if [ -r /etc/profile ]; then' \
+    '    . /etc/profile' \
+    'fi' \
     '' \
-    '# Start XFCE with a dbus session so panel/menu services work.' \
+    '# Load user profile' \
+    'if [ -r "$HOME/.profile" ]; then' \
+    '    . "$HOME/.profile" >/dev/null 2>&1' \
+    'fi' \
+    '' \
+    '# Start XFCE with dbus session for panel/menu functionality' \
     'exec dbus-launch --exit-with-session startxfce4' \
-    > /etc/xrdp/startwm.sh && chmod +x /etc/xrdp/startwm.sh
+    > /etc/xrdp/startwm.sh && \
+    chmod +x /etc/xrdp/startwm.sh
 
-# XFCE default session for the user (also used by /etc/X11/Xsession on some setups)
-RUN echo "dbus-launch --exit-with-session startxfce4" > "/home/${KALI_USER}/.xsession" && \
-    chown "${KALI_USER}:${KALI_USER}" "/home/${KALI_USER}/.xsession"
+# Create proper XFCE session files for the user
+RUN mkdir -p "/home/${KALI_USER}/.config/xfce4" && \
+    echo "startxfce4" > "/home/${KALI_USER}/.xsession" && \
+    chmod +x "/home/${KALI_USER}/.xsession" && \
+    echo "#!/bin/sh" > "/home/${KALI_USER}/.xinitrc" && \
+    echo "exec startxfce4" >> "/home/${KALI_USER}/.xinitrc" && \
+    chmod +x "/home/${KALI_USER}/.xinitrc" && \
+    chown -R "${KALI_USER}:${KALI_USER}" "/home/${KALI_USER}/.config" "/home/${KALI_USER}/.xsession" "/home/${KALI_USER}/.xinitrc"
+
+# Configure xrdp-sesman to use the correct session
+RUN mkdir -p /etc/xrdp && \
+    echo "[Xorg]" > /etc/xrdp/sesman.ini.tmp && \
+    echo "param=xfce4-session" >> /etc/xrdp/sesman.ini.tmp && \
+    cat /etc/xrdp/sesman.ini.tmp >> /etc/xrdp/sesman.ini || true && \
+    rm -f /etc/xrdp/sesman.ini.tmp
+
+# Create SSL certificate for xrdp (prevents connection warnings)
+RUN cd /etc/xrdp && \
+    if [ ! -f key.pem ]; then \
+        openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 365 \
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost" 2>/dev/null || true; \
+    fi
 
 # Install Guardian into a virtualenv (editable install)
 WORKDIR /opt/guardian
-COPY pyproject.toml README.md ./
-COPY ai/ ./ai/
-COPY cli/ ./cli/
-COPY core/ ./core/
-COPY reports/ ./reports/
-COPY tools/ ./tools/
-COPY utils/ ./utils/
-COPY workflows/ ./workflows/
-COPY config/ ./config/
+
+# Copy all root files and directories
+# .dockerignore will exclude unwanted files like .git, __pycache__, etc.
+COPY . .
+
+WORKDIR /opt/guardian
 
 RUN python3 -m venv /opt/guardian/venv && \
     /opt/guardian/venv/bin/pip install -U pip setuptools wheel && \
@@ -92,10 +125,47 @@ RUN python3 -m venv /opt/guardian/venv && \
     mkdir -p /opt/guardian/reports /opt/guardian/logs && \
     chmod 777 /opt/guardian/reports /opt/guardian/logs
 
-ENV PATH="/opt/guardian/venv/bin:${PATH}" \
+ENV PATH="/opt/guardian/tools/.bin:/opt/guardian/venv/bin:${PATH}" \
     GUARDIAN_HOME=/opt/guardian
 
-EXPOSE 3390
+# Expose the RDP port
+EXPOSE ${RDP_PORT}
 
-# Start XRDP (sesman + xrdp) and keep container alive (use docker exec to run guardian commands)
-CMD service dbus start || true; service xrdp-sesman start || true; service xrdp start || true; tail -f /var/log/xrdp.log
+# Health check to verify xrdp is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD pgrep xrdp > /dev/null || exit 1
+RUN chown -R kali:kali /opt/guardian
+RUN apt-get update && apt-get install -y sudo && \
+    echo "kali ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/kali && \
+    chmod 0440 /etc/sudoers.d/kali && \
+    rm -rf /var/lib/apt/lists/*
+USER kali
+RUN set -o pipefail; \
+    VIRTUAL_ENV=/opt/guardian/venv PATH="/opt/guardian/venv/bin:${PATH}" \
+    ./setup.sh 2>&1 | tee /opt/guardian/setup.log
+USER root
+# Create an entrypoint script for proper service startup
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    'set -e' \
+    '' \
+    'echo "Starting D-Bus..."' \
+    'mkdir -p /run/dbus' \
+    'service dbus start || /usr/bin/dbus-daemon --system --fork || true' \
+    '' \
+    'echo "Starting XRDP session manager..."' \
+    'service xrdp-sesman start || /usr/sbin/xrdp-sesman' \
+    '' \
+    'echo "Starting XRDP..."' \
+    'service xrdp start || /usr/sbin/xrdp' \
+    '' \
+    'echo "XRDP started successfully on port 3390"' \
+    'echo "Connect with: RDP client -> localhost:3390 (user: kali, pass: kali)"' \
+    '' \
+    '# Keep container running and tail logs' \
+    'tail -f /var/log/xrdp.log /var/log/xrdp-sesman.log 2>/dev/null' \
+    > /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+# Use the entrypoint script
+CMD ["/entrypoint.sh"]

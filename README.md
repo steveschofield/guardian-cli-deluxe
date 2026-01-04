@@ -192,6 +192,12 @@ python -m venv venv
 pip install -e .
 ```
 
+Optional (Linux/macOS): run the setup helper to install additional tools, and keep a log of the output:
+
+```bash
+./setup.sh 2>&1 | tee setup.log
+```
+
 #### Step 3: Initialize Configuration
 
 ```bash
@@ -276,7 +282,6 @@ Prompt size controls:
 - `ai.context_window`: (Ollama only) sets `num_ctx` via `ChatOllama(options=...)`.
 
 TODO (future optimization): Condense other noisy tool outputs (e.g., `httpx` JSONL, `nuclei` JSONL, `testssl`/`sslyze`, crawlers) before sending to the LLM, while keeping raw outputs in session logs for audit.
-
 ---
 
 ## 🎯 Quick Start

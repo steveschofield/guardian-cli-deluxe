@@ -12,22 +12,21 @@ ai:
   # model: "gemini-2.5-flash"
   # temperature: 0.2
   # vertexai: true
-  # project: "539730635772"
+  # project: "<your-gcp-project-id-or-number>"
   # location: "us-central1"
 
   # OpenRouter (uncomment to use):
-  #provider: openrouter
-  #model: "xiaomi/mimo-v2-flash:free"
-  #base_url: "https://openrouter.ai/api/v1"
+  # provider: openrouter
+  # model: "xiaomi/mimo-v2-flash:free"
+  # base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama (uncomment to use):
-  #provider: ollama
-  #model: "llama3.1:8b"
-  # model: "qwen3:14b"
-  #base_url: "http://192.168.1.69:11434"
-  #temperature: 0.2
-  #context_window: 8192   # Ollama num_ctx
-  #max_input_chars: 40000
+  # provider: ollama
+  # model: "llama3.1:8b"
+  # base_url: "http://127.0.0.1:11434"
+  # temperature: 0.2
+  # context_window: 8192   # Ollama num_ctx
+  # max_input_chars: 40000
   llm_timeout_seconds: 600
 
 pentest:
