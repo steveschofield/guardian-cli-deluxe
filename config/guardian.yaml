@@ -122,9 +122,18 @@ tools:
 
   zap:
     enabled: false
-    # Run mode: "docker" recommended, or "local" for a locally-installed ZAP script.
+    # Run mode:
+    # - docker  (recommended): runs zap-baseline.py/zap-full-scan.py inside a container per scan
+    # - daemon: connect to an already-running ZAP daemon via API (local or remote)
+    # - local: run a locally-installed ZAP script/command (advanced)
     mode: docker
     docker_image: "ghcr.io/zaproxy/zaproxy:stable"
+    # For mode=daemon: ZAP API endpoint + optional API key.
+    # Start a local daemon (example):
+    #   docker run --rm -d --name zap -p 8080:8080 ghcr.io/zaproxy/zaproxy:stable zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true
+    # api_url: "http://127.0.0.1:8080"
+    # api_key: ""
+    # spider: true
     # baseline = passive (safer), full = active scan (requires pentest.safe_mode: false)
     scan: baseline
     # Time budget for the scan scripts (minutes)

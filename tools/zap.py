@@ -34,6 +34,10 @@ class ZapTool(BaseTool):
         if mode == "docker":
             return shutil.which("docker") is not None
 
+        if mode in {"daemon", "remote"}:
+            # Daemon mode uses the ZAP API (local or remote) via our helper script.
+            return True
+
         # "local" mode expects a zap script in PATH (user-managed)
         # Common entrypoints are "zap.sh" (Linux) or "zap.bat" (Windows).
         zap_bin = cfg.get("binary") or os.environ.get("GUARDIAN_ZAP_BIN")
@@ -46,6 +50,38 @@ class ZapTool(BaseTool):
         base = Path((self.config or {}).get("output", {}).get("save_path", "./reports"))
         base.mkdir(parents=True, exist_ok=True)
         return base
+
+    def _build_daemon_command(self, target: str, scan: str, timeout_min: int) -> List[str]:
+        cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
+        api_url = (cfg.get("api_url") or cfg.get("daemon_url") or os.environ.get("GUARDIAN_ZAP_API_URL") or "").strip()
+        if not api_url:
+            api_url = "http://127.0.0.1:8080"
+        api_key = (cfg.get("api_key") or os.environ.get("GUARDIAN_ZAP_API_KEY") or "").strip()
+
+        # baseline: spider + passive; full: spider + active + passive
+        spider = bool(cfg.get("spider", True))
+
+        safe_mode = (self.config or {}).get("pentest", {}).get("safe_mode", True)
+        active = (scan == "full") and (not safe_mode)
+
+        script = Path(__file__).resolve().parent.parent / "scripts" / "zap_daemon_scan.py"
+        args = [
+            "python3",
+            str(script),
+            "--api-url",
+            api_url,
+            "--target",
+            target,
+            "--max-minutes",
+            str(int(timeout_min)),
+        ]
+        if api_key:
+            args.extend(["--api-key", api_key])
+        if spider:
+            args.append("--spider")
+        if active:
+            args.append("--active")
+        return args
 
     def _build_docker_command(self, target: str, scan: str, timeout_min: int) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
@@ -122,6 +158,9 @@ class ZapTool(BaseTool):
         if mode == "docker":
             return self._build_docker_command(target=target, scan=scan, timeout_min=timeout_min)
 
+        if mode in {"daemon", "remote"}:
+            return self._build_daemon_command(target=target, scan=scan, timeout_min=timeout_min)
+
         # Local mode not fully standardized across OSes; keep a minimal hook.
         # Expect user to supply a command like "zap-baseline.py" in PATH.
         local_cmd = cfg.get("local_command")
@@ -144,20 +183,41 @@ class ZapTool(BaseTool):
         except Exception:
             return {"alerts": [], "count": 0, "raw": output[:2000]}
 
+        # ZAP report JSON can be either:
+        # - baseline/full scan report format: {"site": [{"alerts":[...]}]}
+        # - daemon helper format: {"alerts":[...], "count": n, ...}
         alerts: list[dict[str, Any]] = []
-        for site in (data.get("site") or []):
-            for alert in (site.get("alerts") or []):
+        if isinstance(data.get("alerts"), list):
+            for alert in (data.get("alerts") or []):
                 alerts.append(
                     {
-                        "name": alert.get("name"),
-                        "risk": alert.get("risk"),
+                        "name": alert.get("name") or alert.get("alert"),
+                        "risk": alert.get("risk") or alert.get("riskdesc"),
                         "confidence": alert.get("confidence"),
-                        "desc": alert.get("desc"),
+                        "desc": alert.get("desc") or alert.get("description"),
                         "solution": alert.get("solution"),
                         "reference": alert.get("reference"),
                         "instances": alert.get("instances") or [],
+                        "url": alert.get("url"),
+                        "param": alert.get("param"),
+                        "attack": alert.get("attack"),
+                        "evidence": alert.get("evidence"),
                     }
                 )
+        else:
+            for site in (data.get("site") or []):
+                for alert in (site.get("alerts") or []):
+                    alerts.append(
+                        {
+                            "name": alert.get("name"),
+                            "risk": alert.get("risk"),
+                            "confidence": alert.get("confidence"),
+                            "desc": alert.get("desc"),
+                            "solution": alert.get("solution"),
+                            "reference": alert.get("reference"),
+                            "instances": alert.get("instances") or [],
+                        }
+                    )
 
         return {
             "alerts": alerts,
