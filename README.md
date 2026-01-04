@@ -243,7 +243,7 @@ ai:
   base_url: "https://openrouter.ai/api/v1"
 ```
 
-To use Hugging Face Serverless Inference API (hosted models via `api-inference.huggingface.co`):
+To use Hugging Face Serverless Inference API (routed via `router.huggingface.co`):
 
 ```bash
 echo "HF_TOKEN=your_huggingface_token_here" > .env
@@ -253,6 +253,17 @@ ai:
   provider: huggingface
   model: "meta-llama/Meta-Llama-3-8B-Instruct"   # any public HF model repo id you can access
   base_url: "https://router.huggingface.co/hf-inference/models"
+```
+
+To use Hugging Face Router (OpenAI-compatible API):
+
+```bash
+echo "HF_TOKEN=your_huggingface_token_here" > .env
+
+ai:
+  provider: huggingface
+  model: "openai/gpt-oss-120b"
+  base_url: "https://router.huggingface.co/v1"
 ```
 
 To use a local LLM (e.g., Ollama Llama 3.x):

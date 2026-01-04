@@ -21,8 +21,22 @@ def get_llm_client(config: Dict[str, Any]) -> Any:
     if provider == "openrouter":
         from ai.openrouter_client import OpenRouterClient
         return OpenRouterClient(config)
-    if provider in {"huggingface", "hf"}:
+    if provider in {"huggingface", "hf", "hf-serverless"}:
+        ai_cfg = (config or {}).get("ai", {}) or {}
+        base_url = str(ai_cfg.get("base_url") or ai_cfg.get("hf_base_url") or "").strip().rstrip("/")
+        endpoint_url = str(ai_cfg.get("endpoint_url") or ai_cfg.get("hf_endpoint_url") or "").strip()
+
+        # If configured for the HF Router OpenAI-compatible /v1 API, use the router client.
+        # Example base_url: https://router.huggingface.co/v1
+        if "/v1" in (endpoint_url or base_url):
+            from ai.huggingface_router_client import HuggingFaceRouterClient
+            return HuggingFaceRouterClient(config)
+
         from ai.huggingface_client import HuggingFaceClient
         return HuggingFaceClient(config)
+
+    if provider in {"huggingface-router", "hf-router"}:
+        from ai.huggingface_router_client import HuggingFaceRouterClient
+        return HuggingFaceRouterClient(config)
 
     raise ValueError(f"Unsupported AI provider: {provider}")

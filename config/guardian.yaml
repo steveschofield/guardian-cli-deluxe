@@ -24,9 +24,13 @@ ai:
   # Hugging Face Serverless Inference API example:
   # - Create a token (fine-grained is recommended) and set env HF_TOKEN
   # - Model is a Hub repo id, e.g. meta-llama/Meta-Llama-3-8B-Instruct
+  # - Use base_url: https://router.huggingface.co/hf-inference/models
+  #
+  # Hugging Face Router (OpenAI-compatible) example:
+  # - Use base_url: https://router.huggingface.co/v1
   provider: huggingface
-  model: "meta-llama/Llama-4-Scout-17B-16E"
-  base_url: "https://router.huggingface.co/hf-inference/models"
+  model: "deepseek-ai/DeepSeek-R1"
+  base_url: "https://router.huggingface.co/v1"
   timeout: 60
   hf_max_retries: 4
   temperature: 0.2
