@@ -98,7 +98,9 @@ tools:
       - ~/nuclei-templates-extra/kenzer
       - ~/nuclei-templates-extra/geeknik
       - ~/nuclei-templates-extra/emadshanab
-    tags: ["cve", "exposure", "rce", "default"]
+    # Nuclei tags are template-defined (run `nuclei -tgl` to see what's available in your template set).
+    # This set aims for broad OWASP-style coverage without running the entire template corpus.
+    tags: ["cve", "exposure", "misconfig", "default", "default-login", "rce", "cmdi", "ssrf", "sqli", "xss", "lfi", "redirect"]
 
   naabu:
     enabled: true

@@ -228,13 +228,41 @@ class WorkflowEngine:
             self.logger.info(f"Tool Agent selecting tool: {tool_name}")
             
             # Tool Agent executes the tool
+            tool_kwargs = step.get("parameters", {}) or {}
+
+            # If we have discovered URLs, run URL-first scanners using the URL list.
+            # NOTE: only enable for tools that accept a `from_file` input in our wrappers.
+            if tool_name in {"katana", "nuclei"}:
+                urls = self._get_discovered_urls()
+                if urls and "from_file" not in tool_kwargs:
+                    url_file = self._write_urls_file(urls, name=f"{tool_name}_{self.memory.session_id}.txt")
+                    tool_kwargs = dict(tool_kwargs)
+                    tool_kwargs["from_file"] = str(url_file)
+
             result = await self.tool_agent.execute_tool(
                 tool_name=tool_name,
                 target=self.target,
-                **step.get("parameters", {})
+                **tool_kwargs
             )
             
             if result.get("success"):
+                parsed = result.get("parsed") if isinstance(result.get("parsed"), dict) else {}
+
+                # Persist high-signal context from discovery tools.
+                if tool_name in {"httpx", "katana"}:
+                    urls = parsed.get("urls") or []
+                    if isinstance(urls, list) and urls:
+                        self.memory.update_context("urls", urls)
+                        self.memory.update_context("discovered_assets", urls)
+
+                if tool_name == "nmap":
+                    open_ports = parsed.get("open_ports") or []
+                    services = parsed.get("services") or []
+                    if isinstance(open_ports, list) and open_ports:
+                        self.memory.update_context("open_ports", open_ports)
+                    if isinstance(services, list) and services:
+                        self.memory.update_context("services", services)
+
                 # Use Analyst Agent to interpret results
                 self.logger.info("Analyst Agent analyzing results...")
                 analysis = await self.analyst.interpret_output(
@@ -273,6 +301,33 @@ class WorkflowEngine:
                 self.logger.info(f"Report saved to: {report_file}")
         
         self.memory.mark_action_complete(step["name"])
+
+    def _get_discovered_urls(self) -> List[str]:
+        urls = self.memory.context.get("urls") or []
+        if not isinstance(urls, list):
+            return []
+        # De-dupe and cap to keep downstream tools manageable.
+        seen = set()
+        out: list[str] = []
+        for u in urls:
+            if not isinstance(u, str):
+                continue
+            u = u.strip()
+            if not u or u in seen:
+                continue
+            seen.add(u)
+            out.append(u)
+            if len(out) >= 2000:
+                break
+        return out
+
+    def _write_urls_file(self, urls: List[str], name: str) -> Path:
+        output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
+        output_dir.mkdir(parents=True, exist_ok=True)
+        path = output_dir / name
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(urls) + "\n")
+        return path
 
     def _run_ip_enrichment(self, target_ip: str) -> None:
         """Perform lightweight enrichment for IP targets (PTR + TLS cert name harvesting)."""
@@ -494,12 +549,16 @@ class WorkflowEngine:
             ],
             "web": [
                 {"name": "web_discovery", "type": "tool", "tool": "httpx"},
+                {"name": "crawl", "type": "tool", "tool": "katana"},
                 {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei"},
+                {"name": "zap_baseline", "type": "tool", "tool": "zap"},
                 {"name": "analysis", "type": "analysis"},
             ],
             "network": [
                 {"name": "port_scan", "type": "tool", "tool": "nmap"},
                 {"name": "service_detection", "type": "tool", "tool": "nmap"},
+                {"name": "web_probing", "type": "tool", "tool": "httpx"},
+                {"name": "crawl", "type": "tool", "tool": "katana"},
                 {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei"},
                 {"name": "analysis", "type": "analysis"},
             ]

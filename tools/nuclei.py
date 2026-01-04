@@ -128,17 +128,26 @@ class NucleiTool(BaseTool):
         command.extend(["-jsonl"])
         
         # Severity filtering
-        severities = config.get("severity", ["critical", "high", "medium"])
+        severities = kwargs.get("severity", config.get("severity", ["critical", "high", "medium"]))
+        if isinstance(severities, str):
+            severities = [s.strip() for s in severities.split(",") if s.strip()]
         if severities:
             command.extend(["-severity", ",".join(severities)])
 
         # Tags
-        tags = config.get("tags")
+        tags = kwargs.get("tags", config.get("tags"))
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
         if tags:
             command.extend(["-tags", ",".join(tags)])
 
         # Templates path(s)
-        templates_paths = config.get("templates_paths") or config.get("templates_path")
+        templates_paths = (
+            kwargs.get("templates_paths")
+            or kwargs.get("templates_path")
+            or config.get("templates_paths")
+            or config.get("templates_path")
+        )
         if templates_paths:
             if isinstance(templates_paths, str):
                 templates_paths = [templates_paths]

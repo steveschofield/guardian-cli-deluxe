@@ -60,6 +60,7 @@ class PentestMemory:
             "target": target,
             "scope": [],
             "discovered_assets": [],
+            "urls": [],
             "open_ports": [],
             "services": [],
             "technologies": [],
