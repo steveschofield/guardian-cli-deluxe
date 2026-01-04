@@ -4,10 +4,10 @@
 # AI Configuration
 ai:
   # Supported providers: gemini, ollama, openrouter, huggingface
-  provider: openrouter
+  #provider: openrouter
   #model: "xiaomi/mimo-v2-flash:free"
-  model: "qwen/qwen3-coder:free"
-  base_url: "https://openrouter.ai/api/v1"
+  #model: "qwen/qwen3-coder:free"
+  #base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama example:
   #provider: ollama
@@ -24,11 +24,11 @@ ai:
   # Hugging Face Serverless Inference API example:
   # - Create a token (fine-grained is recommended) and set env HF_TOKEN
   # - Model is a Hub repo id, e.g. meta-llama/Meta-Llama-3-8B-Instruct
-  # provider: huggingface
-  # model: "meta-llama/Meta-Llama-3-8B-Instruct"
-  # base_url: "https://api-inference.huggingface.co/models"
-  # timeout: 60
-  # hf_max_retries: 4
+  provider: huggingface
+  model: "meta-llama/Meta-Llama-3-8B-Instruct"
+  base_url: "https://api-inference.huggingface.co/models"
+  timeout: 60
+  hf_max_retries: 4
   temperature: 0.2
   max_tokens: 8000
   # Limit total characters sent to the LLM (across system prompt + context + current prompt).
