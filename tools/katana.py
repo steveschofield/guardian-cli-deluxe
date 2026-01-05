@@ -129,11 +129,17 @@ class KatanaTool(BaseTool):
 
             try:
                 data = json.loads(line)
-                url = data.get("url") or data.get("request") or data.get("path")
+                url = data.get("url") or data.get("endpoint") or data.get("path") or data.get("request")
             except json.JSONDecodeError:
                 url = line.strip()
 
-            if url and url not in results["urls"]:
+            if isinstance(url, dict):
+                url = url.get("url") or url.get("endpoint") or url.get("path")
+
+            if isinstance(url, str):
+                url = url.strip()
+
+            if url and isinstance(url, str) and url not in results["urls"]:
                 results["urls"].append(url)
 
         return results
