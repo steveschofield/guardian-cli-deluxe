@@ -96,6 +96,16 @@ class NucleiTool(BaseTool):
             )
             return False
         return True
+
+    def get_env(self, target: str, **kwargs) -> Dict[str, str] | None:
+        env = os.environ.copy()
+
+        # Nuclei will error if GOOGLE_API_KEY exists but GOOGLE_API_CX does not.
+        # Those vars are unrelated to running most scans, so sanitize for this subprocess.
+        if env.get("GOOGLE_API_KEY") and not env.get("GOOGLE_API_CX"):
+            env.pop("GOOGLE_API_KEY", None)
+
+        return env
     
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build nuclei command"""
