@@ -4,7 +4,7 @@
 
 1. **Navigate to project directory**:
    ```cmd
-   cd c:\Users\MyBook Hype AMD\workarea\guardian-cli
+   cd C:\path\to\guardian-cli
    ```
 
 2. **Create virtual environment**:
@@ -51,11 +51,16 @@ python -m cli.main workflow run --name recon --target example.com
 
 ## Configuration
 
-Edit `config/guardian.yaml` or `~/.guardian/guardian.yaml` to customize:
+Edit `config/guardian.yaml` (when running from this repo) or `~/.guardian/guardian.yaml` (when using `guardian init`) to customize:
 - AI model and settings
 - Tool configurations
 - Security guardrails
 - Output formats
+
+If you’re using `~/.guardian/guardian.yaml`, pass it explicitly:
+```cmd
+python -m cli.main recon --domain example.com --config %USERPROFILE%\\.guardian\\guardian.yaml
+```
 
 ## Getting Help
 
@@ -84,8 +89,8 @@ python -m cli.main <command> --help
 - Check Python version: `python --version` (requires 3.11+)
 
 ### API errors
-- Verify your Gemini API key in `.env` or `.guardian/.env`
-- If using OpenRouter, verify `OPENROUTER_API_KEY` in `.env` or `.guardian/.env`
+- Verify your Gemini API key in `.env` (project root) or `~/.guardian/.env`
+- If using OpenRouter, verify `OPENROUTER_API_KEY` in `.env` (project root) or `~/.guardian/.env`
 - If using Gemini Vertex/ADC, ensure `gcloud auth application-default login` has been run and `ai.project` is set in your config
 - Check internet connectivity
 

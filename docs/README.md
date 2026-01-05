@@ -9,8 +9,8 @@ Welcome to Guardian - AI-Powered Penetration Testing CLI Tool
 - [QUICKSTART.md](../QUICKSTART.md) - Installation and basic usage
 
 ### Core Documentation
-- [USAGE.md](USAGE.md) - Detailed command reference (coming soon)
-- [CONFIGURATION.md](CONFIGURATION.md) - Configuration guide (coming soon)
+- [USAGE.md](USAGE.md) - Command reference
+- [CONFIGURATION.md](CONFIGURATION.md) - Configuration guide
 
 ## Developer Guides
 
@@ -35,13 +35,7 @@ Welcome to Guardian - AI-Powered Penetration Testing CLI Tool
 - **Reporter Agent** - Report generation
 
 ### Tools
-9 integrated pentesting tools:
-- Network: Nmap
-- Web: httpx, WhatWeb, Wafw00f, Nikto
-- Subdomain: Subfinder
-- Vulnerability: Nuclei
-- SSL: TestSSL
-- Content: Gobuster
+Guardian ships with many tool wrappers (see `tools/README.md` for the up-to-date list).
 
 ## Contributing
 

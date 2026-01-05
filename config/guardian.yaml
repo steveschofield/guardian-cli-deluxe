@@ -31,20 +31,19 @@ ai:
   provider: huggingface
   model: "deepseek-ai/DeepSeek-R1"
   base_url: "https://router.huggingface.co/v1"
-  timeout: 60
   hf_max_retries: 4
   temperature: 0.2
   max_tokens: 8000
-  # Limit total characters sent to the LLM (across system prompt + context + current prompt).
-  # Helps avoid provider context limits and reduces latency/cost.
+  # Request timeout for provider HTTP calls (seconds). Some providers may still impose their own limits.
+  timeout: 600
+  # Overall time budget for an LLM call at the agent level (seconds).
+  # If unset, Guardian falls back to `ai.timeout`.
+  llm_timeout_seconds: 600
   max_input_chars: 40000
   # Max characters of tool output to include in LLM prompts (larger = more context, more tokens/cost)
   max_tool_output_chars: 20000
   # Optional: desired context window size (only enforced for Ollama via num_ctx; other providers may ignore).
   # context_window: 8192
-  # Limit total characters sent to the LLM (across system prompt + context + current prompt).
-  # Helps avoid provider context limits and reduces latency/cost.
-  timeout: 600
 
 # Penetration Testing Settings
 pentest:

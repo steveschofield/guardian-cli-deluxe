@@ -1,3 +1,50 @@
+++++++++++++++++++++++++++++++++
+Setup kali VM or container
+https://code.visualstudio.com/docs/?dv=linuxarm64_deb
+cd ~/Downloads
+sudo apt install ./<filename.deb>
+mkdir ~/code
+cd ~/code
+git clone https://github.com/steveschofield/guardian-cli-deluxe
+─$ cd ~/code/guardian-cli-deluxe 
+code .
+
+install Extensions
+
+python language support - addons
+markdown all in one (Yu Zhang)
+Office Viewer (database client)
+Codex (by OpenAI)
+GitHub Repositories
+GitHub Pull Requests (to sign into GitHub)
+
+#Install docker
+sudo apt install ansible
+cd ~/code/guardian-cli-deluxe/ansible-playbooks
+ansible-playbook -K local_playbook_kali.yml 
+
+┌──(kali㉿kali)-[~/code/guardian-cli-deluxe/ansible-playbooks]
+└─$ sudo systemctl enable docker
+Synchronizing state of docker.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
+Executing: /usr/lib/systemd/systemd-sysv-install enable docker
+                                                                             
+┌──(kali㉿kali)-[~/code/guardian-cli-deluxe/ansible-playbooks]
+└─$ sudo systemctl start docker 
+
+download ZAP container - READme.md has paths
+
+Setup Python - ReadME.md has instructions
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+
+Then run...
+./setup.sh
+
+
+Setup new Kali VM
+===================
+
 Setup a new machine (non docker)
 python3 -m venv venv
 source venv/bin/activate
@@ -39,6 +86,7 @@ export LLM_BASE_URL=http://192.168.1.69:11434/v1
 export LLM_SMART_MODEL=gurubot/gpt-oss-derestricted:20b
 export LLM_CODE_MODEL=gurubot/gpt-oss-derestricted:20b
 export LLM_MODEL=gurubot/gpt-oss-derestricted:20b
+
 
 
 python -m cli.main workflow run --name autonomous --target http://192.168.1.130:3000
