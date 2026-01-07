@@ -376,8 +376,8 @@ python -m cli.main ai --last
 
 - **[Quick Start Guide](QUICKSTART.md)** - Get up and running in 5 minutes
 - **[Docker Deployment Guide](docs/DOCKER.md)** - Run Guardian with Docker (recommended)
-- **[Command Reference](docs/)** - Detailed documentation for all commands
-- **[Configuration Guide](config/guardian.yaml)** - Customize Guardian's behavior
+- **[Command Reference](docs/USAGE.md)** - CLI command reference
+- **[Configuration Guide](docs/CONFIGURATION.md)** - How config loading works + key settings
 
 ### Developer Guides
 
@@ -417,7 +417,7 @@ guardian-cli/
 │   ├── linkfinder.py, xnlinkfinder.py, paramspider.py, arjun.py, schemathesis.py
 │   ├── gitleaks.py, trufflehog.py, cmseek.py
 │   ├── testssl.py, sslyze.py, wafw00f.py, whatweb.py, metasploit.py
-│   └── ...               # See tools/README.md and guardian.yaml for defaults
+│   └── ...               # See tools/README.md and config/guardian.yaml for defaults
 ├── workflows/             # Workflow definitions (YAML)
 ├── utils/                 # Utilities (logging, validation)
 ├── config/                # Configuration files
@@ -429,7 +429,7 @@ guardian-cli/
 
 ## 🔧 Configuration
 
-Edit `config/guardian.yaml` to customize:
+Edit `config/guardian.yaml` to customize (repo default). When running outside the repo, `guardian init` creates `~/.guardian/guardian.yaml` and Guardian will use it if `config/guardian.yaml` is not present.
 
 ```yaml
 ai:
@@ -516,9 +516,8 @@ pip install -e . --force-reinstall
 
 **API Rate Limits**
 
-- Free tier: 2 requests/minute
-- Switch to paid tier or implement request throttling
-- Configure in `config/guardian.yaml`: `ai.rate_limit: 60`
+- Provider limits vary by backend/model; switch tiers/models if you hit rate limits.
+- If you see timeouts, increase `ai.timeout` / `ai.llm_timeout_seconds` in your config.
 
 **Tool Not Found**
 

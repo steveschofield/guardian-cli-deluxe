@@ -10,11 +10,46 @@ from typing import Any, Dict, Optional, List
 from datetime import datetime
 import socket
 import ssl
+from dotenv import load_dotenv
 
 
 def load_config(config_path: str = "config/guardian.yaml") -> Dict[str, Any]:
     """Load configuration from YAML file"""
     try:
+        # Load environment variables from:
+        # - current working directory `.env` (default python-dotenv behavior)
+        # - config-adjacent `.env` (e.g. `~/.guardian/.env` when using `guardian init`)
+        # without overriding already-set environment variables.
+        load_dotenv()
+
+        def _resolve_config_path(path: str) -> str:
+            p = Path(path).expanduser()
+            if p.exists():
+                return str(p)
+
+            # If the CLI is invoked outside the repo, `config/guardian.yaml` often won't exist.
+            # Prefer the user config created by `guardian init` if present.
+            if path == "config/guardian.yaml":
+                home_cfg = Path.home() / ".guardian" / "guardian.yaml"
+                if home_cfg.exists():
+                    return str(home_cfg)
+
+                # As a last-resort, if a repo-root `guardian.yaml` exists, treat it as the config.
+                if Path("guardian.yaml").exists():
+                    return "guardian.yaml"
+
+            return str(p)
+
+        resolved_config_path = _resolve_config_path(config_path)
+
+        # Load `.env` adjacent to the resolved config path (if any).
+        try:
+            env_candidate = Path(resolved_config_path).expanduser().parent / ".env"
+            if env_candidate.exists():
+                load_dotenv(env_candidate)
+        except Exception:
+            pass
+
         def _load(path: str) -> Dict[str, Any]:
             with open(path, "r") as f:
                 return yaml.safe_load(f) or {}
@@ -28,11 +63,11 @@ def load_config(config_path: str = "config/guardian.yaml") -> Dict[str, Any]:
                     merged[key] = value
             return merged
 
-        cfg = _load(config_path)
+        cfg = _load(resolved_config_path)
 
         # Compatibility: many users edit repo-root `guardian.yaml` but CLI defaults to `config/guardian.yaml`.
         # When using the default path, treat `guardian.yaml` (if present) as an override layer.
-        if config_path == "config/guardian.yaml" and Path("guardian.yaml").exists():
+        if resolved_config_path == "config/guardian.yaml" and Path("guardian.yaml").exists():
             override = _load("guardian.yaml")
             cfg = _deep_merge(cfg, override)
 

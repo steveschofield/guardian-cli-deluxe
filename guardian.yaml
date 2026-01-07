@@ -1,4 +1,9 @@
-# Guardian Configuration
+# Guardian Configuration (Override Layer)
+#
+# When running from the repo, Guardian loads `config/guardian.yaml` by default and (if present)
+# deep-merges this repo-root `guardian.yaml` on top as an override layer.
+#
+# If you run Guardian with `--config ~/.guardian/guardian.yaml`, this file is NOT automatically applied.
 ai:
   # Supported providers: gemini, ollama, openrouter, huggingface
   #
@@ -34,12 +39,14 @@ ai:
   # model: "meta-llama/Meta-Llama-3-8B-Instruct"
   # base_url: "https://router.huggingface.co/hf-inference/models"
   # hf_max_retries: 4
+  # Overall time budget for an LLM call (seconds). If you hit timeouts, increase this and `ai.timeout`.
   llm_timeout_seconds: 600
 
 pentest:
   safe_mode: true
   require_confirmation: true
   max_parallel_tools: 3
+  # Legacy/back-compat timeout (seconds). Prefer `ai.llm_timeout_seconds`.
   llm_timeout_seconds: 300
   
 output:

@@ -96,6 +96,16 @@ class NucleiTool(BaseTool):
             )
             return False
         return True
+
+    def get_env(self, target: str, **kwargs) -> Dict[str, str] | None:
+        env = os.environ.copy()
+
+        # Nuclei will error if GOOGLE_API_KEY exists but GOOGLE_API_CX does not.
+        # Those vars are unrelated to running most scans, so sanitize for this subprocess.
+        if env.get("GOOGLE_API_KEY") and not env.get("GOOGLE_API_CX"):
+            env.pop("GOOGLE_API_KEY", None)
+
+        return env
     
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build nuclei command"""
@@ -105,16 +115,23 @@ class NucleiTool(BaseTool):
         config = self.config.get("tools", {}).get("nuclei", {})
         
         command = [self._executable]
+
+        safe_mode = (self.config or {}).get("pentest", {}).get("safe_mode", True)
+        http_only = config.get("http_only")
         
         # Target
         if kwargs.get("from_file"):
             from_file = os.path.expandvars(os.path.expanduser(kwargs["from_file"]))
             command.extend(["-l", from_file])
+            if http_only is None:
+                http_only = True
         else:
             # Nuclei is URL-first; if we get a bare host/IP, try both http and https.
             target_str = (target or "").strip()
             if re.match(r"^https?://", target_str, re.IGNORECASE):
                 command.extend(["-u", target_str])
+                if http_only is None:
+                    http_only = True
             else:
                 out_dir = Path((self.config or {}).get("output", {}).get("save_path", "./reports"))
                 out_dir.mkdir(parents=True, exist_ok=True)
@@ -123,10 +140,19 @@ class NucleiTool(BaseTool):
                 with open(targets_file, "w", encoding="utf-8") as f:
                     f.write(f"http://{target_str}\nhttps://{target_str}\n")
                 command.extend(["-l", str(targets_file)])
+                if http_only is None:
+                    http_only = False
         
         # JSONL output (parseable line by line)
         command.extend(["-jsonl"])
-        
+
+        # Concurrency (reduce memory/pressure in constrained environments)
+        concurrency = config.get("concurrency")
+        if concurrency is None and safe_mode:
+            concurrency = 10
+        if concurrency is not None:
+            command.extend(["-c", str(concurrency)])
+
         # Severity filtering
         severities = kwargs.get("severity", config.get("severity", ["critical", "high", "medium"]))
         if isinstance(severities, str):
@@ -151,15 +177,42 @@ class NucleiTool(BaseTool):
         if templates_paths:
             if isinstance(templates_paths, str):
                 templates_paths = [templates_paths]
+
+            expanded: list[str] = []
             for path in templates_paths:
-                path = os.path.expandvars(os.path.expanduser(path))
-                command.extend(["-t", path])
+                p = os.path.expandvars(os.path.expanduser(path))
+                expanded.append(p)
+
+            # OOM mitigation: limit template directories by default in safe mode.
+            max_paths = config.get("max_templates_paths")
+            if max_paths is None and safe_mode:
+                max_paths = 1
+            if isinstance(max_paths, int) and max_paths > 0 and len(expanded) > max_paths:
+                self.logger.warning(
+                    f"Reducing nuclei templates_paths from {len(expanded)} to {max_paths} (configure tools.nuclei.max_templates_paths to override)"
+                )
+                expanded = expanded[:max_paths]
+
+            # Further OOM mitigation: for URL inputs, default to http-only templates when available.
+            if http_only:
+                scoped: list[str] = []
+                for p in expanded:
+                    http_dir = os.path.join(p, "http")
+                    if os.path.isdir(http_dir):
+                        scoped.append(http_dir)
+                    else:
+                        scoped.append(p)
+                expanded = scoped
+
+            for p in expanded:
+                command.extend(["-t", p])
         
         # Silent mode
         command.append("-silent")
         
         # Rate limit
-        rate = config.get("rate_limit", 150)
+        default_rate = 50 if safe_mode else 150
+        rate = config.get("rate_limit", default_rate)
         command.extend(["-rate-limit", str(rate)])
         
         return command

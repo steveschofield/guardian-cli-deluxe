@@ -35,6 +35,10 @@ class BaseTool(ABC):
     def parse_output(self, output: str) -> Dict[str, Any]:
         """Parse tool output into structured data"""
         pass
+
+    def get_env(self, target: str, **kwargs) -> Optional[Dict[str, str]]:
+        """Return a subprocess environment for this tool (or None to inherit current env)."""
+        return None
     
     async def execute(self, target: str, **kwargs) -> Dict[str, Any]:
         """
@@ -66,20 +70,21 @@ class BaseTool(ABC):
             timeout = int(timeout)
         except Exception:
             timeout = 300
-        
         start_time = datetime.now()
         status = "unknown"
         exit_code: Optional[int] = None
         stdout_len = 0
         stderr_len = 0
         process: Optional[asyncio.subprocess.Process] = None
+        env = self.get_env(target, **kwargs)
         
         try:
             # Execute tool
             process = await asyncio.create_subprocess_exec(
                 *command,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
+                env=env
             )
             
             # Wait with timeout

@@ -1,6 +1,6 @@
 # Docker Deployment Guide for Guardian CLI
 
-Guardian CLI can be deployed using Docker for easy setup and consistent environments across different systems. The Docker image includes **all 15 security tools** pre-installed.
+Guardian CLI can be deployed using Docker for easy setup and consistent environments across different systems. The Docker/Kali builds run `setup.sh` to install a broad set of common pentest tools (exact set may vary by platform/image).
 
 ## Quick Start
 
@@ -95,7 +95,7 @@ docker run --rm \
 
 ## Pre-installed Tools
 
-The Docker image includes all 15 security tools:
+The images aim to include the most common tools used by Guardian:
 
 | Category | Tools |
 |----------|-------|
@@ -106,7 +106,7 @@ The Docker image includes all 15 security tools:
 | **SSL/TLS Testing** | TestSSL, SSLyze |
 | **Content Discovery** | Gobuster, FFuf |
 
-All tools are ready to use without additional installation!
+If a wrapper is enabled but the underlying binary is missing, Guardian will skip it and log an install hint.
 
 ---
 

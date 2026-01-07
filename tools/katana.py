@@ -29,25 +29,21 @@ class KatanaTool(BaseTool):
         ]
 
     def _is_projectdiscovery_katana(self, executable: str) -> bool:
-        try:
-            proc = subprocess.run(
-                [executable, "-h"],
-                capture_output=True,
-                text=True,
-                timeout=3,
-            )
-        except Exception:
-            return False
-
-        help_text = ((proc.stdout or "") + "\n" + (proc.stderr or "")).lower()
-        required_markers = [
-            "katana is a fast crawler",
-            "-u, -list",
-            "-jsonl",
-            "-depth",
-            "-concurrency",
-        ]
-        return all(m in help_text for m in required_markers)
+        # Katana prints "projectdiscovery.io" in help/version output.
+        for args in ([executable, "-version"], [executable, "-h"]):
+            try:
+                proc = subprocess.run(
+                    args,
+                    capture_output=True,
+                    text=True,
+                    timeout=3,
+                )
+            except Exception:
+                continue
+            out = ((proc.stdout or "") + "\n" + (proc.stderr or "")).lower()
+            if "katana" in out and ("projectdiscovery" in out or "projectdiscovery.io" in out or "-jsonl" in out):
+                return True
+        return False
 
     def _find_projectdiscovery_katana(self) -> str | None:
         cfg = (self.config or {}).get("tools", {}).get("katana", {})
@@ -102,7 +98,6 @@ class KatanaTool(BaseTool):
         """Build katana command"""
         if not self._executable:
             raise RuntimeError("ProjectDiscovery katana executable not resolved")
-
         config = self.config.get("tools", {}).get("katana", {})
 
         command = [self._executable, "-silent", "-jsonl"]
@@ -154,7 +149,13 @@ class KatanaTool(BaseTool):
             except json.JSONDecodeError:
                 url = line.strip()
 
-            if url and url not in results["urls"]:
+            if isinstance(url, dict):
+                url = url.get("url") or url.get("endpoint") or url.get("path")
+
+            if isinstance(url, str):
+                url = url.strip()
+
+            if url and isinstance(url, str) and url not in results["urls"]:
                 results["urls"].append(url)
 
         return results
