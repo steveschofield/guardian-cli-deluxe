@@ -30,10 +30,13 @@ class NmapTool(BaseTool):
         # Base command
         command = ["nmap"]
         
-        # Add default args from config
-        default_args = config.get("default_args", "-sV -sC")
-        if default_args:
-            command.extend(default_args.split())
+        # Arguments profile (recon vs vuln scripts)
+        profile = (kwargs.get("profile") or "recon").strip().lower()
+        recon_args = config.get("default_args", "-sV -sC")
+        vuln_args = config.get("vuln_args", "-sV --script vuln")
+        args = vuln_args if profile in {"vuln", "vulnerability"} else recon_args
+        if args:
+            command.extend(str(args).split())
         
         # Timing template
         timing = config.get("timing", "T4")

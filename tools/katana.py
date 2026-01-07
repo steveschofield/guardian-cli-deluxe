@@ -3,10 +3,10 @@ katana tool wrapper for web crawling
 """
 
 import os
+import json
 import shutil
 import subprocess
 from pathlib import Path
-import json
 from typing import Dict, Any, List
 
 from tools.base_tool import BaseTool
@@ -88,6 +88,9 @@ class KatanaTool(BaseTool):
         self.tool_name = "katana"
         self._executable = self._find_projectdiscovery_katana()
         if not self._executable:
+            self.logger.warning(
+                "ProjectDiscovery katana not found; install it or set tools.katana.binary / GUARDIAN_KATANA_BIN."
+            )
             return False
         return True
 
@@ -111,7 +114,8 @@ class KatanaTool(BaseTool):
 
         # Input target(s)
         if kwargs.get("from_file"):
-            command.extend(["-list", kwargs["from_file"]])
+            from_file = os.path.expandvars(os.path.expanduser(kwargs["from_file"]))
+            command.extend(["-list", from_file])
         else:
             command.extend(["-u", target])
 
@@ -129,7 +133,19 @@ class KatanaTool(BaseTool):
 
             try:
                 data = json.loads(line)
-                url = data.get("url") or data.get("endpoint") or data.get("path") or data.get("request")
+                url: str | None = None
+                if isinstance(data, dict):
+                    if isinstance(data.get("url"), str):
+                        url = data["url"]
+                    elif isinstance(data.get("request"), dict):
+                        req = data["request"]
+                        url = req.get("endpoint") if isinstance(req.get("endpoint"), str) else None
+                        if not url and isinstance(req.get("url"), str):
+                            url = req["url"]
+                    elif isinstance(data.get("request"), str):
+                        url = data["request"]
+                    elif isinstance(data.get("path"), str):
+                        url = data["path"]
             except json.JSONDecodeError:
                 url = line.strip()
 

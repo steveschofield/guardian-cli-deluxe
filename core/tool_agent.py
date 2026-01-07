@@ -231,7 +231,9 @@ class ToolAgent(BaseAgent):
             Dict with tool parameters and justification
         """
         safe_mode = self.config.get("pentest", {}).get("safe_mode", True)
-        timeout = self.config.get("pentest", {}).get("tool_timeout", 300)
+        timeout = (self.config.get("tools", {}).get(tool_name, {}) or {}).get("tool_timeout")
+        if timeout is None:
+            timeout = self.config.get("pentest", {}).get("tool_timeout", 300)
         
         prompt = TOOL_PARAMETERS_PROMPT.format(
             tool=tool_name,
