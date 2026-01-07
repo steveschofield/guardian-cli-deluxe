@@ -7,20 +7,29 @@ ai:
   #provider: openrouter
   #model: "xiaomi/mimo-v2-flash:free"
   #model: "qwen/qwen3-coder:free"
+  #model: "allenai/olmo-3.1-32b-think:free"
   #base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama example:
-  #provider: ollama
+  provider: ollama
   # model: "llama3.1:8b"
   # model: deepseek-r1:8b 
-  #model: llama3.2:3b
-  #base_url: "http://192.168.1.69:11434"
+  model: llama3.2:3b
+  #model: "DeepHat/DeepHat-V1-7B"
+  base_url: "http://192.168.1.69:11434"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
   # - Install deps: pip install -U google-genai
   # - Authenticate: gcloud auth application-default login
   # - Configure project id OR project number below (NOT an API key):
-  #
+  
+  # provider: gemini
+  # model: "gemini-3-flash-preview"
+  # temperature: 0.2
+  # vertexai: true
+  # project: "project-id-"
+  # location: "global"
+
   # Hugging Face Serverless Inference API example:
   # - Create a token (fine-grained is recommended) and set env HF_TOKEN
   # - Model is a Hub repo id, e.g. meta-llama/Meta-Llama-3-8B-Instruct
@@ -28,12 +37,15 @@ ai:
   #
   # Hugging Face Router (OpenAI-compatible) example:
   # - Use base_url: https://router.huggingface.co/v1
-  provider: huggingface
-  model: "deepseek-ai/DeepSeek-R1"
-  base_url: "https://router.huggingface.co/v1"
-  timeout: 60
-  hf_max_retries: 4
+  # provider: huggingface
+  # model: "deepseek-ai/DeepSeek-R1"
+  # deephat is based on Qwen/Qwen2.5
+  # model: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  # base_url: "https://router.huggingface.co/v1"
+  # timeout: 60
+  # hf_max_retries: 4
   temperature: 0.2
+
   max_tokens: 8000
   # Limit total characters sent to the LLM (across system prompt + context + current prompt).
   # Helps avoid provider context limits and reduces latency/cost.
@@ -93,7 +105,11 @@ scope:
 tools:
   nmap:
     enabled: true
+    # Recon / baseline enumeration
     default_args: "-sV -sC"
+    # Vulnerability script sweep (NSE "vuln" category)
+    # Example: nmap -sV --script vuln <target>
+    vuln_args: "-sV --script vuln"
     timing: T4
     
   httpx:
@@ -108,6 +124,8 @@ tools:
   nuclei:
     enabled: true
     severity: ["critical", "high", "medium"]
+    # Nuclei can take longer than the default workflow timeout depending on template set/target size.
+    tool_timeout: 900
     templates_paths:
       - ~/nuclei-templates
       - ~/nuclei-templates-extra/kenzer
@@ -116,6 +134,7 @@ tools:
     # Nuclei tags are template-defined (run `nuclei -tgl` to see what's available in your template set).
     # This set aims for broad OWASP-style coverage without running the entire template corpus.
     tags: ["cve", "exposure", "misconfig", "default", "default-login", "rce", "cmdi", "ssrf", "sqli", "xss", "lfi", "redirect"]
+    rate_limit: 75
 
   naabu:
     enabled: true

@@ -51,8 +51,21 @@ class BaseTool(ABC):
         
         self.logger.info(f"Executing: {' '.join(command)}")
         
-        # Get timeout from config
-        timeout = self.config.get("pentest", {}).get("tool_timeout", 300)
+        # Get execution timeout from config (per-tool overrides supported)
+        timeout_override = kwargs.get("tool_timeout")
+        timeout = (
+            (self.config.get("tools", {}).get(self.tool_name, {}) or {}).get("tool_timeout")
+            if isinstance(self.config, dict)
+            else None
+        )
+        if timeout_override is not None:
+            timeout = timeout_override
+        if timeout is None:
+            timeout = self.config.get("pentest", {}).get("tool_timeout", 300)
+        try:
+            timeout = int(timeout)
+        except Exception:
+            timeout = 300
         
         start_time = datetime.now()
         status = "unknown"

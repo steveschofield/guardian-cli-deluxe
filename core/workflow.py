@@ -230,6 +230,23 @@ class WorkflowEngine:
             # Tool Agent executes the tool
             tool_kwargs = step.get("parameters", {}) or {}
 
+            # Allow steps to derive nmap ports from discovered open ports (speeds up vuln scripts).
+            if tool_name == "nmap":
+                if tool_kwargs.get("ports_from_context") and not tool_kwargs.get("ports"):
+                    open_ports = self.memory.context.get("open_ports") or []
+                    if isinstance(open_ports, list) and open_ports:
+                        ports = []
+                        for p in open_ports:
+                            try:
+                                ports.append(str(int(p)))
+                            except Exception:
+                                continue
+                        if ports:
+                            tool_kwargs = dict(tool_kwargs)
+                            tool_kwargs["ports"] = ",".join(ports)
+                    tool_kwargs = dict(tool_kwargs)
+                    tool_kwargs.pop("ports_from_context", None)
+
             # If we have discovered URLs, run URL-first scanners using the URL list.
             # NOTE: only enable for tools that accept a `from_file` input in our wrappers.
             if tool_name in {"katana", "nuclei"}:
@@ -543,7 +560,8 @@ class WorkflowEngine:
         workflows = {
             "recon": [
                 {"name": "subdomain_discovery", "type": "tool", "tool": "subfinder"},
-                {"name": "port_scanning", "type": "tool", "tool": "nmap"},
+                {"name": "port_scanning", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
+                {"name": "nmap_vuln_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "vuln", "ports_from_context": True, "tool_timeout": 900}},
                 {"name": "web_probing", "type": "tool", "tool": "httpx"},
                 {"name": "analysis", "type": "analysis"},
             ],
@@ -555,8 +573,8 @@ class WorkflowEngine:
                 {"name": "analysis", "type": "analysis"},
             ],
             "network": [
-                {"name": "port_scan", "type": "tool", "tool": "nmap"},
-                {"name": "service_detection", "type": "tool", "tool": "nmap"},
+                {"name": "port_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
+                {"name": "nmap_vuln_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "vuln", "ports_from_context": True, "tool_timeout": 900}},
                 {"name": "web_probing", "type": "tool", "tool": "httpx"},
                 {"name": "crawl", "type": "tool", "tool": "katana"},
                 {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei"},
