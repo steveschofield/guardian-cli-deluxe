@@ -104,11 +104,9 @@ Guardian will use these automatically if present:
 | Tool | Purpose | Installation |
 | --- | --- | --- |
 | **nmap** | Port scanning | `apt install nmap` / `brew install nmap` |
-| **masscan** | Ultra-fast scan | `apt install masscan` / build from source |
 | **naabu** | Fast TCP/UDP scan | `go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest` |
 | **httpx** | HTTP probing | `go install github.com/projectdiscovery/httpx/cmd/httpx@latest` |
 | **subfinder** | Subdomain enum | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
-| **amass** | Network mapping | `go install github.com/owasp-amass/amass/v4/...@latest` |
 | **asnmap** | ASN intel | `go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest` |
 | **nuclei** | Vuln scanning | `go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest` |
 | **whatweb** | Tech fingerprint | `apt install whatweb` / `gem install whatweb` |
@@ -409,9 +407,9 @@ guardian-cli/
 │   ├── memory.py         # State management
 │   └── workflow.py       # Workflow orchestration
 ├── tools/                 # Pentesting tool wrappers (20+)
-│   ├── nmap.py, masscan.py, naabu.py
+│   ├── nmap.py, naabu.py
 │   ├── httpx.py, nuclei.py, nikto.py, sqlmap.py, wpscan.py
-│   ├── subfinder.py, amass.py, asnmap.py, dnsx.py, shuffledns.py, puredns.py, altdns.py
+│   ├── subfinder.py, asnmap.py, dnsx.py, shuffledns.py, puredns.py, altdns.py
 │   ├── katana.py, hakrawler.py, gospider.py, waybackurls.py, subjs.py
 │   ├── dirsearch.py, ffuf.py, gobuster.py
 │   ├── linkfinder.py, xnlinkfinder.py, paramspider.py, arjun.py, schemathesis.py

@@ -14,8 +14,8 @@ ai:
   provider: ollama
   # model: "llama3.1:8b"
   # model: deepseek-r1:8b 
-  model: llama3.2:3b
-  #model: "DeepHat/DeepHat-V1-7B"
+  # model: llama3.2:3b
+  model: "DeepHat/DeepHat-V1-7B"
   base_url: "http://192.168.1.69:11434"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
@@ -117,6 +117,12 @@ tools:
   subfinder:
     enabled: true
     sources: ["crtsh", "hackertarget"]
+
+  dnsx:
+    enabled: true
+    # Query multiple DNS record types; in safe_mode we avoid AXFR attempts.
+    recon: true
+    threads: 50
     
   nuclei:
     enabled: true
@@ -131,7 +137,7 @@ tools:
     # Nuclei tags are template-defined (run `nuclei -tgl` to see what's available in your template set).
     # This set aims for broad OWASP-style coverage without running the entire template corpus.
     tags: ["cve", "exposure", "misconfig", "default", "default-login", "rce", "cmdi", "ssrf", "sqli", "xss", "lfi", "redirect"]
-    rate_limit: 75
+    rate_limit: 25
 
   naabu:
     enabled: true

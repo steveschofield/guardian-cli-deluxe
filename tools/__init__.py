@@ -12,10 +12,8 @@ from .testssl import TestSSLTool
 from .gobuster import GobusterTool
 from .sqlmap import SQLMapTool
 from .ffuf import FFufTool
-from .amass import AmassTool
 from .wpscan import WPScanTool
 from .sslyze import SSLyzeTool
-from .masscan import MasscanTool
 from .arjun import ArjunTool
 from .xsstrike import XSStrikeTool
 from .gitleaks import GitleaksTool
@@ -55,10 +53,8 @@ __all__ = [
     "GobusterTool",
     "SQLMapTool",
     "FFufTool",
-    "AmassTool",
     "WPScanTool",
     "SSLyzeTool",
-    "MasscanTool",
     "ArjunTool",
     "XSStrikeTool",
     "GitleaksTool",

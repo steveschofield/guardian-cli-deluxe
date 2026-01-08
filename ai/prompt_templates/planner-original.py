@@ -18,6 +18,13 @@ You must:
 - Avoid redundant or unnecessary actions
 - Respect scope boundaries and ethical guidelines
 
+When deciding next steps, consider:
+- Current phase (reconnaissance, scanning, analysis, exploitation, reporting)
+- Findings discovered so far
+- Gaps in coverage
+- Attack surface mapping
+- Risk assessment
+
 Always provide clear reasoning for your decisions."""
 
 PLANNER_DECISION_PROMPT = """Based on the current penetration test state, decide the next action.

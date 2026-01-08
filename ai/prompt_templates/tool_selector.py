@@ -13,7 +13,6 @@ Your role is to:
 
 Available Tools (pick only those appropriate for the target type and objective):
 - nmap: Port scanning, service detection, OS fingerprinting (vuln scripts: `-sV --script vuln <target>`)
-- masscan: Fast port scanning (noisy; use carefully)
 - naabu: Fast TCP port discovery
 - httpx: HTTP probing, technology detection, response analysis
 - whatweb: Web technology fingerprinting and CMS detection
@@ -28,9 +27,8 @@ Available Tools (pick only those appropriate for the target type and objective):
 - sqlmap: SQL injection testing (use carefully)
 - wpscan: WordPress scanning (use carefully)
 - subfinder: Subdomain enumeration (domain-only)
-- amass: Subdomain/enum framework (domain-only)
 - dnsrecon: DNS enumeration (domain-only)
-- dnsx: DNS probing/validation (domain-only)
+- dnsx: DNS probing/validation (domain-only; prefers `-l <hosts>`; `-d` requires `-w <wordlist>`)
 - shuffledns: High-performance DNS resolution (domain-only)
 - puredns: DNS resolving/bruteforce helper (domain-only)
 - altdns: Permutation-based subdomain discovery (domain-only)
@@ -77,7 +75,6 @@ CONTEXT:
 
 AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requires an OpenAPI URL):
 - nmap: Port scanning and service detection
-- masscan: Fast port scanning
 - naabu: Fast TCP port discovery
 - httpx: HTTP probing and web analysis
 - whatweb: Web technology fingerprinting
@@ -92,7 +89,6 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - sqlmap: SQL injection testing
 - wpscan: WordPress scanning
 - subfinder: Subdomain discovery
-- amass: Subdomain/enum framework
 - dnsrecon: DNS enumeration
 - dnsx: DNS probing/validation
 - shuffledns: DNS resolution

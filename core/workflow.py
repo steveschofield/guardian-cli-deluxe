@@ -531,9 +531,26 @@ class WorkflowEngine:
                 if "-sS" in args:
                     tool_kwargs["scan_type"] = "-sS"
 
+            # Normalize execution target for domain-only tools when the user provided a URL.
+            # E.g. dnsrecon expects a bare domain, not "https://domain".
+            exec_target = self.target
+            domain_only_tools = {
+                "subfinder",
+                "dnsrecon",
+                "dnsx",
+                "shuffledns",
+                "puredns",
+                "altdns",
+                "asnmap",
+            }
+            if tool_selection["tool"] in domain_only_tools:
+                host = extract_domain_from_url(self.target) or self.target
+                if host and host != self.target:
+                    exec_target = host
+
             result = await self.tool_agent.execute_tool(
                 tool_name=tool_selection["tool"],
-                target=self.target,
+                target=exec_target,
                 **tool_kwargs
             )
             
@@ -541,7 +558,7 @@ class WorkflowEngine:
                 # Analyze with Analyst Agent
                 analysis = await self.analyst.interpret_output(
                     tool=tool_selection["tool"],
-                    target=self.target,
+                    target=exec_target,
                     command=result.get("command", ""),
                     output=result.get("raw_output", "")
                 )

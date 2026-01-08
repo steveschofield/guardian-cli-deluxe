@@ -1,25 +1,23 @@
 # Advanced Reconnaissance Workflow
-# Uses Amass for deep subdomain enumeration and Masscan for rapid port discovery
+# Uses Subfinder for subdomain enumeration and Masscan for rapid port discovery
 
 name: advanced_recon
-description: Deep reconnaissance using Amass and Masscan
+description: Deep reconnaissance using Subfinder and Masscan
 version: 1.0.0
 author: Guardian AI
 
 steps:
   - name: subdomain_enum
-    tool: amass
-    description: Passive and active subdomain enumeration
+    tool: subfinder
+    description: Passive subdomain enumeration
     args:
-      passive: true
-      active: true
-      timeout: 15 # minutes
+      # Keep this workflow low-noise; bruteforce/permutation steps can be added later.
+      sources: ["crtsh", "hackertarget"]
 
   - name: port_scan_fast
-    tool: masscan
-    description: Rapid port scanning of discovered assets
+    tool: naabu
+    description: Fast TCP port discovery of discovered assets
     args:
-      ports: "1-65535"
       rate: 1000
     dependencies:
       - subdomain_enum

@@ -10,7 +10,6 @@ This directory contains wrappers for various penetration testing tools.
   - Features: Port scanning, service version detection, OS fingerprinting
 
 - **Masscan**: Ultra-fast TCP port scanner
-  - Installation: `apt-get install masscan` or build from [source](https://github.com/robertdavidgraham/masscan)
   - Features: Fast large-scale port scanning, banner grabbing, rate limiting
 
 - **Naabu**: Fast TCP port scanner
@@ -42,7 +41,6 @@ This directory contains wrappers for various penetration testing tools.
   - Features: Multiple sources, DNS resolution
 
 - **Amass**: Advanced network mapping and asset discovery
-  - Installation: `go install -v github.com/owasp-amass/amass/v4/...@master`
   - Features: Active/passive enumeration, ASN/CIDR discovery, relationship mapping
 
 - **Asnmap**: ASN and prefix mapping

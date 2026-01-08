@@ -338,23 +338,12 @@ install_recon_extras() {
   install_go_recon_tools() {
     go_install_and_link "github.com/OJ/gobuster/v3@latest" "gobuster"
     go_install_and_link "github.com/ffuf/ffuf/v2@latest" "ffuf"
-    go_install_and_link "github.com/owasp-amass/amass/v4/...@master" "amass"
+    # amass removed from this framework (often causes libpostal/sudo prompts on some distros)
   }
 
   install_masscan() {
-    if command -v masscan >/dev/null 2>&1; then
-      return 0
-    fi
-    if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
-      if sudo -n true 2>/dev/null; then
-        echo "Installing masscan via apt (requires sudo)..."
-        sudo apt-get update -y && sudo apt-get install -y masscan || echo "WARN: masscan install failed; install manually" >&2
-      else
-        echo "WARN: masscan not found and sudo requires a password; install manually (apt install masscan)" >&2
-      fi
-    else
-      echo "WARN: masscan not installed and apt/sudo not available; install manually" >&2
-    fi
+    # masscan removed from this framework
+    return 0
   }
 
   install_dnsrecon() {
@@ -500,7 +489,7 @@ install_libpcap_dev() {
 echo "Fetching extra nuclei templates (CVE packs)..."
 install_nuclei_templates
 
-echo "Installing recon extras (gobuster, ffuf, amass, masscan, dnsrecon, dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog)..."
+echo "Installing recon extras (gobuster, ffuf, dnsrecon, dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog)..."
 install_recon_extras
 
 echo "Installing metasploit (optional, for MetasploitTool)..."

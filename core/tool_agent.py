@@ -28,7 +28,7 @@ class ToolAgent(BaseAgent):
         from tools import (
             NmapTool, HttpxTool, SubfinderTool, NucleiTool,
             WhatWebTool, Wafw00fTool, NiktoTool, TestSSLTool, GobusterTool,
-            SQLMapTool, FFufTool, AmassTool, WPScanTool, SSLyzeTool, MasscanTool,
+            SQLMapTool, FFufTool, WPScanTool, SSLyzeTool,
             ArjunTool, XSStrikeTool, GitleaksTool, CMSeekTool, DnsReconTool,
             DnsxTool, ShufflednsTool, PurednsTool, AltdnsTool,
             HakrawlerTool, GospiderTool, RetireTool, NaabuTool, KatanaTool,
@@ -49,10 +49,8 @@ class ToolAgent(BaseAgent):
             "gobuster": GobusterTool(config),
             "sqlmap": SQLMapTool(config),
             "ffuf": FFufTool(config),
-            "amass": AmassTool(config),
             "wpscan": WPScanTool(config),
             "sslyze": SSLyzeTool(config),
-            "masscan": MasscanTool(config),
             "arjun": ArjunTool(config),
             "xsstrike": XSStrikeTool(config),
             "gitleaks": GitleaksTool(config),
@@ -84,7 +82,6 @@ class ToolAgent(BaseAgent):
         """Log availability of all registered tools and basic install hints."""
         install_hints = {
             "nmap": "apt install nmap",
-            "masscan": "apt install masscan (or build from source)",
             "httpx": "go install github.com/projectdiscovery/httpx/cmd/httpx@latest",
             "subfinder": "go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
             "nuclei": "go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest",
@@ -95,7 +92,6 @@ class ToolAgent(BaseAgent):
             "gobuster": "go install github.com/OJ/gobuster/v3@latest",
             "sqlmap": "pip install sqlmap",
             "ffuf": "go install github.com/ffuf/ffuf/v2@latest",
-            "amass": "go install github.com/owasp-amass/amass/v4/...@master",
             "wpscan": "gem install wpscan",
             "sslyze": "pip install sslyze",
             "arjun": "pip install arjun",
@@ -190,7 +186,7 @@ class ToolAgent(BaseAgent):
             }
 
         # Gate DNS/subdomain tools when target is IP-only
-        dns_like = {"subfinder", "amass", "dnsrecon", "dnsx", "shuffledns", "puredns", "altdns", "asnmap"}
+        dns_like = {"subfinder", "dnsrecon", "dnsx", "shuffledns", "puredns", "altdns", "asnmap"}
         if target_type == "ip" and tool_selection["tool"] in dns_like:
             self.logger.warning(f"Tool {tool_selection['tool']} not suitable for IP targets; skipping selection")
             return {
@@ -365,6 +361,9 @@ class ToolAgent(BaseAgent):
             "expected_output": ""
         }
 
+        if not response:
+            return selection
+
         # Match variants like "TOOL:", "**TOOL**:", "Tool:", with optional backticks
         tool_match = re.search(
             r"(?:^|\n)\s*(?:\d+[\.\)]\s*)?\**\s*tool\**\s*:\s*`?([a-zA-Z0-9_-]+)`?",
@@ -389,6 +388,52 @@ class ToolAgent(BaseAgent):
         )
         if expected_match:
             selection["expected_output"] = expected_match.group(1).strip()
+
+        # Fallbacks: models often answer with markdown prose ("best tool would be **dnsrecon**").
+        # Prefer selecting from the "primary" portion before any "Alternative Tools" section.
+        primary = re.split(r"\n\s*#{1,6}\s*alternative|\nalternative tools?:", response, flags=re.IGNORECASE)[0]
+
+        if not selection["tool"]:
+            # Try to capture a bolded/backticked tool mention near the recommendation.
+            rec_match = re.search(
+                r"(?:best tool|recommend(?:ation)?|would be|use)\s+(?:the\s+)?\**`?([a-zA-Z0-9_-]+)`?\**",
+                primary[:600],
+                re.IGNORECASE,
+            )
+            if rec_match:
+                candidate = rec_match.group(1).lower()
+                if candidate in self.available_tools:
+                    selection["tool"] = candidate
+
+        if not selection["tool"]:
+            # Last-resort: pick the first known tool name mentioned in the primary section.
+            for name in self.available_tools.keys():
+                if re.search(rf"\b{re.escape(name)}\b", primary, re.IGNORECASE):
+                    selection["tool"] = name
+                    break
+
+        # If arguments are inside a fenced code block, extract the first command-like line.
+        # This is useful when models output:
+        # ### ARGUMENTS:
+        # ```\n dnsrecon -d example.com \n```
+        if not selection["arguments"] or "```" in selection["arguments"]:
+            fence_match = re.search(r"```(?:bash|sh|shell)?\s*\n([\s\S]*?)```", response, re.IGNORECASE)
+            if fence_match:
+                block = fence_match.group(1)
+                first_line = ""
+                for line in block.splitlines():
+                    line = line.strip()
+                    if line:
+                        first_line = line
+                        break
+                if first_line:
+                    selection["arguments"] = first_line
+
+        # Normalize "arguments" to be args-only when it starts with the tool name.
+        if selection["tool"] and selection["arguments"]:
+            parts = selection["arguments"].strip().split()
+            if parts and parts[0].lower() == selection["tool"]:
+                selection["arguments"] = " ".join(parts[1:]).strip()
 
         return selection
     
