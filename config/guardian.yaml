@@ -4,19 +4,18 @@
 # AI Configuration
 ai:
   # Supported providers: gemini, ollama, openrouter, huggingface
-  #provider: openrouter
-  #model: "xiaomi/mimo-v2-flash:free"
+  provider: openrouter
+  model: "xiaomi/mimo-v2-flash:free"
   #model: "qwen/qwen3-coder:free"
-  #model: "allenai/olmo-3.1-32b-think:free"
-  #base_url: "https://openrouter.ai/api/v1"
+  base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama example:
-  provider: ollama
+  #provider: ollama
   # model: "llama3.1:8b"
   # model: deepseek-r1:8b 
-  # model: llama3.2:3b
-  model: "DeepHat/DeepHat-V1-7B"
-  base_url: "http://192.168.1.69:11434"
+  #model: llama3.2:3b
+  # model: "DeepHat/DeepHat-V1-7B"
+  #base_url: "http://192.168.1.69:11434"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
   # - Install deps: pip install -U google-genai
@@ -43,7 +42,7 @@ ai:
   # hf_max_retries: 4
   temperature: 0.2
 
-  max_tokens: 8000
+  max_tokens: 4096
   # Request timeout for provider HTTP calls (seconds). Some providers may still impose their own limits.
   timeout: 600
   # Overall time budget for an LLM call at the agent level (seconds).
@@ -51,9 +50,9 @@ ai:
   llm_timeout_seconds: 600
   max_input_chars: 40000
   # Max characters of tool output to include in LLM prompts (larger = more context, more tokens/cost)
-  max_tool_output_chars: 20000
+  max_tool_output_chars: 12000
   # Optional: desired context window size (only enforced for Ollama via num_ctx; other providers may ignore).
-  # context_window: 8192
+  context_window: 8192
 
 # Penetration Testing Settings
 pentest:

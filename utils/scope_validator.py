@@ -5,6 +5,7 @@ Ensures all scanning is within authorized boundaries
 
 import ipaddress
 import re
+import socket
 from typing import List, Set, Optional
 from pathlib import Path
 from urllib.parse import urlparse
@@ -89,6 +90,55 @@ class ScopeValidator:
                 return False, reason
         
         return True, None
+
+    def validate_target_resolved(self, target: str) -> tuple[bool, Optional[str]]:
+        """
+        Validate target against scope/blacklists, resolving hostnames to IPs.
+        Returns (is_valid, reason).
+        """
+        target = target.strip()
+
+        if target.startswith(("http://", "https://")):
+            parsed = urlparse(target)
+            host = parsed.hostname or parsed.netloc
+        else:
+            host = target
+
+        if not host:
+            return False, "Empty target host"
+
+        # Immediate blacklist check on literal hosts.
+        if self._is_blacklisted(host):
+            reason = f"Target {host} is in blacklisted range"
+            self.logger.log_security_event("SCOPE_VIOLATION", "CRITICAL", reason)
+            return False, reason
+
+        resolved_ips: list[str] = []
+        try:
+            ipaddress.ip_address(host)
+            resolved_ips = [host]
+        except ValueError:
+            resolved_ips = self._resolve_host(host)
+            if not resolved_ips:
+                return False, f"Could not resolve target host: {host}"
+
+        # Enforce blacklist on resolved IPs.
+        for ip in resolved_ips:
+            if self._is_blacklisted(ip):
+                reason = f"Target {host} resolves to blacklisted IP {ip}"
+                self.logger.log_security_event("SCOPE_VIOLATION", "CRITICAL", reason)
+                return False, reason
+
+        if self.config.get("scope", {}).get("require_scope_file", False):
+            # Accept if host is authorized OR any resolved IP is authorized.
+            if not self._is_authorized(host):
+                authorized = any(self._is_authorized(ip) for ip in resolved_ips)
+                if not authorized:
+                    reason = f"Target {host} not in authorized scope"
+                    self.logger.log_security_event("SCOPE_VIOLATION", "HIGH", reason)
+                    return False, reason
+
+        return True, None
     
     def _is_blacklisted(self, host: str) -> bool:
         """Check if host is in blacklist"""
@@ -151,6 +201,18 @@ class ScopeValidator:
             return True
         except ValueError:
             return False
+
+    def _resolve_host(self, host: str) -> list[str]:
+        """Resolve a hostname to a list of IPs."""
+        ips: list[str] = []
+        try:
+            for res in socket.getaddrinfo(host, None):
+                ip = res[4][0]
+                if ip and ip not in ips:
+                    ips.append(ip)
+        except Exception:
+            return []
+        return ips
     
     def add_authorized_target(self, target: str):
         """Dynamically add a target to authorized scope"""

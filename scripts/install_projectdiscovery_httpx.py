@@ -7,6 +7,7 @@ This avoids conflicts with the Python `httpx` package, which also installs an `h
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
@@ -40,6 +41,17 @@ def _download(url: str) -> bytes:
         return resp.read()
 
 
+def _verify_sha256(data: bytes, expected: str, label: str) -> None:
+    expected = (expected or "").strip().lower()
+    if expected.startswith("sha256:"):
+        expected = expected.split("sha256:", 1)[-1].strip()
+    if not expected:
+        return
+    actual = hashlib.sha256(data).hexdigest()
+    if actual != expected:
+        raise SystemExit(f"SHA256 mismatch for {label}: expected {expected}, got {actual}")
+
+
 def _pick_asset(release: dict, suffix: str) -> tuple[str, str]:
     for asset in release.get("assets", []):
         name = asset.get("name", "")
@@ -69,6 +81,9 @@ def main() -> int:
         member = members[0]
         extracted = zf.read(member)
 
+    expected_sha = os.getenv("GUARDIAN_HTTPX_SHA256", "")
+    _verify_sha256(extracted, expected_sha, "httpx")
+
     out_path.write_bytes(extracted)
     out_path.chmod(out_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
@@ -79,4 +94,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

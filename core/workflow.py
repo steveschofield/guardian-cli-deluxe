@@ -56,6 +56,7 @@ class WorkflowEngine:
         self.current_step = 0
         self.max_steps = config.get("workflows", {}).get("max_steps", 20)
         self._step_durations: List[float] = []
+        self._scope_cache: Dict[str, bool] = {}
 
     def _preflight_llm_auth(self) -> None:
         ai_cfg = (self.config or {}).get("ai", {}) or {}
@@ -108,7 +109,7 @@ class WorkflowEngine:
         self.logger.info(f"Starting workflow: {workflow_name} for target: {self.target}")
         
         # Validate target
-        is_valid, reason = self.scope_validator.validate_target(self.target)
+        is_valid, reason = self.scope_validator.validate_target_resolved(self.target)
         if not is_valid:
             self.logger.error(f"Target validation failed: {reason}")
             raise ValueError(f"Invalid target: {reason}")
@@ -161,7 +162,7 @@ class WorkflowEngine:
         self.logger.info(f"Starting autonomous pentest for target: {self.target}")
         
         # Validate target
-        is_valid, reason = self.scope_validator.validate_target(self.target)
+        is_valid, reason = self.scope_validator.validate_target_resolved(self.target)
         if not is_valid:
             raise ValueError(f"Invalid target: {reason}")
         
@@ -256,6 +257,10 @@ class WorkflowEngine:
                     tool_kwargs = dict(tool_kwargs)
                     tool_kwargs["from_file"] = str(url_file)
 
+            if not self._scope_allows(self.target):
+                self.logger.error(f"Target validation failed before tool execution: {self.target}")
+                return
+
             result = await self.tool_agent.execute_tool(
                 tool_name=tool_name,
                 target=self.target,
@@ -336,7 +341,22 @@ class WorkflowEngine:
             out.append(u)
             if len(out) >= 2000:
                 break
-        return out
+        return self._filter_urls_in_scope(out)
+
+    def _filter_urls_in_scope(self, urls: List[str]) -> List[str]:
+        filtered: list[str] = []
+        for url in urls:
+            if self._scope_allows(url):
+                filtered.append(url)
+        return filtered
+
+    def _scope_allows(self, target: str) -> bool:
+        cached = self._scope_cache.get(target)
+        if cached is not None:
+            return cached
+        is_valid, _reason = self.scope_validator.validate_target_resolved(target)
+        self._scope_cache[target] = bool(is_valid)
+        return bool(is_valid)
 
     def _write_urls_file(self, urls: List[str], name: str) -> Path:
         output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
@@ -547,6 +567,11 @@ class WorkflowEngine:
                 host = extract_domain_from_url(self.target) or self.target
                 if host and host != self.target:
                     exec_target = host
+
+            if not self._scope_allows(exec_target):
+                self.logger.error(f"Target validation failed before tool execution: {exec_target}")
+                self.memory.mark_action_complete(action)
+                return
 
             result = await self.tool_agent.execute_tool(
                 tool_name=tool_selection["tool"],

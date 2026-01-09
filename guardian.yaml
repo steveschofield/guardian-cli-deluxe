@@ -3,8 +3,8 @@
 # When running from the repo, Guardian loads `config/guardian.yaml` by default and (if present)
 # deep-merges this repo-root `guardian.yaml` on top as an override layer.
 #
-# If you run Guardian with `--config ~/.guardian/guardian.yaml`, this file is NOT automatically applied.
-ai:
+# If you run Guardian with `--config ~/.guardian/guardian.yaml`, this file is NOT automatically applied.#
+#ai:
   # Supported providers: gemini, ollama, openrouter, huggingface
   #
   # Gemini (Google) (uncomment to use):
@@ -40,14 +40,9 @@ ai:
   # base_url: "https://router.huggingface.co/hf-inference/models"
   # hf_max_retries: 4
   # Overall time budget for an LLM call (seconds). If you hit timeouts, increase this and `ai.timeout`.
-  llm_timeout_seconds: 600
-
-pentest:
-  safe_mode: true
-  require_confirmation: true
-  max_parallel_tools: 3
-  # Legacy/back-compat timeout (seconds). Prefer `ai.llm_timeout_seconds`.
-  llm_timeout_seconds: 300
+  #llm_timeout_seconds: 1200
+  # Match provider-level timeout with agent budget.
+  #timeout: 1200
   
 output:
   format: markdown
@@ -59,58 +54,5 @@ scope:
     - 127.0.0.0/8
     - 10.0.0.0/8
     - 172.16.0.0/12
+ #  - 192.168.0.0/24
 
-tools:
-  naabu:
-    enabled: true
-    rate: 1000
-    top_ports: 100
-    exclude_cdn: true
-
-  katana:
-    enabled: true
-    depth: 2
-    concurrency: 10
-
-  asnmap:
-    enabled: true
-    include_org: true
-
-  waybackurls:
-    enabled: true
-
-  subjs:
-    enabled: true
-
-  dirsearch:
-    enabled: true
-    wordlist: "/usr/share/seclists/Discovery/Web-Content/common.txt"
-    threads: 20
-    extensions: "php,html,js"
-    recursive: false
-
-  linkfinder:
-    enabled: true
-
-  xnlinkfinder:
-    enabled: true
-
-  paramspider:
-    enabled: true
-    level: 2
-    threads: 10
-    exclude: "jpg,png,gif"
-
-  schemathesis:
-    enabled: true
-    workers: 4
-    checks: "all"
-    max_examples: 20
-
-  trufflehog:
-    enabled: true
-    only_verified: true
-
-  metasploit:
-    enabled: false
-    # Provide msfconsole command string or module/extra in ToolAgent call

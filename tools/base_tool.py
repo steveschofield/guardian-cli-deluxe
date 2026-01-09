@@ -52,6 +52,9 @@ class BaseTool(ABC):
         
         # Build command
         command = self.get_command(target, **kwargs)
+
+        # Enforce safe_mode at execution time (not just in prompts).
+        self._validate_safe_mode(command)
         
         self.logger.info(f"Executing: {' '.join(command)}")
         
@@ -150,6 +153,33 @@ class BaseTool(ABC):
     def _check_installation(self) -> bool:
         """Check if tool is installed and in PATH"""
         return shutil.which(self.tool_name) is not None
+
+    def _safe_mode_blocklist(self) -> Dict[str, list[str]]:
+        # Tool-specific defaults; can be extended via config.
+        return {
+            "nmap": ["--script=exploit", "--script exploit", "-sS", "-sU", "-O"],
+            "sqlmap": ["--os-shell", "--os-pwn", "--dump", "--all"],
+            "metasploit": ["exploit", "meterpreter"],
+        }
+
+    def _validate_safe_mode(self, command: List[str]) -> None:
+        cfg = (self.config or {}).get("pentest", {}) if isinstance(self.config, dict) else {}
+        safe_mode = cfg.get("safe_mode", True)
+        if not safe_mode:
+            return
+
+        cmd_str = " ".join(command)
+        global_block = cfg.get("safe_mode_blocklist", []) or []
+
+        tool_cfg = (self.config or {}).get("tools", {}).get(self.tool_name, {}) if isinstance(self.config, dict) else {}
+        tool_block = tool_cfg.get("safe_mode_blocklist", []) or []
+
+        default_block = self._safe_mode_blocklist().get(self.tool_name, [])
+        blocklist = list(default_block) + list(global_block) + list(tool_block)
+
+        for pattern in blocklist:
+            if pattern and pattern in cmd_str:
+                raise RuntimeError(f"Blocked by safe_mode: '{pattern}' in command '{cmd_str}'")
     
     def get_version(self) -> Optional[str]:
         """Get tool version if available"""

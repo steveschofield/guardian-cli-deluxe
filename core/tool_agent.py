@@ -273,13 +273,14 @@ class ToolAgent(BaseAgent):
 
             # Record execution in memory (even on non-zero exit for audit/debug)
             from core.memory import ToolExecution
+            raw_output = self._truncate_output(result.get("raw_output", "") or "")
             execution = ToolExecution(
                 tool=tool_name,
                 command=result["command"],
                 target=target,
                 timestamp=result.get("timestamp", ""),
                 exit_code=result["exit_code"],
-                output=result.get("raw_output", ""),
+                output=raw_output,
                 duration=result["duration"]
             )
             self.memory.add_tool_execution(execution)
@@ -292,7 +293,7 @@ class ToolAgent(BaseAgent):
                     "success": False,
                     "error": err,
                     "tool": tool_name,
-                    "raw_output": result.get("raw_output", ""),
+                    "raw_output": raw_output,
                     "exit_code": result.get("exit_code"),
                 }
             
@@ -300,7 +301,7 @@ class ToolAgent(BaseAgent):
                 "success": True,
                 "tool": tool_name,
                 "parsed": result["parsed"],
-                "raw_output": result["raw_output"],
+                "raw_output": raw_output,
                 "duration": result["duration"],
                 "exit_code": result["exit_code"],
             }
@@ -346,6 +347,17 @@ class ToolAgent(BaseAgent):
         if target_type in ("ip", "domain"):
             return target
         return target
+
+    def _truncate_output(self, output: str) -> str:
+        ai_cfg = (self.config or {}).get("ai", {}) or {}
+        max_chars = ai_cfg.get("max_tool_output_chars", 20000)
+        try:
+            max_chars = int(max_chars)
+        except Exception:
+            max_chars = 20000
+        if max_chars > 0 and len(output) > max_chars:
+            return output[:max_chars] + "\n... (truncated)"
+        return output
     
     def _parse_selection(self, response: str) -> Dict[str, str]:
         """Parse AI tool selection response.

@@ -7,8 +7,10 @@ This is used as a fallback when `go install` is not viable (e.g., DNS/proxy issu
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
+import os
 import platform
 import stat
 import sys
@@ -34,6 +36,17 @@ def _download(url: str, accept_json: bool = False) -> bytes:
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=60) as resp:
         return resp.read()
+
+
+def _verify_sha256(data: bytes, expected: str, label: str) -> None:
+    expected = (expected or "").strip().lower()
+    if expected.startswith("sha256:"):
+        expected = expected.split("sha256:", 1)[-1].strip()
+    if not expected:
+        return
+    actual = hashlib.sha256(data).hexdigest()
+    if actual != expected:
+        raise SystemExit(f"SHA256 mismatch for {label}: expected {expected}, got {actual}")
 
 
 def _pick_asset(release: dict, binary: str) -> tuple[str, str]:
@@ -83,12 +96,13 @@ def _extract_from_tar(data: bytes, binary: str) -> bytes:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 3:
-        print("Usage: install_github_release_binary.py <org/repo> <binary>", file=sys.stderr)
+    if len(argv) not in {3, 4}:
+        print("Usage: install_github_release_binary.py <org/repo> <binary> [sha256]", file=sys.stderr)
         return 2
 
     repo = argv[1].strip()
     binary = argv[2].strip()
+    sha_arg = argv[3].strip() if len(argv) == 4 else ""
 
     api_latest = f"https://api.github.com/repos/{repo}/releases/latest"
     release = json.loads(_download(api_latest, accept_json=True).decode("utf-8", errors="replace"))
@@ -96,6 +110,10 @@ def main(argv: list[str]) -> int:
 
     print(f"Downloading {repo} asset {asset_name} ...", file=sys.stderr)
     data = _download(asset_url)
+
+    env_key = f"GUARDIAN_{binary.upper()}_SHA256"
+    expected_sha = sha_arg or os.getenv(env_key) or os.getenv("GUARDIAN_SHA256") or ""
+    _verify_sha256(data, expected_sha, asset_name)
 
     out_dir = Path(__file__).resolve().parent.parent / "tools" / ".bin"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -116,4 +134,3 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv))
-

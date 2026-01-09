@@ -7,7 +7,9 @@ https://openrouter.ai/docs
 
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -102,6 +104,13 @@ class OpenRouterClient:
         self._async = httpx.AsyncClient(base_url=self.base_url, headers=self._headers, timeout=self._timeout)
         self._sync = httpx.Client(base_url=self.base_url, headers=self._headers, timeout=self._timeout)
 
+        retries = ai_config.get("openrouter_max_retries", ai_config.get("max_retries", 3))
+        try:
+            retries = int(retries)
+        except Exception:
+            retries = 3
+        self._max_retries = max(1, retries)
+
         self.last_usage: Optional[Dict[str, Any]] = None
         self.last_request_id: Optional[str] = None
         self.last_model: Optional[str] = None
@@ -182,6 +191,44 @@ class OpenRouterClient:
         except Exception:
             raise RuntimeError(f"Unexpected OpenRouter response shape: {data}")
 
+    async def _post_with_retries(self, payload: Dict[str, Any]) -> httpx.Response:
+        backoff_s = 1.0
+        last_err: Optional[Exception] = None
+        for attempt in range(self._max_retries):
+            try:
+                resp = await self._async.post("/chat/completions", json=payload)
+                if resp.status_code in {429, 500, 502, 503, 504}:
+                    last_err = RuntimeError(f"HTTP {resp.status_code}: {resp.text[:2000]}")
+                    await asyncio.sleep(backoff_s)
+                    backoff_s = min(backoff_s * 2.0, 10.0)
+                    continue
+                resp.raise_for_status()
+                return resp
+            except Exception as e:
+                last_err = e
+                await asyncio.sleep(backoff_s)
+                backoff_s = min(backoff_s * 2.0, 10.0)
+        raise RuntimeError(f"OpenRouter request failed after retries: {last_err}")
+
+    def _post_with_retries_sync(self, payload: Dict[str, Any]) -> httpx.Response:
+        backoff_s = 1.0
+        last_err: Optional[Exception] = None
+        for attempt in range(self._max_retries):
+            try:
+                resp = self._sync.post("/chat/completions", json=payload)
+                if resp.status_code in {429, 500, 502, 503, 504}:
+                    last_err = RuntimeError(f"HTTP {resp.status_code}: {resp.text[:2000]}")
+                    time.sleep(backoff_s)
+                    backoff_s = min(backoff_s * 2.0, 10.0)
+                    continue
+                resp.raise_for_status()
+                return resp
+            except Exception as e:
+                last_err = e
+                time.sleep(backoff_s)
+                backoff_s = min(backoff_s * 2.0, 10.0)
+        raise RuntimeError(f"OpenRouter request failed after retries: {last_err}")
+
     async def generate(
         self,
         prompt: str,
@@ -192,8 +239,7 @@ class OpenRouterClient:
         payload = self._payload(messages)
 
         try:
-            resp = await self._async.post("/chat/completions", json=payload)
-            resp.raise_for_status()
+            resp = await self._post_with_retries(payload)
             self.last_request_id = (
                 resp.headers.get("x-request-id")
                 or resp.headers.get("x-openrouter-request-id")
@@ -214,8 +260,7 @@ class OpenRouterClient:
         payload = self._payload(messages)
 
         try:
-            resp = self._sync.post("/chat/completions", json=payload)
-            resp.raise_for_status()
+            resp = self._post_with_retries_sync(payload)
             self.last_request_id = (
                 resp.headers.get("x-request-id")
                 or resp.headers.get("x-openrouter-request-id")

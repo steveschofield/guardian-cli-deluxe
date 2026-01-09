@@ -10,7 +10,8 @@ def get_llm_client(config: Dict[str, Any]) -> Any:
     Return the appropriate LLM client based on config["ai"]["provider"].
     Supported providers: gemini, ollama, openrouter, huggingface.
     """
-    provider = config.get("ai", {}).get("provider", "gemini").lower()
+    ai_cfg = config.get("ai") or {}
+    provider = ai_cfg.get("provider", "gemini").lower()
 
     if provider == "gemini":
         from ai.gemini_client import GeminiClient
@@ -22,7 +23,7 @@ def get_llm_client(config: Dict[str, Any]) -> Any:
         from ai.openrouter_client import OpenRouterClient
         return OpenRouterClient(config)
     if provider in {"huggingface", "hf", "hf-serverless"}:
-        ai_cfg = (config or {}).get("ai", {}) or {}
+        ai_cfg = config.get("ai") or {}
         base_url = str(ai_cfg.get("base_url") or ai_cfg.get("hf_base_url") or "").strip().rstrip("/")
         endpoint_url = str(ai_cfg.get("endpoint_url") or ai_cfg.get("hf_endpoint_url") or "").strip()
 
