@@ -95,18 +95,32 @@ class HttpxTool(BaseTool):
         self.tool_name = "httpx"
         self._executable = self._find_projectdiscovery_httpx()
         if not self._executable:
+            # Check for curl fallback
+            if shutil.which("curl"):
+                self.logger.info("httpx not found, will use curl fallback")
+                self._executable = "curl"
+                self._use_fallback = True
+                return True
             self.logger.warning(
                 "ProjectDiscovery httpx not found (the installed Python 'httpx' CLI is incompatible); "
                 "install ProjectDiscovery httpx or run `python scripts/install_projectdiscovery_httpx.py`."
             )
             return False
+        self._use_fallback = False
         return True
     
     def get_command(self, target: str, **kwargs) -> List[str]:
-        """Build httpx command"""
+        """Build httpx command or curl fallback"""
         if not self._executable:
-            raise RuntimeError("ProjectDiscovery httpx executable not resolved")
+            raise RuntimeError("httpx executable not resolved")
 
+        if getattr(self, '_use_fallback', False):
+            return self._get_curl_command(target, **kwargs)
+        
+        return self._get_httpx_command(target, **kwargs)
+    
+    def _get_httpx_command(self, target: str, **kwargs) -> List[str]:
+        """Build ProjectDiscovery httpx command"""
         config = self.config.get("tools", {}).get("httpx", {})
         
         command = [self._executable]
@@ -143,8 +157,29 @@ class HttpxTool(BaseTool):
         
         return command
     
+    def _get_curl_command(self, target: str, **kwargs) -> List[str]:
+        """Build curl fallback command"""
+        config = self.config.get("tools", {}).get("httpx", {})
+        timeout = config.get("timeout", 10)
+        
+        command = [
+            "curl", "-s", "-I", "-L", 
+            "--max-time", str(timeout),
+            "--user-agent", "Guardian-Scanner/1.0",
+            target
+        ]
+        
+        return command
+    
     def parse_output(self, output: str) -> Dict[str, Any]:
-        """Parse httpx JSON output"""
+        """Parse httpx JSON output or curl fallback"""
+        if getattr(self, '_use_fallback', False):
+            return self._parse_curl_output(output)
+        
+        return self._parse_httpx_output(output)
+    
+    def _parse_httpx_output(self, output: str) -> Dict[str, Any]:
+        """Parse ProjectDiscovery httpx JSON output"""
         results = {
             "urls": [],
             "technologies": [],
@@ -174,5 +209,41 @@ class HttpxTool(BaseTool):
                 
             except json.JSONDecodeError:
                 continue
+        
+        return results
+    
+    def _parse_curl_output(self, output: str) -> Dict[str, Any]:
+        """Parse curl fallback output"""
+        results = {
+            "urls": [],
+            "technologies": [],
+            "status_codes": {},
+            "titles": {}
+        }
+        
+        # Extract status code from curl headers
+        lines = output.split('\n')
+        status_code = 0
+        server = ""
+        
+        for line in lines:
+            if line.startswith('HTTP/'):
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        status_code = int(parts[1])
+                    except ValueError:
+                        pass
+            elif line.lower().startswith('server:'):
+                server = line.split(':', 1)[1].strip()
+        
+        # For curl fallback, we only get basic info
+        if status_code > 0:
+            # Reconstruct URL from command (basic approach)
+            url = "http://target"  # Placeholder
+            results["urls"].append(url)
+            results["status_codes"][url] = status_code
+            if server:
+                results["technologies"].append(server)
         
         return results

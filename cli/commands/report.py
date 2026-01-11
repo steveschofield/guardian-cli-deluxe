@@ -28,21 +28,26 @@ def report_command(
     import asyncio
     from pathlib import Path
     from utils.helpers import load_config
+    from utils.session_paths import apply_session_paths, resolve_session_file
     from core.memory import PentestMemory
     from core.reporter_agent import ReporterAgent
     from ai.provider_factory import get_llm_client
     
     console.print(f"[bold cyan]📄 Generating Report: {session_id}[/bold cyan]\n")
     
-    # Load session
-    session_file = Path(f"./reports/session_{session_id}.json")
-    if not session_file.exists():
-        console.print(f"[red]Session not found: {session_file}[/red]")
-        raise typer.Exit(1)
-    
     try:
         # Load configuration and session
         config = load_config(str(config_file))
+        if not config:
+            console.print("[bold red]Error:[/bold red] Failed to load configuration")
+            raise typer.Exit(1)
+
+        session_file = resolve_session_file(config, session_id)
+        if not session_file.exists():
+            console.print(f"[red]Session not found: {session_file}[/red]")
+            raise typer.Exit(1)
+
+        session_dir = apply_session_paths(config, session_id)
         memory = PentestMemory(target="")
         memory.load_state(session_file)
         
@@ -60,7 +65,7 @@ def report_command(
                 base = output.with_suffix("")
                 out_path = base.with_suffix(f".{ext}")
             else:
-                out_path = Path(f"./reports/report_{session_id}.{ext}")
+                out_path = session_dir / f"report_{session_id}.{ext}"
 
             out_path.parent.mkdir(parents=True, exist_ok=True)
             with open(out_path, 'w', encoding='utf-8') as f:

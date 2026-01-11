@@ -43,16 +43,12 @@
   #llm_timeout_seconds: 1200
   # Match provider-level timeout with agent budget.
   #timeout: 1200
-  
-output:
-  format: markdown
-  save_path: ./reports
-  verbosity: normal
 
-scope:
-  blacklist:
-    - 127.0.0.0/8
-    - 10.0.0.0/8
-    - 172.16.0.0/12
- #  - 192.168.0.0/24
-
+scope: {}
+# Example:
+# scope:
+#   blacklist:
+#     - 127.0.0.0/8
+#     - 10.0.0.0/8
+#     - 172.16.0.0/12
+#     - 192.168.0.0/24

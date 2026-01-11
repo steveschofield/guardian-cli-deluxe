@@ -8,6 +8,7 @@ from rich.console import Console
 from pathlib import Path
 
 from utils.helpers import load_config
+from utils.session_paths import apply_session_paths, generate_session_id
 from tools import NmapTool
 
 console = Console()
@@ -32,6 +33,8 @@ def scan_command(
     console.print(f"[bold cyan]🔍 Scanning: {target}[/bold cyan]\n")
     
     config = load_config(str(config_file))
+    session_id = generate_session_id()
+    apply_session_paths(config, session_id)
     
     try:
         # Run nmap scan
@@ -44,6 +47,7 @@ def scan_command(
         parsed = results["parsed"]
         
         console.print(f"\n[bold green]✓ Scan completed![/bold green]\n")
+        console.print(f"Session ID: [cyan]{session_id}[/cyan]")
         console.print(f"[bold]Open Ports:[/bold] {len(parsed['open_ports'])}")
         
         for service in parsed["services"]:

@@ -17,12 +17,14 @@ class ScopeValidator:
     """Validates targets against authorized scope and blacklists"""
     
     def __init__(self, config: dict):
-        self.config = config
+        self.config = config or {}
         self.logger = get_logger()
+        self._scope_cfg = self.config.get("scope") or {}
         
         # Load blacklisted IP ranges
         self.blacklist_networks = []
-        for cidr in config.get("scope", {}).get("blacklist", []):
+        blacklist = self._scope_cfg.get("blacklist") or []
+        for cidr in blacklist:
             try:
                 self.blacklist_networks.append(ipaddress.ip_network(cidr))
             except ValueError as e:
@@ -83,7 +85,7 @@ class ScopeValidator:
             return False, reason
         
         # If scope file is required, check authorization
-        if self.config.get("scope", {}).get("require_scope_file", False):
+        if self._scope_cfg.get("require_scope_file", False):
             if not self._is_authorized(host):
                 reason = f"Target {host} not in authorized scope"
                 self.logger.log_security_event("SCOPE_VIOLATION", "HIGH", reason)
@@ -129,7 +131,7 @@ class ScopeValidator:
                 self.logger.log_security_event("SCOPE_VIOLATION", "CRITICAL", reason)
                 return False, reason
 
-        if self.config.get("scope", {}).get("require_scope_file", False):
+        if self._scope_cfg.get("require_scope_file", False):
             # Accept if host is authorized OR any resolved IP is authorized.
             if not self._is_authorized(host):
                 authorized = any(self._is_authorized(ip) for ip in resolved_ips)

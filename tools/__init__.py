@@ -39,6 +39,10 @@ from .schemathesis import SchemathesisTool
 from .trufflehog import TrufflehogTool
 from .metasploit import MetasploitTool
 from .zap import ZapTool
+from .dalfox import DalfoxTool
+from .commix import CommixTool
+from .feroxbuster import FeroxbusterTool
+from .burp_pro import BurpProTool
 
 __all__ = [
     "BaseTool",
@@ -80,4 +84,8 @@ __all__ = [
     "TrufflehogTool",
     "MetasploitTool",
     "ZapTool",
+    "DalfoxTool",
+    "CommixTool",
+    "FeroxbusterTool",
+    "BurpProTool",
 ]

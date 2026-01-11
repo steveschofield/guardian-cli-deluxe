@@ -129,4 +129,3 @@ Audit and runtime logging:
 - `path`: log file path (default `./logs/guardian.log`)
 - `level`: `DEBUG` | `INFO` | `WARNING` | `ERROR`
 - `log_ai_decisions`: include AI decision traces in logs
-

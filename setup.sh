@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Guardian local setup helper (use inside your virtual environment)
 # Installs Python deps and optional helper tools needed for full functionality.
+# Supports macOS and Debian-based systems
 
 set -euo pipefail
 
@@ -8,16 +9,36 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_BIN="${VIRTUAL_ENV:-}/bin"
 TOOLS_DIR="${BASE_DIR}/tools/vendor"
 
+# Detect OS
+if [[ "$(uname)" == "Darwin" ]]; then
+  OS="macos"
+elif [[ -f /etc/debian_version ]]; then
+  OS="debian"
+else
+  OS="unknown"
+fi
+
+echo "Detected OS: ${OS}"
+
 install_libpcap_dev() {
-  if command -v apt-get >/dev/null 2>&1; then
-    if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-      echo "Installing libpcap-dev (required for naabu and other Go scanners)..."
-      sudo apt-get update && sudo apt-get install -y libpcap-dev || echo "WARN: libpcap-dev install failed; install manually if Go scanners fail to build" >&2
+  if [[ "${OS}" == "macos" ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      echo "Installing libpcap via Homebrew..."
+      brew install libpcap || echo "WARN: libpcap install failed" >&2
     else
-      echo "WARN: sudo not available; install libpcap-dev manually (apt-get install -y libpcap-dev)" >&2
+      echo "WARN: Homebrew not found; install libpcap manually (brew install libpcap)" >&2
+    fi
+  elif [[ "${OS}" == "debian" ]]; then
+    if command -v apt-get >/dev/null 2>&1; then
+      if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+        echo "Installing libpcap-dev (required for naabu and other Go scanners)..."
+        sudo apt-get update && sudo apt-get install -y libpcap-dev || echo "WARN: libpcap-dev install failed; install manually if Go scanners fail to build" >&2
+      else
+        echo "WARN: sudo not available; install libpcap-dev manually (apt-get install -y libpcap-dev)" >&2
+      fi
     fi
   else
-    echo "INFO: Non-apt system detected; ensure libpcap development headers are installed (e.g., brew install libpcap)" >&2
+    echo "INFO: Unknown OS; ensure libpcap development headers are installed" >&2
   fi
 }
 
@@ -34,12 +55,23 @@ ensure_node_and_npm() {
     return
   fi
 
-  if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
-    if sudo -n true 2>/dev/null; then
-      echo "Installing nodejs/npm via apt (required for retire.js)..."
-      sudo apt-get update && sudo apt-get install -y nodejs npm || echo "WARN: nodejs/npm install failed; install manually to enable retire.js" >&2
+  if [[ "${OS}" == "macos" ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      echo "Installing nodejs/npm via Homebrew..."
+      brew install node || echo "WARN: nodejs/npm install failed; install manually" >&2
     else
-      echo "WARN: npm not found and sudo requires a password; install nodejs/npm manually to enable retire.js" >&2
+      echo "WARN: Homebrew not found; install nodejs/npm manually" >&2
+    fi
+  elif [[ "${OS}" == "debian" ]]; then
+    if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+      if sudo -n true 2>/dev/null; then
+        echo "Installing nodejs/npm via apt (required for retire.js)..."
+        sudo apt-get update && sudo apt-get install -y nodejs npm || echo "WARN: nodejs/npm install failed; install manually to enable retire.js" >&2
+      else
+        echo "WARN: npm not found and sudo requires a password; install nodejs/npm manually to enable retire.js" >&2
+      fi
+    else
+      echo "WARN: npm not found; install nodejs/npm manually to enable retire.js" >&2
     fi
   else
     echo "WARN: npm not found; install nodejs/npm manually to enable retire.js" >&2
@@ -287,21 +319,109 @@ install_nikto() {
     echo "nikto already present on PATH"
     return
   fi
-  if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-    echo "Installing nikto via apt (requires sudo)..."
-    sudo apt-get update -y && sudo apt-get install -y nikto
+  
+  if [[ "${OS}" == "macos" ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      echo "Installing nikto via Homebrew..."
+      brew install nikto || echo "WARN: nikto install failed" >&2
+    else
+      echo "WARN: Homebrew not found; install nikto manually" >&2
+    fi
+  elif [[ "${OS}" == "debian" ]]; then
+    if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+      echo "Installing nikto via apt (requires sudo)..."
+      sudo apt-get update -y && sudo apt-get install -y nikto
+    else
+      echo "WARN: nikto not found and sudo not available; install manually (e.g., apt install nikto)" >&2
+    fi
   else
-    echo "WARN: nikto not found and sudo not available; install manually (e.g., apt install nikto)" >&2
+    echo "WARN: nikto not found; install manually" >&2
   fi
 }
 
-echo "Installing optional tools: testssl, xsstrike, cmseek, gitleaks, nikto"
+install_additional_python_tools() {
+  echo "Installing additional Python security tools..."
+  
+  # Fix cryptography dependency conflict first
+  echo "Upgrading cryptography to resolve dependency conflicts..."
+  pip install --upgrade cryptography || echo "WARN: cryptography upgrade failed" >&2
+  
+  pip install wafw00f || echo "WARN: wafw00f install failed" >&2
+  pip install sqlmap || echo "WARN: sqlmap install failed" >&2
+  pip install sslyze || echo "WARN: sslyze install failed" >&2
+}
+
+install_ruby_tools() {
+  if [[ "${OS}" == "macos" ]]; then
+    # On macOS, ensure we have a proper Ruby setup
+    if ! command -v gem >/dev/null 2>&1; then
+      if command -v brew >/dev/null 2>&1; then
+        echo "Installing Ruby via Homebrew..."
+        brew install ruby
+        # Add Homebrew Ruby to PATH
+        echo 'export PATH="/opt/homebrew/opt/ruby/bin:$PATH"' >> ~/.zshrc
+        export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+      else
+        echo "WARN: Homebrew not found; install Ruby manually to enable wpscan" >&2
+        return
+      fi
+    fi
+    
+    # Install wpscan with user install to avoid permission issues
+    echo "Installing wpscan..."
+    gem install --user-install wpscan || echo "WARN: wpscan install failed" >&2
+    
+  else
+    # Non-macOS systems
+    if command -v gem >/dev/null 2>&1; then
+      echo "Installing Ruby security tools..."
+      gem install --user-install wpscan || echo "WARN: wpscan install failed" >&2
+    else
+      echo "WARN: gem not found; install Ruby to enable wpscan" >&2
+    fi
+  fi
+}
+
+install_whatweb() {
+  local repo="${TOOLS_DIR}/WhatWeb"
+  if [[ ! -d "${repo}/.git" ]]; then
+    git clone https://github.com/urbanadventurer/WhatWeb.git "${repo}"
+  fi
+  link_into_venv "${repo}/whatweb" "whatweb"
+}
+
+install_application_security_tools() {
+  echo "Installing application security tools..."
+  
+  # Dalfox - XSS scanner
+  if ! install_github_release_and_link "hahwul/dalfox" "dalfox"; then
+    go_install_and_link "github.com/hahwul/dalfox/v2@latest" "dalfox"
+  fi
+  
+  # Commix - Command injection testing
+  local commix_repo="${TOOLS_DIR}/commix"
+  if [[ ! -d "${commix_repo}/.git" ]]; then
+    git clone https://github.com/commixproject/commix.git "${commix_repo}"
+  fi
+  write_python_wrapper_into_venv "${commix_repo}/commix.py" "commix"
+  
+  # Feroxbuster - Fast content discovery
+  if ! install_github_release_and_link "epi052/feroxbuster" "feroxbuster"; then
+    echo "WARN: feroxbuster install failed; install manually from https://github.com/epi052/feroxbuster/releases" >&2
+  fi
+}
+
+echo "Installing optional tools: testssl, xsstrike, cmseek, gitleaks, nikto, wafw00f, sqlmap, sslyze, wpscan, whatweb"
 install_projectdiscovery_binaries
 install_testssl
 install_xsstrike
 install_cmseek
 install_gitleaks
 install_nikto
+install_additional_python_tools
+install_ruby_tools
+install_whatweb
+install_application_security_tools
 
 # Fetch extra nuclei templates (CVE-heavy packs)
 install_nuclei_templates() {
@@ -326,11 +446,20 @@ install_recon_extras() {
   install_github_release_and_link "projectdiscovery/dnsx" "dnsx" || true
   install_github_release_and_link "projectdiscovery/shuffledns" "shuffledns" || true
   install_github_release_and_link "projectdiscovery/naabu" "naabu" || true
-  install_github_release_and_link "projectdiscovery/katana" "katana" || true
   install_github_release_and_link "projectdiscovery/asnmap" "asnmap" || true
-  install_github_release_and_link "jaeles-project/gospider" "gospider" || true
+  # Install gospider with proper architecture support
+  if ! install_github_release_and_link "jaeles-project/gospider" "gospider"; then
+    echo "Installing gospider via go install (for correct architecture)..."
+    go_install_and_link "github.com/jaeles-project/gospider@latest" "gospider"
+  fi
   install_github_release_and_link "zricethezav/gitleaks" "gitleaks" || true
   install_github_release_and_link "d3mondev/puredns" "puredns" || true
+  
+  # Skip httpx and katana GitHub releases on macOS
+  if [[ "${OS}" != "macos" ]]; then
+    install_github_release_and_link "projectdiscovery/httpx" "httpx" || true
+    install_github_release_and_link "projectdiscovery/katana" "katana" || true
+  fi
 
   # hakrawler: Kali provides a package; extract without requiring sudo.
   install_deb_binary_and_link "hakrawler" "hakrawler" || true
@@ -338,6 +467,18 @@ install_recon_extras() {
   install_go_recon_tools() {
     go_install_and_link "github.com/OJ/gobuster/v3@latest" "gobuster"
     go_install_and_link "github.com/ffuf/ffuf/v2@latest" "ffuf"
+    
+    # Skip httpx and katana on macOS (use fallbacks)
+    if [[ "${OS}" != "macos" ]]; then
+      go_install_and_link "github.com/projectdiscovery/httpx/cmd/httpx@latest" "httpx"
+      go_install_and_link "github.com/projectdiscovery/katana/cmd/katana@latest" "katana"
+    else
+      echo "INFO: Skipping httpx and katana on macOS (using curl and gospider fallbacks)"
+    fi
+    
+    go_install_and_link "github.com/projectdiscovery/dnsx/cmd/dnsx@latest" "dnsx"
+    go_install_and_link "github.com/hakluke/hakrawler@latest" "hakrawler"
+    go_install_and_link "github.com/tomnomnom/waybackurls@latest" "waybackurls"
     # amass removed from this framework (often causes libpostal/sudo prompts on some distros)
   }
 

@@ -71,9 +71,12 @@ def _run_workflow(name: str, target: str, config_file: Path):
     """Run a workflow"""
     console.print(f"[bold cyan]🚀 Running {name} workflow on {target}[/bold cyan]\n")
     
-    config = load_config(str(config_file))
-    
     try:
+        config = load_config(str(config_file))
+        if not config:
+            console.print("[bold red]Error:[/bold red] Failed to load configuration")
+            raise typer.Exit(1)
+        
         engine = WorkflowEngine(config, target)
         
         if name == "autonomous":
@@ -86,5 +89,7 @@ def _run_workflow(name: str, target: str, config_file: Path):
         console.print(f"Session: [cyan]{results['session_id']}[/cyan]")
         
     except Exception as e:
+        import traceback
         console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        console.print(f"[dim]Traceback: {traceback.format_exc()}[/dim]")
         raise typer.Exit(1)

@@ -15,24 +15,37 @@ from core.planner import PlannerAgent
 from core.memory import PentestMemory, ToolExecution, Finding
 from ai.provider_factory import get_llm_client
 from utils.logger import get_logger
+from utils.session_paths import apply_session_paths
 from utils.scope_validator import ScopeValidator
+from utils.error_handler import ErrorHandler, with_error_handling, GuardianError, ToolExecutionError
+from utils.circuit_breaker import EnhancedErrorHandler
 
 
 class WorkflowEngine:
     """Orchestrates the penetration testing workflow"""
     
     def __init__(self, config: Dict[str, Any], target: str):
-        self.config = config
+        self.config = config or {}
         self.target = target
-        self.logger = get_logger(config)
+
+        # Initialize session memory early so output paths can use session id.
+        self.memory = PentestMemory(target)
+        self._configure_session_outputs()
+
+        self.logger = get_logger(self.config)
+
+        # Initialize LLM logging
+        from utils.llm_logger import init_llm_logger
+        init_llm_logger(self.config)
 
         # Preflight checks for common LLM auth failures so we fail early with actionable guidance.
         self._preflight_llm_auth()
         
         # Initialize components
-        self.memory = PentestMemory(target)
-        self.scope_validator = ScopeValidator(config)
-        self.llm_client = get_llm_client(config)
+        self.scope_validator = ScopeValidator(self.config)
+        self.llm_client = get_llm_client(self.config)
+        self.error_handler = ErrorHandler(self.config)
+        self.enhanced_error_handler = EnhancedErrorHandler(self.config)
 
         # Initialize all agents
         from core.planner import PlannerAgent
@@ -40,10 +53,10 @@ class WorkflowEngine:
         from core.analyst_agent import AnalystAgent
         from core.reporter_agent import ReporterAgent
 
-        self.planner = PlannerAgent(config, self.llm_client, self.memory)
-        self.tool_agent = ToolAgent(config, self.llm_client, self.memory)
-        self.analyst = AnalystAgent(config, self.llm_client, self.memory)
-        self.reporter = ReporterAgent(config, self.llm_client, self.memory)
+        self.planner = PlannerAgent(self.config, self.llm_client, self.memory)
+        self.tool_agent = ToolAgent(self.config, self.llm_client, self.memory)
+        self.analyst = AnalystAgent(self.config, self.llm_client, self.memory)
+        self.reporter = ReporterAgent(self.config, self.llm_client, self.memory)
 
         # Log tool availability up front
         try:
@@ -54,9 +67,25 @@ class WorkflowEngine:
         # Workflow state
         self.is_running = False
         self.current_step = 0
-        self.max_steps = config.get("workflows", {}).get("max_steps", 20)
+        self.max_steps = self.config.get("workflows", {}).get("max_steps", 20)
         self._step_durations: List[float] = []
         self._scope_cache: Dict[str, bool] = {}
+
+    def _configure_session_outputs(self) -> None:
+        apply_session_paths(self.config, self.memory.session_id)
+
+    def _log_tool_execution(self, tool: str, args: Dict[str, Any], result: Optional[Dict[str, Any]]) -> None:
+        logging_cfg = (self.config or {}).get("logging", {}) or {}
+        if not logging_cfg.get("log_tool_executions", False):
+            return
+
+        result_text = ""
+        if isinstance(result, dict):
+            result_text = result.get("raw_output") or result.get("error") or ""
+        elif result is not None:
+            result_text = str(result)
+
+        self.logger.log_tool_execution(tool=tool, args=args or {}, result=result_text or None)
 
     def _preflight_llm_auth(self) -> None:
         ai_cfg = (self.config or {}).get("ai", {}) or {}
@@ -120,6 +149,8 @@ class WorkflowEngine:
         try:
             # Load workflow steps
             steps = self._load_workflow(workflow_name)
+            if not steps:
+                raise ValueError(f"No workflow found for '{workflow_name}'")
             
             # Execute workflow steps
             for step in steps:
@@ -147,7 +178,15 @@ class WorkflowEngine:
             
         except Exception as e:
             self.logger.error(f"Workflow failed: {e}")
+            error_result = self.error_handler.handle_error(e, {"workflow": workflow_name, "target": self.target})
             self._save_session()
+            if error_result["can_continue"]:
+                return {
+                    "status": "completed_with_errors",
+                    "findings": len(self.memory.findings),
+                    "error": str(e),
+                    "recovery": error_result["recovery"]
+                }
             raise
         finally:
             self.is_running = False
@@ -212,6 +251,19 @@ class WorkflowEngine:
         finally:
             self.is_running = False
     
+    def get_system_health(self) -> Dict[str, Any]:
+        """Get overall system health status"""
+        return {
+            "workflow_running": self.is_running,
+            "current_step": self.current_step,
+            "max_steps": self.max_steps,
+            "component_health": self.enhanced_error_handler.get_component_health(),
+            "memory_usage": {
+                "findings": len(self.memory.findings),
+                "tool_executions": len(self.memory.tool_executions)
+            }
+        }
+    
     def stop(self):
         """Stop the workflow"""
         self.logger.info("Stopping workflow")
@@ -221,10 +273,34 @@ class WorkflowEngine:
         """Execute a workflow step"""
         step_type = step.get("type", "tool")
         
+        # Check conditional steps
+        if step.get("condition") == "burp_pro_available":
+            burp_config = self.config.get("tools", {}).get("burp_pro", {})
+            if not burp_config.get("run_additional_scan", True):
+                self.logger.info(f"Skipping {step['name']}: Burp Pro additional scan disabled in config")
+                return
+            if "burp_pro" not in self.tool_agent.available_tools:
+                self.logger.info(f"Skipping {step['name']}: Burp Pro not available")
+                return
+        
+        if step.get("condition") == "zap_available":
+            zap_config = self.config.get("tools", {}).get("zap", {})
+            if not zap_config.get("run_additional_scan", True):
+                self.logger.info(f"Skipping {step['name']}: ZAP additional scan disabled in config")
+                return
+            if "zap" not in self.tool_agent.available_tools:
+                self.logger.info(f"Skipping {step['name']}: ZAP not available")
+                return
+        
         if step_type == "tool":
             # Use Tool Agent to select and execute tool
             tool_name = step["tool"]
             objective = step.get("objective", f"Execute {tool_name}")
+            
+            # Check if tool is available, skip if not
+            if tool_name not in self.tool_agent.available_tools:
+                self.logger.warning(f"Tool {tool_name} not available on this platform, skipping step")
+                return
             
             self.logger.info(f"Tool Agent selecting tool: {tool_name}")
             
@@ -266,6 +342,8 @@ class WorkflowEngine:
                 target=self.target,
                 **tool_kwargs
             )
+
+            self._log_tool_execution(tool=tool_name, args=tool_kwargs, result=result)
             
             if result.get("success"):
                 parsed = result.get("parsed") if isinstance(result.get("parsed"), dict) else {}
@@ -578,6 +656,8 @@ class WorkflowEngine:
                 target=exec_target,
                 **tool_kwargs
             )
+
+            self._log_tool_execution(tool=tool_selection["tool"], args=tool_kwargs, result=result)
             
             if result.get("success"):
                 # Analyze with Analyst Agent
@@ -597,30 +677,41 @@ class WorkflowEngine:
         self.memory.mark_action_complete(action)
     
     def _load_workflow(self, workflow_name: str) -> List[Dict[str, Any]]:
-        """Load workflow definition"""
+        """Load workflow definition with OS-specific tool selection"""
+        import platform
+        is_macos = platform.system().lower() == "darwin"
+        
+        # Use alternative tools on macOS
+        web_probing_tool = "gospider" if is_macos else "httpx"
+        crawl_tool = "gospider" if is_macos else "katana"
+        
         # Predefined workflows
         workflows = {
             "recon": [
                 {"name": "subdomain_discovery", "type": "tool", "tool": "subfinder"},
                 {"name": "port_scanning", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
                 {"name": "nmap_vuln_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "vuln", "ports_from_context": True, "tool_timeout": 900}},
-                {"name": "web_probing", "type": "tool", "tool": "httpx"},
+                {"name": "web_probing", "type": "tool", "tool": web_probing_tool},
                 {"name": "analysis", "type": "analysis"},
+                {"name": "report", "type": "report"},
             ],
             "web": [
-                {"name": "web_discovery", "type": "tool", "tool": "httpx"},
-                {"name": "crawl", "type": "tool", "tool": "katana"},
-                {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei"},
-                {"name": "zap_baseline", "type": "tool", "tool": "zap"},
+                {"name": "web_discovery", "type": "tool", "tool": web_probing_tool},
+                {"name": "crawl", "type": "tool", "tool": crawl_tool},
+                {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei", "parameters": {"tool_timeout": 900}},
+                {"name": "burp_pro_scan", "type": "tool", "tool": "burp_pro", "condition": "burp_pro_available"},
+                {"name": "zap_scan", "type": "tool", "tool": "zap", "condition": "zap_available"},
                 {"name": "analysis", "type": "analysis"},
+                {"name": "report", "type": "report"},
             ],
             "network": [
                 {"name": "port_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
                 {"name": "nmap_vuln_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "vuln", "ports_from_context": True, "tool_timeout": 900}},
-                {"name": "web_probing", "type": "tool", "tool": "httpx"},
-                {"name": "crawl", "type": "tool", "tool": "katana"},
-                {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei"},
+                {"name": "web_probing", "type": "tool", "tool": web_probing_tool},
+                {"name": "crawl", "type": "tool", "tool": crawl_tool},
+                {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei", "parameters": {"tool_timeout": 900}},
                 {"name": "analysis", "type": "analysis"},
+                {"name": "report", "type": "report"},
             ]
         }
         

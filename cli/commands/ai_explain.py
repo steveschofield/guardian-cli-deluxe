@@ -6,10 +6,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from pathlib import Path
 import json
 
 from utils.helpers import load_config
+from utils.session_paths import resolve_session_file, find_latest_session_file
 
 console = Console()
 
@@ -27,7 +27,8 @@ def explain_command(
     including what actions were taken and why.
     """
     console.print("[bold cyan]🤖 AI Decision Explanation[/bold cyan]\n")
-    
+
+    config = load_config()
     if not session_id and not last:
         console.print("[yellow]Please specify --session <id> or use --last[/yellow]")
         console.print("Use 'ls reports/' to see available sessions")
@@ -35,10 +36,10 @@ def explain_command(
     
     # Load session data
     if session_id:
-        session_file = Path(f"./reports/session_{session_id}.json")
+        session_file = resolve_session_file(config, session_id)
     else:
         # Find most recent session
-        session_file = _find_latest_session()
+        session_file = find_latest_session_file(config)
     
     if not session_file or not session_file.exists():
         console.print(f"[red]Session file not found: {session_file}[/red]")
@@ -58,21 +59,6 @@ def explain_command(
         console.print_json(data=ai_decisions)
     else:
         _display_decisions_table(ai_decisions, all=all)
-
-
-def _find_latest_session() -> Path:
-    """Find the most recent session file"""
-    reports_dir = Path("./reports")
-    if not reports_dir.exists():
-        return None
-    
-    session_files = list(reports_dir.glob("session_*.json"))
-    if not session_files:
-        return None
-    
-    # Sort by modification time
-    latest = max(session_files, key=lambda p: p.stat().st_mtime)
-    return latest
 
 
 def _display_decisions_table(decisions: list, all: bool = False):

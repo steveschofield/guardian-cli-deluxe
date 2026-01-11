@@ -3,8 +3,10 @@ Tool Selector Agent
 Selects appropriate pentesting tools and configures them
 """
 
+import asyncio
 from typing import Dict, Any, Optional
 from core.agent import BaseAgent
+from utils.error_handler import ToolExecutionError, with_error_handling
 from ai.prompt_templates import (
     TOOL_SELECTOR_SYSTEM_PROMPT,
     TOOL_SELECTION_PROMPT,
@@ -34,12 +36,14 @@ class ToolAgent(BaseAgent):
             HakrawlerTool, GospiderTool, RetireTool, NaabuTool, KatanaTool,
             AsnmapTool, WaybackurlsTool, SubjsTool, DirsearchTool,
             LinkfinderTool, XnlinkfinderTool, ParamspiderTool,
-            SchemathesisTool, TrufflehogTool, MetasploitTool, ZapTool
+            SchemathesisTool, TrufflehogTool, MetasploitTool, ZapTool,
+            DalfoxTool, CommixTool, FeroxbusterTool
         )
 
+        import platform
+        
         self.available_tools = {
             "nmap": NmapTool(config),
-            "httpx": HttpxTool(config),
             "subfinder": SubfinderTool(config),
             "nuclei": NucleiTool(config),
             "whatweb": WhatWebTool(config),
@@ -64,7 +68,6 @@ class ToolAgent(BaseAgent):
             "gospider": GospiderTool(config),
             "retire": RetireTool(config),
             "naabu": NaabuTool(config),
-            "katana": KatanaTool(config),
             "asnmap": AsnmapTool(config),
             "waybackurls": WaybackurlsTool(config),
             "subjs": SubjsTool(config),
@@ -76,7 +79,19 @@ class ToolAgent(BaseAgent):
             "trufflehog": TrufflehogTool(config),
             "metasploit": MetasploitTool(config),
             "zap": ZapTool(config),
+            "dalfox": DalfoxTool(config),
+            "commix": CommixTool(config),
+            "feroxbuster": FeroxbusterTool(config),
         }
+        
+        # Add OS-specific tools
+        if platform.system().lower() != "darwin":  # Not macOS
+            self.available_tools["httpx"] = HttpxTool(config)
+            self.available_tools["katana"] = KatanaTool(config)
+        else:  # macOS only
+            from tools.burp_pro import BurpProTool
+            self.available_tools["burp_pro"] = BurpProTool(config)
+
 
     def log_tool_availability(self):
         """Log availability of all registered tools and basic install hints."""
@@ -119,6 +134,10 @@ class ToolAgent(BaseAgent):
             "trufflehog": "pip install trufflehog",
             "metasploit": "install via https://www.metasploit.com/ (msfconsole on PATH)",
             "zap": "docker pull ghcr.io/zaproxy/zaproxy:stable (requires Docker)",
+            "dalfox": "go install github.com/hahwul/dalfox/v2@latest",
+            "commix": "pip install commix",
+            "feroxbuster": "cargo install feroxbuster",
+            "burp_pro": "Install Burp Suite Professional (macOS only)",
         }
 
         missing = []
@@ -249,27 +268,45 @@ class ToolAgent(BaseAgent):
     
     async def execute_tool(self, tool_name: str, target: str, **kwargs) -> Dict[str, Any]:
         """
-        Execute a selected tool
+        Execute a selected tool with robust error handling
         
         Returns:
             Tool execution results
         """
         if tool_name not in self.available_tools:
-            raise ValueError(f"Unknown tool: {tool_name}")
+            raise ToolExecutionError(tool_name, f"Unknown tool: {tool_name}")
         
         tool = self.available_tools[tool_name]
         
         if not tool.is_available:
-            self.logger.warning(f"Tool {tool_name} is not installed")
-            return {
-                "success": False,
-                "error": f"Tool {tool_name} not available",
-                "tool": tool_name
-            }
+            # Re-check availability for tools that might have dynamic dependencies
+            if hasattr(tool, '_check_installation'):
+                if not tool._check_installation():
+                    self.logger.warning(f"Tool {tool_name} not available (dependency check failed)")
+                    return {
+                        "success": False,
+                        "error": f"Tool {tool_name} dependencies not available",
+                        "tool": tool_name,
+                        "skipped": True
+                    }
+            else:
+                raise ToolExecutionError(tool_name, f"Tool {tool_name} not installed", exit_code=127)
         
         try:
-            # Execute tool
-            result = await tool.execute(target, **kwargs)
+            # Execute tool with circuit breaker protection
+            timeout = kwargs.pop('tool_timeout', self.config.get("pentest", {}).get("tool_timeout", 300))
+            
+            # Use enhanced error handler if available
+            if hasattr(self, 'enhanced_error_handler'):
+                result = await self.enhanced_error_handler.execute_with_protection(
+                    "tool_execution",
+                    lambda: asyncio.wait_for(tool.execute(target, **kwargs), timeout=timeout)
+                )
+                if not result["success"]:
+                    raise ToolExecutionError(tool_name, result["error"])
+                result = result["result"]
+            else:
+                result = await asyncio.wait_for(tool.execute(target, **kwargs), timeout=timeout)
 
             # Record execution in memory (even on non-zero exit for audit/debug)
             from core.memory import ToolExecution
@@ -285,17 +322,10 @@ class ToolAgent(BaseAgent):
             )
             self.memory.add_tool_execution(execution)
 
-            # Treat non-zero exit as failure (still returning captured output/error)
+            # Handle non-zero exit codes
             if result.get("exit_code", 0) != 0:
-                err = result.get("error") or "Tool exited with non-zero status"
-                self.logger.warning(f"Tool {tool_name} exited non-zero ({result.get('exit_code')}): {err}")
-                return {
-                    "success": False,
-                    "error": err,
-                    "tool": tool_name,
-                    "raw_output": raw_output,
-                    "exit_code": result.get("exit_code"),
-                }
+                error_msg = result.get("error") or "Tool exited with non-zero status"
+                raise ToolExecutionError(tool_name, error_msg, exit_code=result.get("exit_code"))
             
             return {
                 "success": True,
@@ -306,6 +336,8 @@ class ToolAgent(BaseAgent):
                 "exit_code": result["exit_code"],
             }
             
+        except asyncio.TimeoutError:
+            raise ToolExecutionError(tool_name, f"Tool {tool_name} timed out after {timeout}s")
         except ValueError as e:
             self.logger.warning(f"Tool {tool_name} skipped: {e}")
             return {
@@ -315,12 +347,7 @@ class ToolAgent(BaseAgent):
                 "skipped": True
             }
         except Exception as e:
-            self.logger.error(f"Tool execution failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "tool": tool_name
-            }
+            raise ToolExecutionError(tool_name, f"Tool execution failed: {str(e)}")
     
     def _detect_target_type(self, target: str) -> str:
         """Detect if target is IP, domain, or URL"""

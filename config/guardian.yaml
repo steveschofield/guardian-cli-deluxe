@@ -4,18 +4,18 @@
 # AI Configuration
 ai:
   # Supported providers: gemini, ollama, openrouter, huggingface
-  provider: openrouter
-  model: "xiaomi/mimo-v2-flash:free"
-  #model: "qwen/qwen3-coder:free"
-  base_url: "https://openrouter.ai/api/v1"
+  # provider: openrouter
+  # model: "xiaomi/mimo-v2-flash:free"
+  # model: "qwen/qwen3-coder:free"
+  # base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama example:
-  #provider: ollama
-  # model: "llama3.1:8b"
-  # model: deepseek-r1:8b 
-  #model: llama3.2:3b
-  # model: "DeepHat/DeepHat-V1-7B"
-  #base_url: "http://192.168.1.69:11434"
+  provider: ollama
+  #model: "llama3.1:8b"
+  #model: deepseek-r1:8b 
+  model: llama3.2:3b
+  #model: "DeepHat/DeepHat-V1-7B"
+  base_url: "http://192.168.1.69:11434"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
   # - Install deps: pip install -U google-genai
@@ -40,36 +40,41 @@ ai:
   # model: "deepseek-ai/DeepSeek-R1"
   # base_url: "https://router.huggingface.co/v1"
   # hf_max_retries: 4
+
   temperature: 0.2
 
-  max_tokens: 4096
+  # Log full LLM request/response payloads to JSONL
+  log_llm_io_file: true
+  log_llm_full_io: true
+
+  max_tokens: 8192
   # Request timeout for provider HTTP calls (seconds). Some providers may still impose their own limits.
   timeout: 600
   # Overall time budget for an LLM call at the agent level (seconds).
   # If unset, Guardian falls back to `ai.timeout`.
   llm_timeout_seconds: 600
-  max_input_chars: 40000
+  max_input_chars: 100000
   # Max characters of tool output to include in LLM prompts (larger = more context, more tokens/cost)
-  max_tool_output_chars: 12000
+  max_tool_output_chars: 25000
   # Optional: desired context window size (only enforced for Ollama via num_ctx; other providers may ignore).
-  context_window: 8192
+  context_window: 200000
 
 # Penetration Testing Settings
 pentest:
   # Safety mode prevents automatic execution of risky commands
-  safe_mode: true
+  safe_mode: false
   
   # Maximum number of tools to run in parallel
-  max_parallel_tools: 3
+  max_parallel_tools: 5
   
   # Require user confirmation before executing any tool
-  require_confirmation: true
+  require_confirmation: false
   
   # Maximum scan depth for recursive operations
-  max_depth: 3
+  max_depth: 5
   
   # Request timeout for tools (seconds)
-  tool_timeout: 300
+  tool_timeout: 900
 
 # Output Settings
 output:
@@ -84,12 +89,17 @@ output:
   
   # Verbosity level: quiet, normal, verbose, debug
   verbosity: normal
+  
+  # Memory optimization settings
+  compress_large_outputs: true
+  max_output_size_mb: 50
+  truncate_verbose_tools: true
 
 # Scope Validation
 scope:
   # Blacklisted IP ranges (CIDR notation)
   blacklist:
-    - 127.0.0.0/8
+  #  - 127.0.0.0/8
   
   # Require explicit scope file for scanning
   require_scope_file: false
@@ -162,9 +172,19 @@ tools:
     mode: docker
     docker_image: "ghcr.io/zaproxy/zaproxy:stable"
     # baseline = passive (safer), full = active scan (requires pentest.safe_mode: false)
-    scan: baseline
+    scan: full
     # Time budget for the scan scripts (minutes)
-    max_minutes: 10
+    max_minutes: 30
+    # Run additional ZAP scan when available
+    run_additional_scan: false
+
+  burp_pro:
+    enabled: true
+    # Run additional Burp Pro scan when available (macOS only)
+    run_additional_scan: false
+    scan_type: "crawl-and-audit"
+    # Time budget for scan (minutes)
+    max_minutes: 30
 
 # Workflow Settings
 workflows:
@@ -190,3 +210,40 @@ logging:
   
   # Log AI decisions
   log_ai_decisions: true
+  
+  # Log LLM requests and responses
+  log_llm_requests: true
+  log_llm_responses: true
+  
+  # Debug mode
+  debug: true
+  
+  # Log tool executions and outputs
+  log_tool_executions: true
+  
+  # Log workflow progress
+  log_workflow_progress: true
+  
+  # Log memory/context updates
+  log_memory_updates: true
+  
+  # Rotate log files when they get large
+  rotate_logs: true
+  max_log_size_mb: 100
+
+# Error Handling
+error_handling:
+  # Enable comprehensive error handling
+  enabled: true
+  
+  # Continue on recoverable errors
+  continue_on_recoverable: true
+  
+  # Retry attempts for transient failures
+  max_retries: 3
+  
+  # Backoff delay for retries (seconds)
+  retry_delay: 30
+  
+  # Log all errors to file
+  log_errors: true

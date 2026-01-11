@@ -4,7 +4,7 @@
   become: true
   vars:
     groupname: 52pickup
-    username: example123!
+    username: <password>
     docker_compose_arch: "{{ 'x86_64' if ansible_architecture == 'x86_64' else 'aarch64' }}"
     docker_user: "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
   
