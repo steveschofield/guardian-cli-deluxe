@@ -402,6 +402,39 @@ settings:
   safe_mode: true
 ```
 
+### Planner Checkpoints (Built-In Workflows)
+
+For the built-in `recon`, `web`, and `network` workflows, you can optionally call the Planner agent
+at specific checkpoints via `config/guardian.yaml`:
+
+```yaml
+workflows:
+  use_planner: true
+  planner_checkpoints: ["port_scanning", "web_probing", "analysis", "report"]
+```
+
+- `planner_checkpoints` accepts step names, step types (`analysis`, `report`), or `all` to run after every step.
+
+### Tool Preferences (Built-In Workflows)
+
+To prefer specific tools for a given step in the built-in `recon`, `web`, or `network` workflows,
+set `workflows.tool_preferences` in `config/guardian.yaml`. The planner is not required.
+
+```yaml
+workflows:
+  tool_preferences:
+    recon:
+      port_scanning:
+        preferred: ["naabu"]
+        primary: "nmap"
+    web:
+      web_probing:
+        preferred: ["httpx", "gospider"]
+```
+
+- `preferred` tools are tried in order; the first available tool runs.
+- `primary` overrides the default tool for the step and acts as a fallback.
+
 ---
 
 ## Best Practices

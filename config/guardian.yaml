@@ -191,6 +191,21 @@ workflows:
   # Default workflow timeout (seconds)
   timeout: 3600
   
+  # Optional: run Planner checkpoints during scripted workflows (recon/web/network)
+  # Autonomous runs Planner by default
+  use_planner: false
+  # Valid values: step names (e.g. "port_scanning"), step types ("analysis", "report"), or "all"
+  planner_checkpoints: ["port_scanning", "web_probing", "analysis", "report"]
+  # Optional: per-step tool preferences for built-in workflows
+  # tool_preferences:
+  #   recon:
+  #     port_scanning:
+  #       preferred: ["naabu"]
+  #       primary: "nmap"
+  #   web:
+  #     web_probing:
+  #       preferred: ["httpx", "gospider"]
+  
   # Save intermediate results
   save_intermediate: true
   

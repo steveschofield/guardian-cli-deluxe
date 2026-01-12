@@ -159,7 +159,10 @@ class WorkflowEngine:
                 self._log_progress(prefix="Workflow", total=len(steps), current=self.current_step)
                 self.logger.info(f"Executing step: {step['name']}")
                 step_started = datetime.now()
-                await self._execute_step(step)
+                await self._execute_step(step, workflow_name)
+                if self._should_run_planner(step):
+                    decision = await self.planner.decide_next_action()
+                    self.logger.info(f"Planner checkpoint decision after {step['name']}: {decision.get('next_action')}")
                 self._record_step_duration(step_started)
                 self.current_step += 1
             
@@ -269,7 +272,7 @@ class WorkflowEngine:
         self.logger.info("Stopping workflow")
         self.is_running = False
     
-    async def _execute_step(self, step: Dict[str, Any]):
+    async def _execute_step(self, step: Dict[str, Any], workflow_name: Optional[str] = None):
         """Execute a workflow step"""
         step_type = step.get("type", "tool")
         
@@ -294,7 +297,10 @@ class WorkflowEngine:
         
         if step_type == "tool":
             # Use Tool Agent to select and execute tool
-            tool_name = step["tool"]
+            tool_name = self._select_tool_for_step(step, workflow_name)
+            if not tool_name:
+                self.logger.warning("No available tool found for this step, skipping")
+                return
             objective = step.get("objective", f"Execute {tool_name}")
             
             # Check if tool is available, skip if not
@@ -401,6 +407,50 @@ class WorkflowEngine:
                 self.logger.info(f"Report saved to: {report_file}")
         
         self.memory.mark_action_complete(step["name"])
+
+    def _select_tool_for_step(self, step: Dict[str, Any], workflow_name: Optional[str]) -> Optional[str]:
+        primary_tool = step.get("tool")
+        preferred: list[str] = []
+
+        step_pref = step.get("preferred_tool") or step.get("preferred_tools")
+        if isinstance(step_pref, str):
+            preferred.append(step_pref)
+        elif isinstance(step_pref, list):
+            preferred.extend([str(t) for t in step_pref if str(t).strip()])
+
+        workflows_cfg = (self.config or {}).get("workflows", {}) or {}
+        tool_prefs = workflows_cfg.get("tool_preferences", {}) or {}
+        if workflow_name and isinstance(tool_prefs, dict):
+            wf_prefs = tool_prefs.get(workflow_name, {}) or {}
+            step_cfg = wf_prefs.get(step.get("name"), {})
+            if isinstance(step_cfg, str):
+                preferred.append(step_cfg)
+            elif isinstance(step_cfg, list):
+                preferred.extend([str(t) for t in step_cfg if str(t).strip()])
+            elif isinstance(step_cfg, dict):
+                cfg_primary = step_cfg.get("primary")
+                if isinstance(cfg_primary, str) and cfg_primary.strip():
+                    primary_tool = cfg_primary
+                cfg_pref = step_cfg.get("preferred")
+                if isinstance(cfg_pref, str):
+                    preferred.append(cfg_pref)
+                elif isinstance(cfg_pref, list):
+                    preferred.extend([str(t) for t in cfg_pref if str(t).strip()])
+
+        candidates = []
+        for tool in preferred + ([primary_tool] if primary_tool else []):
+            tool = str(tool).strip()
+            if not tool or tool in candidates:
+                continue
+            candidates.append(tool)
+
+        for tool in candidates:
+            if tool in self.tool_agent.available_tools:
+                if primary_tool and tool != primary_tool:
+                    self.logger.info(f"Using preferred tool '{tool}' instead of primary '{primary_tool}'")
+                return tool
+
+        return None
 
     def _get_discovered_urls(self) -> List[str]:
         urls = self.memory.context.get("urls") or []
@@ -727,6 +777,27 @@ class WorkflowEngine:
             new_phase = phases[current_idx + 1]
             self.logger.info(f"Advancing to phase: {new_phase}")
             self.memory.update_phase(new_phase)
+
+    def _planner_config(self) -> tuple[bool, set[str]]:
+        workflows_cfg = (self.config or {}).get("workflows", {}) or {}
+        enabled = bool(workflows_cfg.get("use_planner", False))
+        checkpoints = workflows_cfg.get("planner_checkpoints") or []
+        if isinstance(checkpoints, str):
+            checkpoints = [c.strip() for c in checkpoints.split(",") if c.strip()]
+        checkpoints_set = {str(c).strip() for c in checkpoints if str(c).strip()}
+        return enabled, checkpoints_set
+
+    def _should_run_planner(self, step: Dict[str, Any]) -> bool:
+        enabled, checkpoints = self._planner_config()
+        if not enabled:
+            return False
+        if not checkpoints:
+            return False
+        if "all" in checkpoints:
+            return True
+        step_name = step.get("name")
+        step_type = step.get("type")
+        return step_name in checkpoints or step_type in checkpoints
     
     def _save_session(self):
         """Save session state"""
