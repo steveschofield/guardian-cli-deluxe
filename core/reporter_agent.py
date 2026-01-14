@@ -6,6 +6,7 @@ Generates professional penetration testing reports
 from typing import Dict, Any, List
 from pathlib import Path
 from datetime import datetime
+import shlex
 from core.agent import BaseAgent
 from ai.prompt_templates import (
     REPORTER_SYSTEM_PROMPT,
@@ -155,6 +156,7 @@ class ReporterAgent(BaseAgent):
     ) -> str:
         """Assemble Markdown report"""
         summary = self.memory.get_findings_summary()
+        evidence_section = self._format_evidence_markdown()
         
         report = f"""# Penetration Test Report
 
@@ -182,6 +184,7 @@ class ReporterAgent(BaseAgent):
 ## Technical Findings
 
 {technical}
+{evidence_section}
 
 ## Remediation Plan
 
@@ -190,6 +193,10 @@ class ReporterAgent(BaseAgent):
 ## AI Decision Trace
 
 {ai_trace}
+
+## Tool Summary
+
+{self._format_tool_summary_markdown()}
 
 ## Tools Executed
 
@@ -209,6 +216,7 @@ class ReporterAgent(BaseAgent):
     ) -> str:
         """Assemble HTML report"""
         summary = self.memory.get_findings_summary()
+        evidence_section = self._format_evidence_html()
         
         # Convert markdown-style content to HTML
         html = f"""<!DOCTYPE html>
@@ -257,12 +265,16 @@ class ReporterAgent(BaseAgent):
     
     <h2>Technical Findings</h2>
     <div>{self._markdown_to_html(technical)}</div>
+{evidence_section}
     
     <h2>Remediation Plan</h2>
     <div>{self._markdown_to_html(remediation)}</div>
     
     <h2>AI Decision Trace</h2>
     <div>{self._markdown_to_html(ai_trace)}</div>
+
+    <h2>Tool Summary</h2>
+    {self._format_tool_summary_html()}
     
     <footer>
         <hr>
@@ -296,7 +308,8 @@ class ReporterAgent(BaseAgent):
             "technical_findings": technical,
             "remediation_plan": remediation,
             "ai_trace": ai_trace,
-            "tool_executions": [asdict(t) for t in self.memory.tool_executions]
+            "tool_executions": [asdict(t) for t in self.memory.tool_executions],
+            "tool_summary": self._get_tool_summary(),
         }
         
         return json.dumps(report, indent=2, default=str)
@@ -337,6 +350,154 @@ Evidence: {f.evidence[:200]}
             formatted.append(f"- **{t.tool}**: {t.command} (Duration: {t.duration:.2f}s)")
         
         return "\n".join(formatted)
+
+    def _get_tool_summary(self) -> List[Dict[str, Any]]:
+        summary: Dict[str, Dict[str, Any]] = {}
+        ordered_tools: List[str] = []
+        for execution in self.memory.tool_executions:
+            tool = execution.tool
+            if tool not in summary:
+                summary[tool] = {
+                    "tool": tool,
+                    "runs": 0,
+                    "success": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                    "last_exit_code": execution.exit_code,
+                }
+                ordered_tools.append(tool)
+
+            entry = summary[tool]
+            entry["runs"] += 1
+            entry["last_exit_code"] = execution.exit_code
+            output_lower = (execution.output or "").lower()
+            if "skipped:" in output_lower:
+                entry["skipped"] += 1
+            elif execution.exit_code == 0:
+                entry["success"] += 1
+            else:
+                entry["failed"] += 1
+
+        return [summary[t] for t in ordered_tools]
+
+    def _format_tool_summary_markdown(self) -> str:
+        summary = self._get_tool_summary()
+        if not summary:
+            return "No tool executions recorded"
+
+        lines = [
+            "| Tool | Runs | Success | Failed | Skipped | Last Exit |",
+            "|------|------|---------|--------|---------|-----------|",
+        ]
+        for item in summary:
+            lines.append(
+                f"| {item['tool']} | {item['runs']} | {item['success']} | "
+                f"{item['failed']} | {item['skipped']} | {item['last_exit_code']} |"
+            )
+        return "\n".join(lines)
+
+    def _format_tool_summary_html(self) -> str:
+        summary = self._get_tool_summary()
+        if not summary:
+            return "<p>No tool executions recorded.</p>"
+
+        rows = []
+        for item in summary:
+            rows.append(
+                "<tr>"
+                f"<td>{item['tool']}</td>"
+                f"<td>{item['runs']}</td>"
+                f"<td>{item['success']}</td>"
+                f"<td>{item['failed']}</td>"
+                f"<td>{item['skipped']}</td>"
+                f"<td>{item['last_exit_code']}</td>"
+                "</tr>"
+            )
+
+        return (
+            "<table>"
+            "<tr><th>Tool</th><th>Runs</th><th>Success</th><th>Failed</th>"
+            "<th>Skipped</th><th>Last Exit</th></tr>"
+            + "".join(rows)
+            + "</table>"
+        )
+
+    def _collect_evidence_entries(self) -> List[Dict[str, str]]:
+        evidence_files = self._extract_evidence_files()
+        entries: List[Dict[str, str]] = []
+        for f in self.memory.findings:
+            if f.false_positive:
+                continue
+            evidence = (f.evidence or "").strip()
+            if not evidence:
+                continue
+            compact = " ".join(evidence.split())
+            files = evidence_files.get(f.tool, [])
+            entries.append({
+                "title": f.title,
+                "severity": f.severity.upper(),
+                "tool": f.tool,
+                "target": f.target,
+                "evidence": compact[:500],
+                "evidence_files": ", ".join(files) if files else "",
+            })
+        return entries
+
+    def _format_evidence_markdown(self) -> str:
+        entries = self._collect_evidence_entries()
+        if not entries:
+            return ""
+        lines = ["", "## Evidence", ""]
+        for e in entries:
+            file_part = f" Evidence file: {e['evidence_files']}" if e.get("evidence_files") else ""
+            lines.append(
+                f"- **[{e['severity']}] {e['title']}** (Tool: {e['tool']}, Target: {e['target']}) "
+                f"Evidence: {e['evidence']}{file_part}"
+            )
+        return "\n".join(lines)
+
+    def _format_evidence_html(self) -> str:
+        entries = self._collect_evidence_entries()
+        if not entries:
+            return ""
+        import html as _html
+        items = []
+        for e in entries:
+            file_part = f" Evidence file: {_html.escape(e['evidence_files'])}" if e.get("evidence_files") else ""
+            item = (
+                f"<li><strong>[{_html.escape(e['severity'])}] {_html.escape(e['title'])}</strong> "
+                f"(Tool: {_html.escape(e['tool'])}, Target: {_html.escape(e['target'])}) "
+                f"Evidence: {_html.escape(e['evidence'])}{file_part}</li>"
+            )
+            items.append(item)
+        return "\n    <h2>Evidence</h2>\n    <ul>\n        " + "\n        ".join(items) + "\n    </ul>\n"
+
+    def _extract_evidence_files(self) -> Dict[str, List[str]]:
+        evidence: Dict[str, List[str]] = {}
+        for execution in self.memory.tool_executions:
+            tool = execution.tool
+            cmd = execution.command or ""
+            try:
+                tokens = shlex.split(cmd)
+            except Exception:
+                tokens = cmd.split()
+
+            files: List[str] = []
+            # Nuclei JSONL output file.
+            for i, tok in enumerate(tokens):
+                if tok == "-o" and i + 1 < len(tokens):
+                    files.append(tokens[i + 1])
+                if tok.startswith("-o") and len(tok) > 2:
+                    files.append(tok[2:])
+                if tok == "--report-path" and i + 1 < len(tokens):
+                    files.append(tokens[i + 1])
+
+            if files:
+                existing = evidence.setdefault(tool, [])
+                for f in files:
+                    if f and f not in existing:
+                        existing.append(f)
+        return evidence
     
     def _markdown_to_html(self, markdown: str) -> str:
         """Simple markdown to HTML conversion"""

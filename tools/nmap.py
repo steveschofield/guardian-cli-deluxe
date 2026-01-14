@@ -39,7 +39,7 @@ class NmapTool(BaseTool):
             command.extend(str(args).split())
         
         # Timing template
-        timing = config.get("timing", "T4")
+        timing = kwargs.get("timing") or config.get("timing", "T4")
         command.append(f"-{timing}")
         
         # XML output for parsing
@@ -65,7 +65,8 @@ class NmapTool(BaseTool):
             "open_ports": [],
             "services": [],
             "os_detection": None,
-            "vulnerabilities": []
+            "vulnerabilities": [],
+            "hosts_up": []
         }
         
         # Simple regex parsing (in production, use proper XML parser)
@@ -90,5 +91,15 @@ class NmapTool(BaseTool):
                 "type": os_match.group(1),
                 "family": os_match.group(2)
             }
+
+        # Extract hosts up (ping scan or host discovery)
+        for host_block in re.findall(r"<host[^>]*>.*?</host>", output, re.DOTALL):
+            if 'state="up"' not in host_block:
+                continue
+            addr_match = re.search(r'address addr="([^"]+)"', host_block)
+            if addr_match:
+                addr = addr_match.group(1)
+                if addr and addr not in results["hosts_up"]:
+                    results["hosts_up"].append(addr)
         
         return results

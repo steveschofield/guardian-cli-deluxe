@@ -67,6 +67,11 @@ This directory contains wrappers for various penetration testing tools.
 - **OWASP ZAP (headless)**: Web app scanning (baseline passive or full active)
   - Installation: Docker recommended: `docker pull ghcr.io/zaproxy/zaproxy:stable` (alternatives: `:bare`, `:weekly`, `:nightly`)
   - Features: Passive scan (baseline), optional active scan (full) when safe_mode is disabled
+  - Example (baseline scan):
+    - `docker run --rm --pull=missing -v <reports_dir>:/zap/wrk ghcr.io/zaproxy/zaproxy:stable bash -lc 'zap-baseline.py -t <target> -J /zap/wrk/<json> -r /zap/wrk/<html> -w /zap/wrk/<md> -m <minutes>'`
+  - Example (daemon mode, long-running):
+    - `docker run -d --name zapd -p 8080:8080 ghcr.io/zaproxy/zaproxy:stable zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true`
+    - Set `tools.zap.mode: daemon` and `tools.zap.api_url: http://127.0.0.1:8080`
 
 ### SSL/TLS Testing
 - **TestSSL**: SSL/TLS security testing

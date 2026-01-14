@@ -23,7 +23,7 @@ sudo apt install ansible
 cd ~/code/guardian-cli-deluxe/ansible-playbooks
 ansible-playbook -K local_playbook_kali.yml 
 
-┌──(kali㉿kali)-[~/code/guardian-cli-deluxe/ansible-playbooks]
+┌──(kali㉿kali)-[~/whatcode/guardian-cli-deluxe/ansible-playbooks]
 └─$ sudo systemctl enable docker
 Synchronizing state of docker.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
 Executing: /usr/lib/systemd/systemd-sysv-install enable docker

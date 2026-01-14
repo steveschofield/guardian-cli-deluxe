@@ -11,7 +11,15 @@ class DalfoxTool(BaseTool):
     """Dalfox XSS scanner wrapper"""
     
     def get_command(self, target: str, **kwargs) -> List[str]:
-        command = ["dalfox", "url", target, "--format", "json"]
+        command = ["dalfox"]
+
+        if kwargs.get("from_file"):
+            from_file = kwargs["from_file"]
+            command.extend(["file", from_file])
+        else:
+            command.extend(["url", target])
+
+        command.extend(["--format", "json"])
         
         if kwargs.get("deep"):
             command.append("--deep-domxss")

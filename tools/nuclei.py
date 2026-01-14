@@ -145,6 +145,12 @@ class NucleiTool(BaseTool):
         
         # JSONL output (parseable line by line)
         command.extend(["-jsonl"])
+        # Persist JSONL to reports for evidence.
+        out_dir = Path((self.config or {}).get("output", {}).get("save_path", "./reports"))
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = out_dir / f"nuclei_{ts}.jsonl"
+        command.extend(["-o", str(output_file)])
 
         # Concurrency (reduce memory/pressure in constrained environments)
         concurrency = config.get("concurrency")

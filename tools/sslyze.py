@@ -3,6 +3,7 @@ SSLyze tool wrapper for advanced SSL/TLS security testing
 """
 
 import json
+from urllib.parse import urlparse
 from typing import Dict, Any, List
 
 from tools.base_tool import BaseTool
@@ -21,9 +22,14 @@ class SSLyzeTool(BaseTool):
         
         command = ["sslyze"]
         
-        # Parse target (host:port)
-        if ":" in target:
+        # Parse target (accept URL or host[:port])
+        parsed = urlparse(target)
+        if parsed.scheme and parsed.hostname:
+            host = parsed.hostname
+            port = parsed.port or 443
+        elif ":" in target:
             host, port = target.rsplit(":", 1)
+            port = port or "443"
         else:
             host = target
             port = "443"

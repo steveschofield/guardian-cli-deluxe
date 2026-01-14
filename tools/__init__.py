@@ -14,6 +14,9 @@ from .sqlmap import SQLMapTool
 from .ffuf import FFufTool
 from .wpscan import WPScanTool
 from .sslyze import SSLyzeTool
+from .headers import HeadersTool
+from .masscan import MasscanTool
+from .udp_proto_scanner import UdpProtoScannerTool
 from .arjun import ArjunTool
 from .xsstrike import XSStrikeTool
 from .gitleaks import GitleaksTool
@@ -59,6 +62,9 @@ __all__ = [
     "FFufTool",
     "WPScanTool",
     "SSLyzeTool",
+    "HeadersTool",
+    "MasscanTool",
+    "UdpProtoScannerTool",
     "ArjunTool",
     "XSStrikeTool",
     "GitleaksTool",

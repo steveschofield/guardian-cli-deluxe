@@ -21,6 +21,9 @@ Available Tools (pick only those appropriate for the target type and objective):
 - nuclei: Vulnerability scanning using templates
 - testssl: SSL/TLS testing
 - sslyze: SSL/TLS scanning and analysis
+- headers: HTTP security header checks
+- masscan: Fast TCP port discovery
+- udp-proto-scanner: Fast UDP probing
 - gobuster: Directory/file brute forcing
 - dirsearch: Content discovery and brute forcing
 - ffuf: Fast web fuzzing (paths/params)
@@ -83,6 +86,9 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - nuclei: Vulnerability template scanning
 - testssl: SSL/TLS security testing
 - sslyze: SSL/TLS scanning
+- headers: HTTP security header checks
+- masscan: Fast TCP port discovery
+- udp-proto-scanner: Fast UDP probing
 - gobuster: Directory/file brute forcing
 - dirsearch: Content discovery
 - ffuf: Web fuzzing

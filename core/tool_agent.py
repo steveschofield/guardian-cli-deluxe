@@ -30,7 +30,7 @@ class ToolAgent(BaseAgent):
         from tools import (
             NmapTool, HttpxTool, SubfinderTool, NucleiTool,
             WhatWebTool, Wafw00fTool, NiktoTool, TestSSLTool, GobusterTool,
-            SQLMapTool, FFufTool, WPScanTool, SSLyzeTool,
+            SQLMapTool, FFufTool, WPScanTool, SSLyzeTool, HeadersTool, MasscanTool, UdpProtoScannerTool,
             ArjunTool, XSStrikeTool, GitleaksTool, CMSeekTool, DnsReconTool,
             DnsxTool, ShufflednsTool, PurednsTool, AltdnsTool,
             HakrawlerTool, GospiderTool, RetireTool, NaabuTool, KatanaTool,
@@ -55,6 +55,9 @@ class ToolAgent(BaseAgent):
             "ffuf": FFufTool(config),
             "wpscan": WPScanTool(config),
             "sslyze": SSLyzeTool(config),
+            "headers": HeadersTool(config),
+            "masscan": MasscanTool(config),
+            "udp-proto-scanner": UdpProtoScannerTool(config),
             "arjun": ArjunTool(config),
             "xsstrike": XSStrikeTool(config),
             "gitleaks": GitleaksTool(config),
@@ -109,6 +112,9 @@ class ToolAgent(BaseAgent):
             "ffuf": "go install github.com/ffuf/ffuf/v2@latest",
             "wpscan": "gem install wpscan",
             "sslyze": "pip install sslyze",
+            "headers": "apt install curl",
+            "masscan": "apt install masscan",
+            "udp-proto-scanner": "apt install udp-proto-scanner",
             "arjun": "pip install arjun",
             "xsstrike": "git clone https://github.com/s0md3v/XSStrike.git",
             "gitleaks": "go install github.com/zricethezav/gitleaks/v8@latest",
@@ -274,7 +280,13 @@ class ToolAgent(BaseAgent):
             Tool execution results
         """
         if tool_name not in self.available_tools:
-            raise ToolExecutionError(tool_name, f"Unknown tool: {tool_name}")
+            return self._record_tool_failure(
+                tool_name=tool_name,
+                target=target,
+                error=f"Unknown tool: {tool_name}",
+                exit_code=127,
+                skipped=True,
+            )
         
         tool = self.available_tools[tool_name]
         
@@ -283,14 +295,21 @@ class ToolAgent(BaseAgent):
             if hasattr(tool, '_check_installation'):
                 if not tool._check_installation():
                     self.logger.warning(f"Tool {tool_name} not available (dependency check failed)")
-                    return {
-                        "success": False,
-                        "error": f"Tool {tool_name} dependencies not available",
-                        "tool": tool_name,
-                        "skipped": True
-                    }
+                    return self._record_tool_failure(
+                        tool_name=tool_name,
+                        target=target,
+                        error=f"Tool {tool_name} dependencies not available",
+                        exit_code=127,
+                        skipped=True,
+                    )
             else:
-                raise ToolExecutionError(tool_name, f"Tool {tool_name} not installed", exit_code=127)
+                return self._record_tool_failure(
+                    tool_name=tool_name,
+                    target=target,
+                    error=f"Tool {tool_name} not installed",
+                    exit_code=127,
+                    skipped=True,
+                )
         
         try:
             # Execute tool with circuit breaker protection
@@ -303,7 +322,13 @@ class ToolAgent(BaseAgent):
                     lambda: asyncio.wait_for(tool.execute(target, **kwargs), timeout=timeout)
                 )
                 if not result["success"]:
-                    raise ToolExecutionError(tool_name, result["error"])
+                    return self._record_tool_failure(
+                        tool_name=tool_name,
+                        target=target,
+                        error=result["error"],
+                        exit_code=1,
+                        skipped=False,
+                    )
                 result = result["result"]
             else:
                 result = await asyncio.wait_for(tool.execute(target, **kwargs), timeout=timeout)
@@ -325,7 +350,15 @@ class ToolAgent(BaseAgent):
             # Handle non-zero exit codes
             if result.get("exit_code", 0) != 0:
                 error_msg = result.get("error") or "Tool exited with non-zero status"
-                raise ToolExecutionError(tool_name, error_msg, exit_code=result.get("exit_code"))
+                return {
+                    "success": False,
+                    "tool": tool_name,
+                    "parsed": result["parsed"],
+                    "raw_output": raw_output,
+                    "duration": result["duration"],
+                    "exit_code": result["exit_code"],
+                    "error": error_msg,
+                }
             
             return {
                 "success": True,
@@ -337,17 +370,64 @@ class ToolAgent(BaseAgent):
             }
             
         except asyncio.TimeoutError:
-            raise ToolExecutionError(tool_name, f"Tool {tool_name} timed out after {timeout}s")
+            return self._record_tool_failure(
+                tool_name=tool_name,
+                target=target,
+                error=f"Tool {tool_name} timed out after {timeout}s",
+                exit_code=124,
+                skipped=False,
+            )
         except ValueError as e:
             self.logger.warning(f"Tool {tool_name} skipped: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "tool": tool_name,
-                "skipped": True
-            }
+            return self._record_tool_failure(
+                tool_name=tool_name,
+                target=target,
+                error=str(e),
+                exit_code=0,
+                skipped=True,
+            )
         except Exception as e:
-            raise ToolExecutionError(tool_name, f"Tool execution failed: {str(e)}")
+            return self._record_tool_failure(
+                tool_name=tool_name,
+                target=target,
+                error=f"Tool execution failed: {str(e)}",
+                exit_code=1,
+                skipped=False,
+            )
+
+    def _record_tool_failure(
+        self,
+        tool_name: str,
+        target: str,
+        error: str,
+        exit_code: int,
+        skipped: bool,
+    ) -> Dict[str, Any]:
+        """Record a failed or skipped tool execution and return a failure result."""
+        from core.memory import ToolExecution
+        timestamp = self._get_timestamp()
+        output = f"skipped: {error}" if skipped else error
+        execution = ToolExecution(
+            tool=tool_name,
+            command="",
+            target=target,
+            timestamp=timestamp,
+            exit_code=exit_code,
+            output=self._truncate_output(output),
+            duration=0.0,
+        )
+        self.memory.add_tool_execution(execution)
+        return {
+            "success": False,
+            "tool": tool_name,
+            "error": error,
+            "exit_code": exit_code,
+            "skipped": skipped,
+        }
+
+    def _get_timestamp(self) -> str:
+        from datetime import datetime
+        return datetime.now().isoformat()
     
     def _detect_target_type(self, target: str) -> str:
         """Detect if target is IP, domain, or URL"""

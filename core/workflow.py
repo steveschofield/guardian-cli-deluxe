@@ -87,6 +87,52 @@ class WorkflowEngine:
 
         self.logger.log_tool_execution(tool=tool, args=args or {}, result=result_text or None)
 
+    def _get_tool_summary(self) -> List[Dict[str, Any]]:
+        summary: Dict[str, Dict[str, Any]] = {}
+        ordered_tools: List[str] = []
+        for execution in self.memory.tool_executions:
+            tool = execution.tool
+            if tool not in summary:
+                summary[tool] = {
+                    "tool": tool,
+                    "runs": 0,
+                    "success": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                    "last_exit_code": execution.exit_code,
+                }
+                ordered_tools.append(tool)
+
+            entry = summary[tool]
+            entry["runs"] += 1
+            entry["last_exit_code"] = execution.exit_code
+            output_lower = (execution.output or "").lower()
+            if "skipped:" in output_lower:
+                entry["skipped"] += 1
+            elif execution.exit_code == 0:
+                entry["success"] += 1
+            else:
+                entry["failed"] += 1
+
+        return [summary[t] for t in ordered_tools]
+
+    def _log_tool_summary(self) -> None:
+        summary = self._get_tool_summary()
+        if not summary:
+            return
+        self.logger.info("Tool execution summary:")
+        for item in summary:
+            if item["skipped"] and not item["success"] and not item["failed"]:
+                status = "skipped"
+            elif item["failed"]:
+                status = "failed"
+            else:
+                status = "success"
+            self.logger.info(
+                f"- {item['tool']}: {status} (runs={item['runs']}, "
+                f"success={item['success']}, failed={item['failed']}, skipped={item['skipped']})"
+            )
+
     def _preflight_llm_auth(self) -> None:
         ai_cfg = (self.config or {}).get("ai", {}) or {}
         provider = (ai_cfg.get("provider") or "gemini").lower()
@@ -171,12 +217,17 @@ class WorkflowEngine:
             
             # Save final state
             self._save_session()
+
+            # Summarize tool outcomes
+            self._log_tool_summary()
+            tool_summary = self._get_tool_summary()
             
             return {
                 "status": "completed",
                 "findings": len(self.memory.findings),
                 "analysis": analysis,
-                "session_id": self.memory.session_id
+                "session_id": self.memory.session_id,
+                "tool_summary": tool_summary,
             }
             
         except Exception as e:
@@ -184,11 +235,14 @@ class WorkflowEngine:
             error_result = self.error_handler.handle_error(e, {"workflow": workflow_name, "target": self.target})
             self._save_session()
             if error_result["can_continue"]:
+                self._log_tool_summary()
+                tool_summary = self._get_tool_summary()
                 return {
                     "status": "completed_with_errors",
                     "findings": len(self.memory.findings),
                     "error": str(e),
-                    "recovery": error_result["recovery"]
+                    "recovery": error_result["recovery"],
+                    "tool_summary": tool_summary,
                 }
             raise
         finally:
@@ -239,12 +293,17 @@ class WorkflowEngine:
             analysis = await self.planner.analyze_results()
             
             self._save_session()
+
+            # Summarize tool outcomes
+            self._log_tool_summary()
+            tool_summary = self._get_tool_summary()
             
             return {
                 "status": "completed",
                 "findings": len(self.memory.findings),
                 "analysis": analysis,
-                "session_id": self.memory.session_id
+                "session_id": self.memory.session_id,
+                "tool_summary": tool_summary,
             }
             
         except Exception as e:
@@ -313,6 +372,24 @@ class WorkflowEngine:
             # Tool Agent executes the tool
             tool_kwargs = step.get("parameters", {}) or {}
 
+            if tool_name == "schemathesis":
+                api_cfg = (self.config or {}).get("tools", {}).get("schemathesis", {}) or {}
+                if not api_cfg.get("enabled", True):
+                    self.logger.info(f"Skipping {step['name']}: Schemathesis disabled in config")
+                    return
+                schema = tool_kwargs.get("schema") or api_cfg.get("schema") or api_cfg.get("openapi")
+                if not schema:
+                    self.logger.info(f"Skipping {step['name']}: Schemathesis schema/openapi not configured")
+                    return
+                tool_kwargs = dict(tool_kwargs)
+                tool_kwargs.setdefault("schema", schema)
+                base_url = tool_kwargs.get("base_url") or api_cfg.get("base_url") or api_cfg.get("url")
+                if base_url:
+                    tool_kwargs.setdefault("base_url", base_url)
+                for key in ("workers", "checks", "max_examples"):
+                    if key not in tool_kwargs and api_cfg.get(key) is not None:
+                        tool_kwargs[key] = api_cfg.get(key)
+
             # Allow steps to derive nmap ports from discovered open ports (speeds up vuln scripts).
             if tool_name == "nmap":
                 if tool_kwargs.get("ports_from_context") and not tool_kwargs.get("ports"):
@@ -324,15 +401,30 @@ class WorkflowEngine:
                                 ports.append(str(int(p)))
                             except Exception:
                                 continue
+                        ports_filter = tool_kwargs.get("ports_filter")
+                        if ports_filter:
+                            if isinstance(ports_filter, str):
+                                wanted = {int(x.strip()) for x in ports_filter.split(",") if x.strip()}
+                            elif isinstance(ports_filter, list):
+                                wanted = {int(x) for x in ports_filter}
+                            else:
+                                wanted = set()
+                            ports = [p for p in ports if int(p) in wanted]
                         if ports:
                             tool_kwargs = dict(tool_kwargs)
                             tool_kwargs["ports"] = ",".join(ports)
+                        else:
+                            self.logger.info(
+                                f"Skipping {step['name']}: no matching open ports for filtered scan"
+                            )
+                            return
                     tool_kwargs = dict(tool_kwargs)
                     tool_kwargs.pop("ports_from_context", None)
+                    tool_kwargs.pop("ports_filter", None)
 
             # If we have discovered URLs, run URL-first scanners using the URL list.
             # NOTE: only enable for tools that accept a `from_file` input in our wrappers.
-            if tool_name in {"katana", "nuclei"}:
+            if tool_name in {"katana", "nuclei", "dalfox"}:
                 urls = self._get_discovered_urls()
                 if urls and "from_file" not in tool_kwargs:
                     url_file = self._write_urls_file(urls, name=f"{tool_name}_{self.memory.session_id}.txt")
@@ -343,11 +435,15 @@ class WorkflowEngine:
                 self.logger.error(f"Target validation failed before tool execution: {self.target}")
                 return
 
-            result = await self.tool_agent.execute_tool(
-                tool_name=tool_name,
-                target=self.target,
-                **tool_kwargs
-            )
+            try:
+                result = await self.tool_agent.execute_tool(
+                    tool_name=tool_name,
+                    target=self.target,
+                    **tool_kwargs
+                )
+            except Exception as e:
+                self.logger.warning(f"Tool {tool_name} failed with exception: {e}")
+                result = {"success": False, "tool": tool_name, "error": str(e), "exit_code": 1}
 
             self._log_tool_execution(tool=tool_name, args=tool_kwargs, result=result)
             
@@ -364,10 +460,73 @@ class WorkflowEngine:
                 if tool_name == "nmap":
                     open_ports = parsed.get("open_ports") or []
                     services = parsed.get("services") or []
+                    hosts_up = parsed.get("hosts_up") or []
                     if isinstance(open_ports, list) and open_ports:
                         self.memory.update_context("open_ports", open_ports)
                     if isinstance(services, list) and services:
                         self.memory.update_context("services", services)
+                    if isinstance(hosts_up, list) and hosts_up:
+                        self.memory.update_context("discovered_assets", hosts_up)
+                if tool_name == "naabu":
+                    open_ports = parsed.get("open_ports") or []
+                    if isinstance(open_ports, list) and open_ports:
+                        ports = []
+                        hosts = set()
+                        for entry in open_ports:
+                            if isinstance(entry, dict):
+                                port = entry.get("port")
+                                host = entry.get("host")
+                                if host:
+                                    hosts.add(host)
+                                if port is not None:
+                                    try:
+                                        ports.append(int(port))
+                                    except Exception:
+                                        continue
+                        if ports:
+                            self.memory.update_context("open_ports", ports)
+                        if hosts:
+                            self.memory.update_context("discovered_assets", sorted(hosts))
+                if tool_name == "masscan":
+                    open_ports = parsed.get("open_ports") or []
+                    if isinstance(open_ports, list) and open_ports:
+                        ports = []
+                        hosts = set()
+                        for entry in open_ports:
+                            if isinstance(entry, dict):
+                                port = entry.get("port")
+                                host = entry.get("host")
+                                if host:
+                                    hosts.add(host)
+                                if port is not None:
+                                    try:
+                                        ports.append(int(port))
+                                    except Exception:
+                                        continue
+                        if ports:
+                            self.memory.update_context("open_ports", ports)
+                        if hosts:
+                            self.memory.update_context("discovered_assets", sorted(hosts))
+                if tool_name == "udp-proto-scanner":
+                    open_ports = parsed.get("open_ports") or []
+                    if isinstance(open_ports, list) and open_ports:
+                        ports = []
+                        hosts = set()
+                        for entry in open_ports:
+                            if isinstance(entry, dict):
+                                port = entry.get("port")
+                                host = entry.get("host")
+                                if host:
+                                    hosts.add(host)
+                                if port is not None:
+                                    try:
+                                        ports.append(int(port))
+                                    except Exception:
+                                        continue
+                        if ports:
+                            self.memory.update_context("open_ports", ports)
+                        if hosts:
+                            self.memory.update_context("discovered_assets", sorted(hosts))
 
                 # Use Analyst Agent to interpret results
                 self.logger.info("Analyst Agent analyzing results...")
@@ -749,6 +908,8 @@ class WorkflowEngine:
                 {"name": "web_discovery", "type": "tool", "tool": web_probing_tool},
                 {"name": "crawl", "type": "tool", "tool": crawl_tool},
                 {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei", "parameters": {"tool_timeout": 900}},
+                {"name": "api_schema_scan", "type": "tool", "tool": "schemathesis", "parameters": {"tool_timeout": 900}},
+                {"name": "xss_scan", "type": "tool", "tool": "dalfox", "parameters": {"tool_timeout": 900}},
                 {"name": "burp_pro_scan", "type": "tool", "tool": "burp_pro", "condition": "burp_pro_available"},
                 {"name": "zap_scan", "type": "tool", "tool": "zap", "condition": "zap_available"},
                 {"name": "analysis", "type": "analysis"},

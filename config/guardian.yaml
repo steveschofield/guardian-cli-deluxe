@@ -135,18 +135,26 @@ tools:
     
   nuclei:
     enabled: true
-    severity: ["critical", "high", "medium"]
+    severity: ["critical", "high"]
     # Nuclei can take longer than the default workflow timeout depending on template set/target size.
     tool_timeout: 900
     templates_paths:
       - ~/nuclei-templates
-      - ~/nuclei-templates-extra/kenzer
-      - ~/nuclei-templates-extra/geeknik
-      - ~/nuclei-templates-extra/emadshanab
     # Nuclei tags are template-defined (run `nuclei -tgl` to see what's available in your template set).
     # This set aims for broad OWASP-style coverage without running the entire template corpus.
-    tags: ["cve", "exposure", "misconfig", "default", "default-login", "rce", "cmdi", "ssrf", "sqli", "xss", "lfi", "redirect"]
-    rate_limit: 25
+    tags: ["cve", "rce", "sqli", "xss", "default", "default-login"]
+    rate_limit: 50
+  
+  schemathesis:
+    enabled: true
+    # Required: OpenAPI schema URL or path
+    # schema: "https://api.example.com/openapi.json"
+    # Optional: base URL for the API (defaults to target)
+    # base_url: "https://api.example.com"
+    # Optional tuning
+    # workers: 4
+    # checks: "all"
+    # max_examples: 50
 
   naabu:
     enabled: true
@@ -156,8 +164,8 @@ tools:
 
   katana:
     enabled: true
-    depth: 2
-    concurrency: 10
+    depth: 3
+    concurrency: 25
 
   asnmap:
     enabled: true
@@ -176,7 +184,7 @@ tools:
     # Time budget for the scan scripts (minutes)
     max_minutes: 30
     # Run additional ZAP scan when available
-    run_additional_scan: false
+    run_additional_scan: true
 
   burp_pro:
     enabled: true
