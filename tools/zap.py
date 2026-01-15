@@ -89,6 +89,10 @@ class ZapTool(BaseTool):
 
         out_dir = self._reports_dir() / "zap"
         out_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            out_dir.chmod(0o777)
+        except Exception:
+            pass
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         json_name = f"zap_{scan}_{ts}.json"
         html_name = f"zap_{scan}_{ts}.html"
@@ -99,11 +103,11 @@ class ZapTool(BaseTool):
 
         # ZAP scripts live inside the container image.
         if scan == "full":
-            script = "zap-full-scan.py"
+            script = "/zap/zap-full-scan.py"
             # -a is "active scan"; full scan is inherently active.
             scan_flags = "-a"
         else:
-            script = "zap-baseline.py"
+            script = "/zap/zap-baseline.py"
             scan_flags = ""
 
         # Use bash so we can always emit the JSON report content to stdout for parsing.

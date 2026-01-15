@@ -483,7 +483,38 @@ install_recon_extras() {
   }
 
   install_masscan() {
-    # masscan removed from this framework
+    if command -v masscan >/dev/null 2>&1; then
+      link_into_venv "$(command -v masscan)" "masscan"
+      return 0
+    fi
+
+    if [[ "${OS}" == "debian" ]]; then
+      if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+        echo "Installing masscan via apt (requires sudo)..."
+        sudo apt-get update -y && sudo apt-get install -y masscan || echo "WARN: masscan install failed" >&2
+        if command -v masscan >/dev/null 2>&1; then
+          link_into_venv "$(command -v masscan)" "masscan"
+        fi
+        return 0
+      fi
+      echo "WARN: masscan not found and sudo not available; install manually (apt install masscan)" >&2
+      return 0
+    fi
+
+    if [[ "${OS}" == "macos" ]]; then
+      if command -v brew >/dev/null 2>&1; then
+        echo "Installing masscan via Homebrew..."
+        brew install masscan || echo "WARN: masscan install failed" >&2
+        if command -v masscan >/dev/null 2>&1; then
+          link_into_venv "$(command -v masscan)" "masscan"
+        fi
+        return 0
+      fi
+      echo "WARN: Homebrew not found; install masscan manually (brew install masscan)" >&2
+      return 0
+    fi
+
+    echo "WARN: masscan not found; install manually for your OS" >&2
     return 0
   }
 
@@ -494,9 +525,39 @@ install_recon_extras() {
     pip install dnsrecon
   }
 
+  install_udp_proto_scanner() {
+    if [[ -x "${VENV_BIN}/udp-proto-scanner.pl" ]]; then
+      return 0
+    fi
+
+    if command -v udp-proto-scanner.pl >/dev/null 2>&1; then
+      link_into_venv "$(command -v udp-proto-scanner.pl)" "udp-proto-scanner.pl"
+      return 0
+    fi
+
+    if [[ "${OS}" == "macos" ]] && command -v brew >/dev/null 2>&1; then
+      # No known brew formula; fallback to git clone below.
+      true
+    fi
+
+    local repo="${TOOLS_DIR}/udp-proto-scanner"
+    if [[ ! -d "${repo}/.git" ]]; then
+      git clone https://github.com/portcullislabs/udp-proto-scanner.git "${repo}" || {
+        echo "WARN: udp-proto-scanner clone failed" >&2
+        return 0
+      }
+    fi
+    if [[ -x "${repo}/udp-proto-scanner.pl" ]]; then
+      link_into_venv "${repo}/udp-proto-scanner.pl" "udp-proto-scanner.pl"
+    else
+      echo "WARN: udp-proto-scanner.pl not found after clone" >&2
+    fi
+  }
+
   install_go_recon_tools
   install_masscan
   install_dnsrecon
+  install_udp_proto_scanner
 
   # waybackurls: no deps (stdlib only) and no release assets; build from source in GOPATH mode.
   install_waybackurls() {

@@ -11,10 +11,10 @@ ai:
   #
   # Ollama example:
   provider: ollama
-  #model: "llama3.1:8b"
-  #model: deepseek-r1:8b 
-  model: llama3.2:3b
-  #model: "DeepHat/DeepHat-V1-7B"
+  model: "llama3.1:8b"
+  # model: deepseek-r1:8b 
+  # model: llama3.2:3b
+  # model: "DeepHat/DeepHat-V1-7B"
   base_url: "http://192.168.1.69:11434"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
