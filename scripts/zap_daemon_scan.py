@@ -17,6 +17,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 
@@ -40,6 +41,17 @@ def _api_url(api_base: str, component: str, kind: str, method: str, params: Dict
     return _join(api_base, f"JSON/{component}/{kind}/{method}/") + (f"?{query}" if query else "")
 
 
+def _api_other_url(api_base: str, component: str, method: str, params: Dict[str, Any]) -> str:
+    query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
+    return _join(api_base, f"OTHER/{component}/other/{method}/") + (f"?{query}" if query else "")
+
+
+def _get_raw(url: str, timeout: float = 30.0) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": "guardian-zap-daemon-scan/1.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read()
+
+
 def _sleep_poll(deadline: float, interval: float = 2.0) -> None:
     if time.time() >= deadline:
         raise TimeoutError("Timed out waiting for ZAP scan to finish")
@@ -55,6 +67,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--active", action="store_true", help="Run active scan (more intrusive)")
     ap.add_argument("--max-minutes", type=int, default=10, help="Max time budget for scan (minutes)")
     ap.add_argument("--max-alerts", type=int, default=5000, help="Max number of alerts to fetch")
+    ap.add_argument("--har-out", default="", help="Write HAR output to this path (optional)")
     args = ap.parse_args(argv)
 
     api_base = args.api_url.rstrip("/")
@@ -134,12 +147,27 @@ def main(argv: Optional[list[str]] = None) -> int:
         if len(batch) < page:
             break
 
+    har_path = ""
+    har_error = ""
+    if args.har_out:
+        try:
+            har_url = _api_other_url(api_base, "core", "har", {"apikey": api_key, "baseurl": target})
+            har_data = _get_raw(har_url)
+            out_path = Path(args.har_out)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_bytes(har_data)
+            har_path = str(out_path)
+        except Exception as e:
+            har_error = str(e)
+
     out = {
         "zap": {"api_url": api_base, "version": version},
         "target": target,
         "mode": "daemon",
         "spider": bool(args.spider),
         "active": bool(args.active),
+        "har_path": har_path,
+        "har_error": har_error,
         "alerts": alerts,
         "count": len(alerts),
     }
@@ -155,4 +183,3 @@ if __name__ == "__main__":
     except Exception as e:
         sys.stderr.write(f"ERROR: {e}\n")
         raise SystemExit(2)
-

@@ -11,8 +11,8 @@ ai:
   #
   # Ollama example:
   provider: ollama
-  model: "llama3.1:8b"
-  # model: deepseek-r1:8b 
+  # model: "llama3.1:8b"
+  model: deepseek-r1:8b 
   # model: llama3.2:3b
   # model: "DeepHat/DeepHat-V1-7B"
   base_url: "http://192.168.1.69:11434"
@@ -183,6 +183,8 @@ tools:
     scan: full
     # Time budget for the scan scripts (minutes)
     max_minutes: 30
+    # Export HAR when using daemon mode (useful for importing into Burp/other tools)
+    export_har: false
     # Run additional ZAP scan when available
     run_additional_scan: true
 

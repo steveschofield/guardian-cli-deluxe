@@ -57,12 +57,18 @@ class ZapTool(BaseTool):
         if not api_url:
             api_url = "http://127.0.0.1:8080"
         api_key = (cfg.get("api_key") or os.environ.get("GUARDIAN_ZAP_API_KEY") or "").strip()
+        export_har = bool(cfg.get("export_har", False))
 
         # baseline: spider + passive; full: spider + active + passive
         spider = bool(cfg.get("spider", True))
 
         safe_mode = (self.config or {}).get("pentest", {}).get("safe_mode", True)
         active = (scan == "full") and (not safe_mode)
+
+        out_dir = self._reports_dir() / "zap"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        har_name = f"zap_{scan}_{ts}.har"
 
         script = Path(__file__).resolve().parent.parent / "scripts" / "zap_daemon_scan.py"
         args = [
@@ -81,6 +87,8 @@ class ZapTool(BaseTool):
             args.append("--spider")
         if active:
             args.append("--active")
+        if export_har:
+            args.extend(["--har-out", str(out_dir / har_name)])
         return args
 
     def _build_docker_command(self, target: str, scan: str, timeout_min: int) -> List[str]:
