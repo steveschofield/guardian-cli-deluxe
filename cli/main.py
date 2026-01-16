@@ -72,8 +72,10 @@ def main():
         # Display banner
         banner = """
 ╔═══════════════════════════════════════════╗
-║   🔐 GUARDIAN - AI Pentest Automation    ║
-║   Powered by Google Gemini & LangChain   ║
+║   🔐 GUARDIAN - AI Pentest Automation     ║
+║   Powered multiple providers & LangChain  ║
+║ Original: https://github.com/zakirkun     ║
+║ Deluxe: https://github.com/SteveSchofield ║
 ╚═══════════════════════════════════════════╝
 """
         console.print(banner, style="bold cyan")

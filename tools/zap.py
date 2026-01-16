@@ -51,13 +51,32 @@ class ZapTool(BaseTool):
         base.mkdir(parents=True, exist_ok=True)
         return base
 
-    def _build_daemon_command(self, target: str, scan: str, timeout_min: int) -> List[str]:
+    def _build_daemon_command(
+        self,
+        target: str,
+        scan: str,
+        timeout_min: int,
+        seed_urls: str | None = None,
+        seed_urls_file: str | None = None,
+    ) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
         api_url = (cfg.get("api_url") or cfg.get("daemon_url") or os.environ.get("GUARDIAN_ZAP_API_URL") or "").strip()
         if not api_url:
             api_url = "http://127.0.0.1:8080"
         api_key = (cfg.get("api_key") or os.environ.get("GUARDIAN_ZAP_API_KEY") or "").strip()
         export_har = bool(cfg.get("export_har", False))
+        ajax_spider = bool(cfg.get("ajax_spider", False))
+        ignore_robots = bool(cfg.get("ignore_robots", False))
+        context_name = (cfg.get("context_name") or "").strip()
+        include_regex = (cfg.get("include_regex") or "").strip()
+        login_url = (cfg.get("login_url") or "").strip()
+        login_request_data = (cfg.get("login_request_data") or "").strip()
+        username = (cfg.get("username") or "").strip()
+        password = (cfg.get("password") or "").strip()
+        username_field = (cfg.get("username_field") or "username").strip()
+        password_field = (cfg.get("password_field") or "password").strip()
+        logged_in_regex = (cfg.get("logged_in_regex") or "").strip()
+        logged_out_regex = (cfg.get("logged_out_regex") or "").strip()
 
         # baseline: spider + passive; full: spider + active + passive
         spider = bool(cfg.get("spider", True))
@@ -85,8 +104,128 @@ class ZapTool(BaseTool):
             args.extend(["--api-key", api_key])
         if spider:
             args.append("--spider")
+        if ajax_spider:
+            args.append("--ajax-spider")
         if active:
             args.append("--active")
+        if ignore_robots:
+            args.append("--ignore-robots")
+        seed_urls = seed_urls or cfg.get("seed_urls")
+        seed_urls_file = seed_urls_file or cfg.get("seed_urls_file")
+        if seed_urls:
+            args.extend(["--seed-urls", str(seed_urls)])
+        if seed_urls_file:
+            args.extend(["--seed-file", str(seed_urls_file)])
+        if context_name:
+            args.extend(["--context-name", context_name])
+        if include_regex:
+            args.extend(["--include-regex", include_regex])
+        if login_url:
+            args.extend(["--login-url", login_url])
+        if login_request_data:
+            args.extend(["--login-request-data", login_request_data])
+        if username:
+            args.extend(["--username", username])
+        if password:
+            args.extend(["--password", password])
+        if username_field:
+            args.extend(["--username-field", username_field])
+        if password_field:
+            args.extend(["--password-field", password_field])
+        if logged_in_regex:
+            args.extend(["--logged-in-regex", logged_in_regex])
+        if logged_out_regex:
+            args.extend(["--logged-out-regex", logged_out_regex])
+        if export_har:
+            args.extend(["--har-out", str(out_dir / har_name)])
+        return args
+
+    def _build_docker_daemon_command(
+        self,
+        target: str,
+        scan: str,
+        timeout_min: int,
+        seed_urls: str | None = None,
+        seed_urls_file: str | None = None,
+    ) -> List[str]:
+        cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
+        api_url = (cfg.get("api_url") or cfg.get("daemon_url") or os.environ.get("GUARDIAN_ZAP_API_URL") or "").strip()
+        if not api_url:
+            api_url = "http://127.0.0.1:8080"
+        api_key = (cfg.get("api_key") or os.environ.get("GUARDIAN_ZAP_API_KEY") or "").strip()
+        image = cfg.get("docker_image") or "ghcr.io/zaproxy/zaproxy:stable"
+        export_har = bool(cfg.get("export_har", False))
+        ajax_spider = bool(cfg.get("ajax_spider", False))
+        ignore_robots = bool(cfg.get("ignore_robots", False))
+        context_name = (cfg.get("context_name") or "").strip()
+        include_regex = (cfg.get("include_regex") or "").strip()
+        login_url = (cfg.get("login_url") or "").strip()
+        login_request_data = (cfg.get("login_request_data") or "").strip()
+        username = (cfg.get("username") or "").strip()
+        password = (cfg.get("password") or "").strip()
+        username_field = (cfg.get("username_field") or "username").strip()
+        password_field = (cfg.get("password_field") or "password").strip()
+        logged_in_regex = (cfg.get("logged_in_regex") or "").strip()
+        logged_out_regex = (cfg.get("logged_out_regex") or "").strip()
+
+        spider = bool(cfg.get("spider", True))
+        safe_mode = (self.config or {}).get("pentest", {}).get("safe_mode", True)
+        active = (scan == "full") and (not safe_mode)
+
+        out_dir = self._reports_dir() / "zap"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        har_name = f"zap_{scan}_{ts}.har"
+
+        script = Path(__file__).resolve().parent.parent / "scripts" / "zap_docker_daemon_scan.py"
+        args = [
+            "python3",
+            str(script),
+            "--image",
+            image,
+            "--api-url",
+            api_url,
+            "--target",
+            target,
+            "--max-minutes",
+            str(int(timeout_min)),
+        ]
+        if api_key:
+            args.extend(["--api-key", api_key])
+        if spider:
+            args.append("--spider")
+        if ajax_spider:
+            args.append("--ajax-spider")
+        if active:
+            args.append("--active")
+        if ignore_robots:
+            args.append("--ignore-robots")
+        seed_urls = seed_urls or cfg.get("seed_urls")
+        seed_urls_file = seed_urls_file or cfg.get("seed_urls_file")
+        if seed_urls:
+            args.extend(["--seed-urls", str(seed_urls)])
+        if seed_urls_file:
+            args.extend(["--seed-file", str(seed_urls_file)])
+        if context_name:
+            args.extend(["--context-name", context_name])
+        if include_regex:
+            args.extend(["--include-regex", include_regex])
+        if login_url:
+            args.extend(["--login-url", login_url])
+        if login_request_data:
+            args.extend(["--login-request-data", login_request_data])
+        if username:
+            args.extend(["--username", username])
+        if password:
+            args.extend(["--password", password])
+        if username_field:
+            args.extend(["--username-field", username_field])
+        if password_field:
+            args.extend(["--password-field", password_field])
+        if logged_in_regex:
+            args.extend(["--logged-in-regex", logged_in_regex])
+        if logged_out_regex:
+            args.extend(["--logged-out-regex", logged_out_regex])
         if export_har:
             args.extend(["--har-out", str(out_dir / har_name)])
         return args
@@ -94,6 +233,7 @@ class ZapTool(BaseTool):
     def _build_docker_command(self, target: str, scan: str, timeout_min: int) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
         image = cfg.get("docker_image") or "ghcr.io/zaproxy/zaproxy:stable"
+        ignore_robots = bool(cfg.get("ignore_robots", False))
 
         out_dir = self._reports_dir() / "zap"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -117,6 +257,8 @@ class ZapTool(BaseTool):
         else:
             script = "/zap/zap-baseline.py"
             scan_flags = ""
+        if ignore_robots:
+            scan_flags = f"{scan_flags} -I".strip()
 
         # Use bash so we can always emit the JSON report content to stdout for parsing.
         # Keep it simple and rely on file artifacts for humans.
@@ -166,12 +308,45 @@ class ZapTool(BaseTool):
         # Default time budget (minutes) for the ZAP scripts.
         timeout_min = int(cfg.get("max_minutes", 10))
 
+        seed_urls = kwargs.get("seed_urls")
+        seed_urls_file = kwargs.get("seed_urls_file")
+
+        advanced_opts = any(
+            [
+                cfg.get("ajax_spider"),
+                cfg.get("ignore_robots"),
+                cfg.get("seed_urls"),
+                cfg.get("seed_urls_file"),
+                cfg.get("login_url"),
+                cfg.get("username"),
+                cfg.get("password"),
+                cfg.get("context_name"),
+                cfg.get("include_regex"),
+                seed_urls,
+                seed_urls_file,
+            ]
+        )
+
         mode = (cfg.get("mode") or "docker").lower()
         if mode == "docker":
+            if advanced_opts:
+                return self._build_docker_daemon_command(
+                    target=target,
+                    scan=scan,
+                    timeout_min=timeout_min,
+                    seed_urls=seed_urls,
+                    seed_urls_file=seed_urls_file,
+                )
             return self._build_docker_command(target=target, scan=scan, timeout_min=timeout_min)
 
         if mode in {"daemon", "remote"}:
-            return self._build_daemon_command(target=target, scan=scan, timeout_min=timeout_min)
+            return self._build_daemon_command(
+                target=target,
+                scan=scan,
+                timeout_min=timeout_min,
+                seed_urls=seed_urls,
+                seed_urls_file=seed_urls_file,
+            )
 
         # Local mode not fully standardized across OSes; keep a minimal hook.
         # Expect user to supply a command like "zap-baseline.py" in PATH.

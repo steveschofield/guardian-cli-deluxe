@@ -145,38 +145,35 @@ tools:
   kiterunner:
     enabled: true
     # binary: "kr"
-    # wordlist: "/usr/share/wordlists/kiterunner/routes-small.kite"
-    # args: "scan {target} -w /path/to/routes.kite"
+    wordlist: "./tools/vendor/kiterunner/routes-small.json"
+    # args: "scan {target} -w /path/to/routes.json"
 
   hydra:
     enabled: true
-    # args: "-L users.txt -P passwords.txt -s 443 https-get /login"
-    # userlist: "/path/to/users.txt"
-    # passlist: "/path/to/passwords.txt"
-    # service: "http-get"
-    # module_args: "/login"
+    # Adjust module/paths for your target (default uses HTTPS GET to "/").
+    args: "-L /usr/share/seclists/Usernames/top-usernames-shortlist.txt -P /usr/share/seclists/Passwords/Common-Credentials/10k-most-common.txt -s 443 {target} https-get /"
 
   jwt_tool:
     enabled: true
-    # token: "eyJhbGciOi..."
-    # args: "-t {target}"
+    # If you have a JWT, set token or add headers/cookies via args.
+    args: "-t {target} -M pb"
 
   graphql_cop:
     enabled: true
     # script: "./tools/vendor/graphql-cop/graphql-cop.py"
-    # args: "-t {target}"
+    args: "-t {target}/graphql"
 
   tplmap:
     enabled: true
-    # args: "-u {target}"
+    args: "-u {target}"
 
   upload_scanner:
     enabled: true
-    # args: "--url {target}"
+    args: "--url {target}"
 
   csrf_tester:
     enabled: true
-    # args: "--url {target}"
+    args: "--url {target}"
 
   jsparser:
     enabled: true
@@ -247,7 +244,7 @@ tools:
   schemathesis:
     enabled: true
     # Required: OpenAPI schema URL or path
-    # schema: "https://api.example.com/openapi.json"
+    schema: "{target}/openapi.json"
     # Optional: base URL for the API (defaults to target)
     # base_url: "https://api.example.com"
     # Optional tuning
@@ -281,7 +278,26 @@ tools:
     # baseline = passive (safer), full = active scan (requires pentest.safe_mode: false)
     scan: full
     # Time budget for the scan scripts (minutes)
-    max_minutes: 30
+    max_minutes: 45
+    # Use AJAX spider for SPA apps (daemon mode when enabled)
+    ajax_spider: true
+    # Ignore robots.txt for deeper crawl
+    ignore_robots: true
+    # Seed URLs (comma-separated) or a file of URLs
+    # seed_urls: ""
+    # seed_urls_file: ""
+    seed_urls_from_context: true
+    # Create an authenticated context (optional; use for login-required apps)
+    # context_name: "Guardian"
+    # include_regex: "https://example.com.*"
+    # login_url: "https://example.com/login"
+    # login_request_data: "username={username}&password={password}"
+    # username: "testuser"
+    # password: "testpass"
+    # username_field: "username"
+    # password_field: "password"
+    # logged_in_regex: "Logout"
+    # logged_out_regex: "Login"
     # Export HAR when using daemon mode (useful for importing into Burp/other tools)
     export_har: false
     # Run additional ZAP scan when available

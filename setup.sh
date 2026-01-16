@@ -63,9 +63,12 @@ ensure_node_and_npm() {
       echo "WARN: Homebrew not found; install nodejs/npm manually" >&2
     fi
   elif [[ "${OS}" == "debian" ]]; then
-    if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
-      if sudo -n true 2>/dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
+      if [[ "${EUID}" -eq 0 ]]; then
         echo "Installing nodejs/npm via apt (required for retire.js)..."
+        apt-get update && apt-get install -y nodejs npm || echo "WARN: nodejs/npm install failed; install manually to enable retire.js" >&2
+      elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+        echo "Installing nodejs/npm via apt (requires sudo)..."
         sudo apt-get update && sudo apt-get install -y nodejs npm || echo "WARN: nodejs/npm install failed; install manually to enable retire.js" >&2
       else
         echo "WARN: npm not found and sudo requires a password; install nodejs/npm manually to enable retire.js" >&2
@@ -83,9 +86,12 @@ ensure_go() {
     return
   fi
 
-  if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
-    if sudo -n true 2>/dev/null; then
+  if command -v apt-get >/dev/null 2>&1; then
+    if [[ "${EUID}" -eq 0 ]]; then
       echo "Installing Go via apt (required for several recon tools)..."
+      apt-get update && (apt-get install -y golang-go || apt-get install -y golang) || echo "WARN: Go install failed; install Go manually to enable Go-based recon tools" >&2
+    elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+      echo "Installing Go via apt (requires sudo)..."
       sudo apt-get update && (sudo apt-get install -y golang-go || sudo apt-get install -y golang) || echo "WARN: Go install failed; install Go manually to enable Go-based recon tools" >&2
     else
       echo "WARN: go not found and sudo requires a password; install Go manually to enable Go-based recon tools" >&2
@@ -452,10 +458,37 @@ install_application_security_tools() {
     git clone https://github.com/epinna/tplmap.git "${tplmap_repo}" || true
   fi
   if [[ -f "${tplmap_repo}/requirements.txt" ]]; then
-    pip install -r "${tplmap_repo}/requirements.txt" || true
+    local pyver
+    pyver="$("${VENV_BIN}/python" - <<'PY'
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
+)"
+    if [[ "${pyver}" == "3.13" || "${pyver}" == "3.12" ]]; then
+      echo "WARN: tplmap requirements include legacy packages incompatible with Python ${pyver}; skipping deps (use Python 3.11 for tplmap)" >&2
+    else
+      pip install -r "${tplmap_repo}/requirements.txt" || true
+    fi
   fi
   if [[ -f "${tplmap_repo}/tplmap.py" ]]; then
     write_python_wrapper_into_venv "${tplmap_repo}/tplmap.py" "tplmap"
+  fi
+
+  # Optional project-specific tools (provide paths via env)
+  if [[ -n "${GUARDIAN_UPLOAD_SCANNER_BIN:-}" ]]; then
+    if [[ -x "${GUARDIAN_UPLOAD_SCANNER_BIN}" ]]; then
+      link_into_venv "${GUARDIAN_UPLOAD_SCANNER_BIN}" "upload-scanner"
+    else
+      echo "WARN: GUARDIAN_UPLOAD_SCANNER_BIN is not executable: ${GUARDIAN_UPLOAD_SCANNER_BIN}" >&2
+    fi
+  fi
+
+  if [[ -n "${GUARDIAN_CSRF_TESTER_BIN:-}" ]]; then
+    if [[ -x "${GUARDIAN_CSRF_TESTER_BIN}" ]]; then
+      link_into_venv "${GUARDIAN_CSRF_TESTER_BIN}" "csrf-tester"
+    else
+      echo "WARN: GUARDIAN_CSRF_TESTER_BIN is not executable: ${GUARDIAN_CSRF_TESTER_BIN}" >&2
+    fi
   fi
 }
 
@@ -620,6 +653,14 @@ install_recon_extras() {
     fi
 
     if [[ "${OS}" == "debian" ]]; then
+      if [[ "${EUID}" -eq 0 ]]; then
+        echo "Installing ${bin} via apt (running as root)..."
+        apt-get update -y && apt-get install -y "${apt_pkg}" || echo "WARN: ${bin} install failed" >&2
+        if command -v "${bin}" >/dev/null 2>&1; then
+          link_into_venv "$(command -v "${bin}")" "${bin}"
+        fi
+        return 0
+      fi
       if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
         echo "Installing ${bin} via apt (requires sudo)..."
         sudo apt-get update -y && sudo apt-get install -y "${apt_pkg}" || echo "WARN: ${bin} install failed" >&2
@@ -657,6 +698,7 @@ install_recon_extras() {
   install_system_binary "xprobe2" "xprobe2" "xprobe2"
   install_system_binary "whois" "whois" "whois"
   install_system_binary "hydra" "hydra" "hydra"
+  install_system_binary "seclists" "seclists" "seclists"
 
   install_amass() {
     if command -v amass >/dev/null 2>&1; then
@@ -723,6 +765,40 @@ install_recon_extras() {
 
   install_wappalyzer
 
+  install_kiterunner_wordlists() {
+    local dest_dir="${TOOLS_DIR}/kiterunner"
+    local dest_file="${dest_dir}/routes-small.json"
+    if [[ -f "${dest_file}" ]]; then
+      return 0
+    fi
+    mkdir -p "${dest_dir}"
+    local url="https://wordlists-cdn.assetnote.io/rawdata/kiterunner/routes-small.json.tar.gz"
+    local tmp
+    tmp="$(mktemp -d)"
+    if command -v curl >/dev/null 2>&1; then
+      curl -L "${url}" -o "${tmp}/routes-small.json.tar.gz" || { rm -rf "${tmp}"; return 0; }
+    elif command -v wget >/dev/null 2>&1; then
+      wget -O "${tmp}/routes-small.json.tar.gz" "${url}" || { rm -rf "${tmp}"; return 0; }
+    else
+      echo "WARN: curl/wget not found; skipping kiterunner wordlists download" >&2
+      rm -rf "${tmp}"
+      return 0
+    fi
+    tar -xzf "${tmp}/routes-small.json.tar.gz" -C "${tmp}" || { rm -rf "${tmp}"; return 0; }
+    if [[ -f "${tmp}/routes-small.json" ]]; then
+      mv -f "${tmp}/routes-small.json" "${dest_file}"
+    else
+      local found
+      found="$(find "${tmp}" -maxdepth 3 -name 'routes-small.json' | head -n 1 || true)"
+      if [[ -n "${found}" ]]; then
+        mv -f "${found}" "${dest_file}"
+      fi
+    fi
+    rm -rf "${tmp}"
+  }
+
+  install_kiterunner_wordlists
+
   # waybackurls: no deps (stdlib only) and no release assets; build from source in GOPATH mode.
   install_waybackurls() {
     if [[ -x "${VENV_BIN}/waybackurls" ]]; then
@@ -784,13 +860,18 @@ install_recon_extras() {
     echo "Installing retire.js (npm)..."
 
     # First try plain global install (works if npm is already configured with a user-writable prefix).
-    if npm install -g retire >/dev/null 2>&1; then
-      return 0
+    if npm install -g retire@latest >/dev/null 2>&1; then
+      local npm_bin
+      npm_bin="$(npm bin -g 2>/dev/null || true)"
+      if [[ -n "${npm_bin}" && -x "${npm_bin}/retire" ]]; then
+        ln -sf "${npm_bin}/retire" "${VENV_BIN}/retire"
+        return 0
+      fi
     fi
 
     # Fall back to a user-local prefix and link into the venv so `retire` is on PATH when the venv is active.
     local prefix="${HOME}/.local"
-    if npm install -g --prefix "${prefix}" retire; then
+    if npm install -g --prefix "${prefix}" retire@latest; then
       local retire_bin="${prefix}/bin/retire"
       if [[ -x "${retire_bin}" ]]; then
         ln -sf "${retire_bin}" "${VENV_BIN}/retire"

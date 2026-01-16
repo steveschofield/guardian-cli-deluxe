@@ -4,6 +4,7 @@ hydra tool wrapper for authentication testing
 
 import os
 import shutil
+from urllib.parse import urlparse
 from typing import Dict, Any, List
 
 from tools.base_tool import BaseTool
@@ -24,13 +25,20 @@ class HydraTool(BaseTool):
     def get_command(self, target: str, **kwargs) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("hydra", {}) or {}
         binary = cfg.get("binary") or "hydra"
+        normalized_target = target
+        if "://" in target:
+            parsed = urlparse(target)
+            if parsed.hostname:
+                normalized_target = parsed.hostname
 
         args = kwargs.get("args") if "args" in kwargs else cfg.get("args")
         if args:
-            args = str(args).replace("{target}", target)
-            command = [binary] + args.split()
-            if "{target}" not in str(args) and target not in command:
-                command.append(target)
+            args_str = str(args)
+            if "{target}" in args_str:
+                args_str = args_str.replace("{target}", normalized_target)
+            command = [binary] + args_str.split()
+            if "{target}" not in str(args) and normalized_target not in command:
+                command.append(normalized_target)
             return command
 
         userlist = kwargs.get("userlist") or cfg.get("userlist")
@@ -44,7 +52,7 @@ class HydraTool(BaseTool):
         userlist = os.path.expandvars(os.path.expanduser(str(userlist)))
         passlist = os.path.expandvars(os.path.expanduser(str(passlist)))
 
-        command = [binary, "-L", userlist, "-P", passlist, target, str(service)]
+        command = [binary, "-L", userlist, "-P", passlist, normalized_target, str(service)]
         if module_args:
             command.extend(str(module_args).split())
         return command

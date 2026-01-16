@@ -653,6 +653,18 @@ class WorkflowEngine:
                     self.logger.info(f"Skipping {step_name}: hydra args/userlist/passlist/service not configured")
                     return None
 
+        if tool_name == "zap":
+            zap_cfg = (self.config or {}).get("tools", {}).get("zap", {}) or {}
+            if zap_cfg.get("seed_urls_from_context", True) and "seed_urls_file" not in tool_kwargs:
+                urls = self._get_discovered_urls()
+                if urls:
+                    url_file = self._write_urls_file(
+                        urls,
+                        name=f"zap_seed_{self.memory.session_id}.txt",
+                    )
+                    tool_kwargs = dict(tool_kwargs or {})
+                    tool_kwargs.setdefault("seed_urls_file", str(url_file))
+
         self.logger.info(f"Tool Agent selecting tool: {tool_name}")
 
         # Tool Agent executes the tool
@@ -668,8 +680,16 @@ class WorkflowEngine:
                 self.logger.info(f"Skipping {step_name}: Schemathesis schema/openapi not configured")
                 return None
             tool_kwargs = dict(tool_kwargs)
+            if isinstance(schema, str) and "{target}" in schema:
+                schema = schema.replace("{target}", self.target)
+                if "://" not in schema:
+                    schema = f"https://{schema}"
             tool_kwargs.setdefault("schema", schema)
             base_url = tool_kwargs.get("base_url") or api_cfg.get("base_url") or api_cfg.get("url")
+            if isinstance(base_url, str) and "{target}" in base_url:
+                base_url = base_url.replace("{target}", self.target)
+                if "://" not in base_url:
+                    base_url = f"https://{base_url}"
             if base_url:
                 tool_kwargs.setdefault("base_url", base_url)
             for key in ("workers", "checks", "max_examples"):

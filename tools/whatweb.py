@@ -3,6 +3,9 @@ WhatWeb tool wrapper for web technology fingerprinting
 """
 
 import json
+import os
+from datetime import datetime
+from pathlib import Path
 from typing import Dict, Any, List
 
 from tools.base_tool import BaseTool
@@ -14,13 +17,20 @@ class WhatWebTool(BaseTool):
     def __init__(self, config):
         super().__init__(config)
         self.tool_name = "whatweb"
+        self._last_log_path = None
     
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build whatweb command"""
+        self._last_log_path = None
         command = ["whatweb"]
         
-        # JSON output for parsing
-        command.extend(["--log-json=-"])
+        # JSON output for parsing (write to file to avoid stream-close issues)
+        out_dir = Path((self.config or {}).get("output", {}).get("save_path", "./reports"))
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        log_file = out_dir / f"whatweb_{ts}.json"
+        self._last_log_path = str(log_file)
+        command.append(f"--log-json={self._last_log_path}")
         
         # Aggression level (1-4)
         aggression = kwargs.get("aggression", 1)
@@ -50,9 +60,17 @@ class WhatWebTool(BaseTool):
             "http_status": None,
             "plugins": []
         }
-        
+
+        raw_output = output
+        if self._last_log_path and os.path.isfile(self._last_log_path):
+            try:
+                with open(self._last_log_path, "r", encoding="utf-8") as f:
+                    raw_output = f.read()
+            except Exception:
+                raw_output = output
+
         # Parse JSON lines
-        for line in output.strip().split('\n'):
+        for line in raw_output.strip().split('\n'):
             if not line:
                 continue
             

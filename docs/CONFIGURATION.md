@@ -113,6 +113,9 @@ Some tools support overriding the binary path via config and/or environment vari
 
 OWASP ZAP is configured under `tools.zap` and supports `mode: docker` (recommended) or daemon/local options.
 
+Advanced ZAP options (AJAX spider, auth context, seed URLs) use the daemon API. If `mode: docker`,
+Guardian will automatically run a temporary ZAP daemon container when these options are enabled.
+
 ### Workflow-Specific Tool Configuration
 
 Some built-in workflow steps only run when required arguments or tokens are present:
