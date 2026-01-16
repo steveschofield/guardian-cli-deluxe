@@ -12,11 +12,22 @@ from .testssl import TestSSLTool
 from .gobuster import GobusterTool
 from .sqlmap import SQLMapTool
 from .ffuf import FFufTool
+from .kiterunner import KiterunnerTool
 from .wpscan import WPScanTool
 from .sslyze import SSLyzeTool
 from .headers import HeadersTool
 from .masscan import MasscanTool
 from .udp_proto_scanner import UdpProtoScannerTool
+from .amass import AmassTool
+from .whois import WhoisTool
+from .wappalyzer import WappalyzerTool
+from .hydra import HydraTool
+from .jwt_tool import JwtTool
+from .graphql_cop import GraphqlCopTool
+from .tplmap import TplmapTool
+from .upload_scanner import UploadScannerTool
+from .csrf_tester import CsrfTesterTool
+from .jsparser import JsparserTool
 from .enum4linux import Enum4linuxTool
 from .smbclient import SmbclientTool
 from .showmount import ShowmountTool
@@ -66,11 +77,22 @@ __all__ = [
     "GobusterTool",
     "SQLMapTool",
     "FFufTool",
+    "KiterunnerTool",
     "WPScanTool",
     "SSLyzeTool",
     "HeadersTool",
     "MasscanTool",
     "UdpProtoScannerTool",
+    "AmassTool",
+    "WhoisTool",
+    "WappalyzerTool",
+    "HydraTool",
+    "JwtTool",
+    "GraphqlCopTool",
+    "TplmapTool",
+    "UploadScannerTool",
+    "CsrfTesterTool",
+    "JsparserTool",
     "Enum4linuxTool",
     "SmbclientTool",
     "ShowmountTool",

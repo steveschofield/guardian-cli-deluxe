@@ -113,6 +113,19 @@ Some tools support overriding the binary path via config and/or environment vari
 
 OWASP ZAP is configured under `tools.zap` and supports `mode: docker` (recommended) or daemon/local options.
 
+### Workflow-Specific Tool Configuration
+
+Some built-in workflow steps only run when required arguments or tokens are present:
+
+- **Web workflow:** `tools.hydra` (userlist/passlist/service or `args`), `tools.jwt_tool` (`token` or `args`),
+  `tools.graphql_cop.args`, `tools.kiterunner.wordlist` (or `args`), `tools.tplmap.args`,
+  `tools.upload_scanner.args`, `tools.csrf_tester.args`.
+- **Vhost enumeration:** `tools.ffuf.vhost_wordlist` controls the wordlist used by the web workflow.
+- **Recon workflow:** `tools.wappalyzer` / `tools.retire` affect technology detection.
+- **Network workflow:** `tools.enum4linux` (null session defaults), `tools.onesixtyone.community` (passed to `snmpwalk`).
+
+If a tool isn't installed or the required config is missing, the step is skipped and logged.
+
 ### `output`
 
 Report/output location and verbosity:

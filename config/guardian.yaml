@@ -123,6 +123,66 @@ tools:
     vuln_args: "-sV --script vuln"
     timing: T4
 
+  amass:
+    enabled: true
+    args: "-passive"
+
+  whois:
+    enabled: true
+
+  wappalyzer:
+    enabled: true
+    # args: "--pretty"
+
+  ffuf:
+    enabled: true
+    wordlist: "/usr/share/wordlists/dirb/common.txt"
+    vhost_wordlist: "/usr/share/seclists/Discovery/DNS/subdomains-top1million-20000.txt"
+    threads: 40
+    timeout: 10
+    follow_redirects: false
+
+  kiterunner:
+    enabled: true
+    # binary: "kr"
+    # wordlist: "/usr/share/wordlists/kiterunner/routes-small.kite"
+    # args: "scan {target} -w /path/to/routes.kite"
+
+  hydra:
+    enabled: true
+    # args: "-L users.txt -P passwords.txt -s 443 https-get /login"
+    # userlist: "/path/to/users.txt"
+    # passlist: "/path/to/passwords.txt"
+    # service: "http-get"
+    # module_args: "/login"
+
+  jwt_tool:
+    enabled: true
+    # token: "eyJhbGciOi..."
+    # args: "-t {target}"
+
+  graphql_cop:
+    enabled: true
+    # script: "./tools/vendor/graphql-cop/graphql-cop.py"
+    # args: "-t {target}"
+
+  tplmap:
+    enabled: true
+    # args: "-u {target}"
+
+  upload_scanner:
+    enabled: true
+    # args: "--url {target}"
+
+  csrf_tester:
+    enabled: true
+    # args: "--url {target}"
+
+  jsparser:
+    enabled: true
+    # script: "/path/to/JSParser.py"
+    # args: "-u {target}"
+
   masscan:
     enabled: true
     ports: "22,53,80,135,139,443,445,3389"
@@ -246,7 +306,7 @@ workflows:
   # Autonomous runs Planner by default
   use_planner: false
   # Valid values: step names (e.g. "port_scanning"), step types ("analysis", "report"), or "all"
-  planner_checkpoints: ["port_scanning", "web_probing", "analysis", "report"]
+  planner_checkpoints: ["port_scanning", "web_discovery", "analysis", "report"]
   # Optional: per-step tool preferences for built-in workflows
   # tool_preferences:
   #   recon:
@@ -254,7 +314,7 @@ workflows:
   #       preferred: ["naabu"]
   #       primary: "nmap"
   #   web:
-  #     web_probing:
+  #     web_discovery:
   #       preferred: ["httpx", "gospider"]
   
   # Save intermediate results

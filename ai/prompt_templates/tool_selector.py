@@ -23,6 +23,15 @@ Available Tools (pick only those appropriate for the target type and objective):
 - sslyze: SSL/TLS scanning and analysis
 - headers: HTTP security header checks
 - masscan: Fast TCP port discovery
+- amass: Passive OSINT and subdomain enumeration
+- whois: WHOIS lookup
+- wappalyzer: Web technology detection
+- hydra: Authentication brute force testing
+- jwt_tool: JWT token analysis and testing
+- graphql-cop: GraphQL security testing
+- tplmap: Template injection testing (SSTI)
+- upload-scanner: File upload testing
+- csrf-tester: CSRF testing
 - enum4linux: SMB enumeration (users, shares, policy)
 - smbclient: SMB share listing and access checks
 - showmount: NFS export enumeration
@@ -33,6 +42,7 @@ Available Tools (pick only those appropriate for the target type and objective):
 - gobuster: Directory/file brute forcing
 - dirsearch: Content discovery and brute forcing
 - ffuf: Fast web fuzzing (paths/params)
+- kiterunner: Schema-less API route discovery
 - sqlmap: SQL injection testing (use carefully)
 - wpscan: WordPress scanning (use carefully)
 - subfinder: Subdomain enumeration (domain-only)
@@ -47,6 +57,7 @@ Available Tools (pick only those appropriate for the target type and objective):
 - gospider: Web crawling
 - waybackurls: Historical URL collection
 - subjs: Extract JS URLs
+- jsparser: Extract endpoints from JavaScript
 - linkfinder / xnlinkfinder: Discover endpoints inside JavaScript
 - paramspider: Parameter discovery from crawled URLs
 - schemathesis: OpenAPI-based API fuzzing (requires known OpenAPI URL)
@@ -94,6 +105,15 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - sslyze: SSL/TLS scanning
 - headers: HTTP security header checks
 - masscan: Fast TCP port discovery
+- amass: Passive OSINT
+- whois: WHOIS lookup
+- wappalyzer: Web technology detection
+- hydra: Authentication testing
+- jwt_tool: JWT token testing
+- graphql-cop: GraphQL testing
+- tplmap: Template injection testing
+- upload-scanner: File upload testing
+- csrf-tester: CSRF testing
 - enum4linux: SMB enumeration
 - smbclient: SMB share listing
 - showmount: NFS export enumeration
@@ -104,6 +124,7 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - gobuster: Directory/file brute forcing
 - dirsearch: Content discovery
 - ffuf: Web fuzzing
+- kiterunner: API route discovery without OpenAPI
 - sqlmap: SQL injection testing
 - wpscan: WordPress scanning
 - subfinder: Subdomain discovery
@@ -118,6 +139,7 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - gospider: Web crawling
 - waybackurls: Historical URLs
 - subjs: JS URL extraction
+- jsparser: JS endpoint extraction
 - linkfinder: JS endpoint discovery
 - xnlinkfinder: Advanced JS endpoint discovery
 - paramspider: Parameter discovery

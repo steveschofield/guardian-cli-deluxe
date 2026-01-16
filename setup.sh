@@ -409,6 +409,54 @@ install_application_security_tools() {
   if ! install_github_release_and_link "epi052/feroxbuster" "feroxbuster"; then
     echo "WARN: feroxbuster install failed; install manually from https://github.com/epi052/feroxbuster/releases" >&2
   fi
+
+  # graphql-cop - GraphQL security testing (script-based)
+  local graphql_repo="${TOOLS_DIR}/graphql-cop"
+  if [[ ! -d "${graphql_repo}/.git" ]]; then
+    git clone https://github.com/dolevf/graphql-cop.git "${graphql_repo}" || true
+  fi
+  if [[ -f "${graphql_repo}/requirements.txt" ]]; then
+    pip install -r "${graphql_repo}/requirements.txt" || true
+  fi
+  if [[ -f "${graphql_repo}/graphql-cop.py" ]]; then
+    write_python_wrapper_into_venv "${graphql_repo}/graphql-cop.py" "graphql-cop"
+  fi
+
+  # JSParser - JavaScript endpoint extraction
+  local jsparser_repo="${TOOLS_DIR}/JSParser"
+  if [[ ! -d "${jsparser_repo}/.git" ]]; then
+    git clone https://github.com/nahamsec/JSParser.git "${jsparser_repo}" || true
+  fi
+  if [[ -f "${jsparser_repo}/requirements.txt" ]]; then
+    pip install -r "${jsparser_repo}/requirements.txt" || true
+  fi
+  if [[ -f "${jsparser_repo}/JSParser.py" ]]; then
+    write_python_wrapper_into_venv "${jsparser_repo}/JSParser.py" "jsparser"
+  fi
+
+  # jwt_tool - JWT analysis
+  local jwt_repo="${TOOLS_DIR}/jwt_tool"
+  if [[ ! -d "${jwt_repo}/.git" ]]; then
+    git clone https://github.com/ticarpi/jwt_tool.git "${jwt_repo}" || true
+  fi
+  if [[ -f "${jwt_repo}/requirements.txt" ]]; then
+    pip install -r "${jwt_repo}/requirements.txt" || true
+  fi
+  if [[ -f "${jwt_repo}/jwt_tool.py" ]]; then
+    write_python_wrapper_into_venv "${jwt_repo}/jwt_tool.py" "jwt_tool"
+  fi
+
+  # tplmap - Template injection testing
+  local tplmap_repo="${TOOLS_DIR}/tplmap"
+  if [[ ! -d "${tplmap_repo}/.git" ]]; then
+    git clone https://github.com/epinna/tplmap.git "${tplmap_repo}" || true
+  fi
+  if [[ -f "${tplmap_repo}/requirements.txt" ]]; then
+    pip install -r "${tplmap_repo}/requirements.txt" || true
+  fi
+  if [[ -f "${tplmap_repo}/tplmap.py" ]]; then
+    write_python_wrapper_into_venv "${tplmap_repo}/tplmap.py" "tplmap"
+  fi
 }
 
 echo "Installing optional tools: testssl, xsstrike, cmseek, gitleaks, nikto, wafw00f, sqlmap, sslyze, wpscan, whatweb"
@@ -447,6 +495,7 @@ install_recon_extras() {
   install_github_release_and_link "projectdiscovery/shuffledns" "shuffledns" || true
   install_github_release_and_link "projectdiscovery/naabu" "naabu" || true
   install_github_release_and_link "projectdiscovery/asnmap" "asnmap" || true
+  install_github_release_and_link "assetnote/kiterunner" "kr" || true
   # Install gospider with proper architecture support
   if ! install_github_release_and_link "jaeles-project/gospider" "gospider"; then
     echo "Installing gospider via go install (for correct architecture)..."
@@ -467,6 +516,7 @@ install_recon_extras() {
   install_go_recon_tools() {
     go_install_and_link "github.com/OJ/gobuster/v3@latest" "gobuster"
     go_install_and_link "github.com/ffuf/ffuf/v2@latest" "ffuf"
+    go_install_and_link "github.com/assetnote/kiterunner@latest" "kr"
     
     # Skip httpx and katana on macOS (use fallbacks)
     if [[ "${OS}" != "macos" ]]; then
@@ -605,6 +655,73 @@ install_recon_extras() {
   install_system_binary "snmpwalk" "snmp" "net-snmp"
   install_system_binary "onesixtyone" "onesixtyone" "onesixtyone"
   install_system_binary "xprobe2" "xprobe2" "xprobe2"
+  install_system_binary "whois" "whois" "whois"
+  install_system_binary "hydra" "hydra" "hydra"
+
+  install_amass() {
+    if command -v amass >/dev/null 2>&1; then
+      link_into_venv "$(command -v amass)" "amass"
+      return 0
+    fi
+    if [[ "${OS}" == "debian" ]]; then
+      if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+        echo "Installing amass via apt (requires sudo)..."
+        sudo apt-get update -y && sudo apt-get install -y amass || echo "WARN: amass install failed" >&2
+        if command -v amass >/dev/null 2>&1; then
+          link_into_venv "$(command -v amass)" "amass"
+        fi
+        return 0
+      fi
+      echo "WARN: amass not found and sudo not available; install manually (apt install amass)" >&2
+      return 0
+    fi
+    if [[ "${OS}" == "macos" ]]; then
+      if command -v brew >/dev/null 2>&1; then
+        echo "Installing amass via Homebrew..."
+        brew install amass || echo "WARN: amass install failed" >&2
+        if command -v amass >/dev/null 2>&1; then
+          link_into_venv "$(command -v amass)" "amass"
+        fi
+        return 0
+      fi
+      echo "WARN: Homebrew not found; install amass manually (brew install amass)" >&2
+      return 0
+    fi
+    echo "WARN: amass not found; install manually for your OS" >&2
+    return 0
+  }
+
+  install_amass
+
+  install_wappalyzer() {
+    if command -v wappalyzer >/dev/null 2>&1; then
+      link_into_venv "$(command -v wappalyzer)" "wappalyzer"
+      return 0
+    fi
+    if ! command -v npm >/dev/null 2>&1; then
+      echo "WARN: npm not found; skipping wappalyzer install" >&2
+      return 0
+    fi
+    echo "Installing wappalyzer (npm)..."
+    if npm install -g wappalyzer >/dev/null 2>&1; then
+      if command -v wappalyzer >/dev/null 2>&1; then
+        link_into_venv "$(command -v wappalyzer)" "wappalyzer"
+      fi
+      return 0
+    fi
+    local prefix="${HOME}/.local"
+    if npm install -g --prefix "${prefix}" wappalyzer; then
+      local wapp_bin="${prefix}/bin/wappalyzer"
+      if [[ -x "${wapp_bin}" ]]; then
+        ln -sf "${wapp_bin}" "${VENV_BIN}/wappalyzer"
+      fi
+      return 0
+    fi
+    echo "WARN: wappalyzer install failed; install manually (npm install -g wappalyzer)" >&2
+    return 0
+  }
+
+  install_wappalyzer
 
   # waybackurls: no deps (stdlib only) and no release assets; build from source in GOPATH mode.
   install_waybackurls() {
@@ -738,7 +855,7 @@ install_libpcap_dev() {
 echo "Fetching extra nuclei templates (CVE packs)..."
 install_nuclei_templates
 
-echo "Installing recon extras (gobuster, ffuf, dnsrecon, dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog, enum4linux, smbclient, showmount, snmpwalk, onesixtyone, xprobe2)..."
+echo "Installing recon extras (gobuster, ffuf, kiterunner, dnsrecon, dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog, enum4linux, smbclient, showmount, snmpwalk, onesixtyone, xprobe2, whois, amass, wappalyzer)..."
 install_recon_extras
 
 echo "Installing metasploit (optional, for MetasploitTool)..."

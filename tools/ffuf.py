@@ -22,9 +22,9 @@ class FFufTool(BaseTool):
         
         command = ["ffuf"]
         
-        # Target URL with FUZZ keyword
-        if "FUZZ" not in target:
-            # If no FUZZ keyword, append it to the end
+        # Target URL with FUZZ keyword unless explicitly disabled
+        append_fuzz = kwargs.get("append_fuzz", True)
+        if append_fuzz and "FUZZ" not in target:
             target = f"{target}/FUZZ"
         command.extend(["-u", target])
         
@@ -63,6 +63,16 @@ class FFufTool(BaseTool):
         # Extensions
         if "extensions" in kwargs:
             command.extend(["-e", kwargs["extensions"]])
+
+        # Custom headers
+        headers = kwargs.get("headers")
+        if headers:
+            if isinstance(headers, list):
+                for h in headers:
+                    if h:
+                        command.extend(["-H", str(h)])
+            else:
+                command.extend(["-H", str(headers)])
         
         # Recursion
         if kwargs.get("recursion"):

@@ -28,7 +28,7 @@ description: Brief description
 
 steps:
   - name: step_identifier
-    type: tool|analysis|report
+    type: tool|analysis|report|action|multi_tool
     # ... step configuration
 
 settings:
@@ -117,16 +117,23 @@ Execute a pentesting tool:
 - `objective`: Why we're running this tool
 - `parameters`: Tool-specific arguments (passed to tool's `execute()`)
 
-**Available Tools:**
+**Available Tools (partial list; see `tools/README.md` for the full set):**
 - `nmap` - Port scanning
+- `masscan` - Fast port discovery (CIDR/range)
 - `httpx` - HTTP probing
+- `amass` - Passive OSINT
+- `dnsrecon` - DNS enumeration
+- `whois` - WHOIS lookup
 - `subfinder` - Subdomain enumeration
-- `nuclei` - Vulnerability scanning
-- `whatweb` - Technology fingerprinting
-- `wafw00f` - WAF detection
-- `nikto` - Web vulnerability scanning
+- `wappalyzer` / `whatweb` - Technology fingerprinting
 - `testssl` - SSL/TLS testing
-- `gobuster` - Directory brute forcing
+- `ffuf` - Web fuzzing and vhost enumeration
+- `nuclei` - Vulnerability scanning
+- `nikto` - Web vulnerability scanning
+- `dalfox` - XSS scanning
+- `enum4linux` / `smbclient` / `showmount` - SMB/NFS enumeration
+- `onesixtyone` / `snmpwalk` - SNMP enumeration
+- `xprobe2` - OS fingerprinting
 
 ### Analysis Step
 
@@ -144,6 +151,39 @@ Run AI analysis on collected data:
 - `type`: Must be "analysis"
 - `agent`: Which agent to use (analyst, planner)
 - `objective`: What to analyze
+
+### Action Step
+
+Run built-in non-tool actions (useful for enrichment):
+
+```yaml
+- name: ip_enrichment
+  type: action
+  action: ip_enrichment
+```
+
+**Fields:**
+- `name`: Unique step identifier
+- `type`: Must be "action"
+- `action`: Built-in action name (e.g., `ip_enrichment`, `metadata_extraction`)
+
+### Multi-Tool Step
+
+Run several tools in a single step:
+
+```yaml
+- name: share_enumeration
+  type: multi_tool
+  tools:
+    - tool: enum4linux
+    - tool: smbclient
+    - tool: showmount
+```
+
+**Fields:**
+- `name`: Unique step identifier
+- `type`: Must be "multi_tool"
+- `tools`: List of tool definitions (same shape as a tool step)
 
 ### Report Step
 
@@ -346,6 +386,65 @@ settings:
 
 ---
 
+## Built-In Workflows (Recon/Web/Network)
+
+Guardian ships built-in workflows in code. These steps run in order, with some steps skipped when
+configuration or target type does not apply (for example, IP targets skip domain-only DNS tools).
+
+### Recon Workflow (built-in)
+
+1. `passive_osint` - amass, whois, dnsrecon (std)
+2. `dns_enumeration` - dnsrecon (std,axfr,zonewalk,brt)
+3. `ip_enrichment` - reverse DNS + TLS SAN/CN enrichment
+4. `port_scanning` - nmap recon profile
+5. `service_fingerprinting` - nmap `-sV --version-all -sC`
+6. `ssl_tls_analysis` - testssl (fast/high)
+7. `technology_detection` - wappalyzer, whatweb, retire
+8. `metadata_extraction` - robots.txt, sitemap.xml, HTML comments
+9. `analysis`
+10. `report`
+
+### Web Workflow (built-in)
+
+1. `web_discovery` - httpx (or gospider on macOS)
+2. `technology_detection` - wappalyzer, whatweb
+3. `metadata_extraction`
+4. `crawl` - katana (or gospider on macOS)
+5. `vhost_enumeration` - ffuf Host header fuzz
+6. `api_route_discovery` - kiterunner (requires wordlist)
+7. `vulnerability_scan` - nuclei
+8. `api_testing` - schemathesis + graphql-cop (requires config)
+9. `authentication_testing` - hydra (requires config)
+10. `session_management_testing` - jwt_tool (requires token/args)
+11. `authorization_testing` - nuclei auth/idor tags
+12. `template_injection_testing` - tplmap (requires args)
+13. `xss_scan` - dalfox
+14. `file_upload_testing` - upload-scanner (requires args)
+15. `csrf_testing` - csrf-tester (requires args)
+16. `ssl_tls_analysis` - testssl
+17. `client_side_testing` - jsparser + retire
+18. `burp_pro_scan` - optional (config + availability)
+19. `zap_scan` - optional (config + availability)
+20. `analysis`
+21. `report`
+
+### Network Workflow (built-in)
+
+1. `network_discovery` - masscan (CIDR/range only)
+2. `port_scan` - nmap recon profile
+3. `ip_enrichment`
+4. `service_enumeration` - nmap recon profile
+5. `os_fingerprinting` - xprobe2
+6. `network_topology` - nmap `-sn --traceroute`
+7. `share_enumeration` - enum4linux, smbclient, showmount
+8. `snmp_enumeration` - onesixtyone then snmpwalk
+9. `nmap_vuln_scan` - nmap vuln profile
+10. `ssl_tls_analysis` - testssl
+11. `analysis`
+12. `report`
+
+---
+
 ## Using Workflows
 
 ### Run a Workflow
@@ -410,7 +509,7 @@ at specific checkpoints via `config/guardian.yaml`:
 ```yaml
 workflows:
   use_planner: true
-  planner_checkpoints: ["port_scanning", "web_probing", "analysis", "report"]
+  planner_checkpoints: ["port_scanning", "web_discovery", "analysis", "report"]
 ```
 
 - `planner_checkpoints` accepts step names, step types (`analysis`, `report`), or `all` to run after every step.
@@ -428,7 +527,7 @@ workflows:
         preferred: ["naabu"]
         primary: "nmap"
     web:
-      web_probing:
+      web_discovery:
         preferred: ["httpx", "gospider"]
 ```
 

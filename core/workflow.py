@@ -437,6 +437,8 @@ class WorkflowEngine:
                     self._run_ip_enrichment(host)
                 else:
                     self.logger.info(f"Skipping ip_enrichment: {self.target} is not an IP target")
+            elif action == "metadata_extraction":
+                self._run_metadata_extraction(self.target)
             else:
                 self.logger.warning(f"Unknown action step: {action}")
             
@@ -578,6 +580,79 @@ class WorkflowEngine:
                 self.logger.info(f"Skipping network_discovery: target is not a CIDR/range ({host})")
                 return None
 
+        # Skip domain-only tools for IP targets.
+        from utils.helpers import is_valid_ip, extract_domain_from_url
+        target_host = extract_domain_from_url(self.target) or self.target
+        domain_only_tools = {
+            "amass",
+            "subfinder",
+            "dnsrecon",
+            "dnsx",
+            "shuffledns",
+            "puredns",
+            "altdns",
+            "asnmap",
+            "whois",
+        }
+        if is_valid_ip(target_host) and tool_name in domain_only_tools:
+            self.logger.info(f"Skipping {tool_name}: domain-only tool on IP target ({target_host})")
+            return None
+
+        if tool_name == "ffuf" and step_name == "vhost_enumeration":
+            base_domain = extract_domain_from_url(self.target) or self.target
+            if is_valid_ip(base_domain):
+                base_domain = None
+                discovered = self.memory.context.get("discovered_assets") or []
+                for asset in discovered:
+                    host = extract_domain_from_url(str(asset)) or str(asset)
+                    if host and not is_valid_ip(host):
+                        base_domain = host
+                        break
+            if not base_domain:
+                self.logger.info("Skipping vhost_enumeration: no domain available for Host header fuzzing")
+                return None
+            ffuf_cfg = (self.config or {}).get("tools", {}).get("ffuf", {}) or {}
+            tool_kwargs = dict(tool_kwargs or {})
+            tool_kwargs.setdefault("append_fuzz", False)
+            tool_kwargs.setdefault("headers", [f"Host: FUZZ.{base_domain}"])
+            if "wordlist" not in tool_kwargs:
+                vhost_wordlist = ffuf_cfg.get("vhost_wordlist")
+                if vhost_wordlist:
+                    tool_kwargs["wordlist"] = vhost_wordlist
+
+        config_key = tool_name.replace("-", "_")
+        tool_cfg = (self.config or {}).get("tools", {}).get(config_key, {}) or {}
+        if tool_name in {"graphql-cop", "tplmap", "upload-scanner", "csrf-tester"}:
+            args = tool_kwargs.get("args") if isinstance(tool_kwargs, dict) else None
+            args = args or tool_cfg.get("args")
+            if not args:
+                self.logger.info(f"Skipping {step_name}: {tool_name} args not configured")
+                return None
+        if tool_name == "kiterunner":
+            args = tool_kwargs.get("args") if isinstance(tool_kwargs, dict) else None
+            wordlist = tool_kwargs.get("wordlist") if isinstance(tool_kwargs, dict) else None
+            if not (args or wordlist or tool_cfg.get("args") or tool_cfg.get("wordlist")):
+                self.logger.info(f"Skipping {step_name}: kiterunner args/wordlist not configured")
+                return None
+        if tool_name == "jwt_tool":
+            args = tool_kwargs.get("args") if isinstance(tool_kwargs, dict) else None
+            token = tool_kwargs.get("token") if isinstance(tool_kwargs, dict) else None
+            if not (args or token or tool_cfg.get("args") or tool_cfg.get("token")):
+                self.logger.info(f"Skipping {step_name}: jwt_tool token/args not configured")
+                return None
+        if tool_name == "hydra":
+            args = tool_kwargs.get("args") if isinstance(tool_kwargs, dict) else None
+            userlist = tool_kwargs.get("userlist") if isinstance(tool_kwargs, dict) else None
+            passlist = tool_kwargs.get("passlist") if isinstance(tool_kwargs, dict) else None
+            service = tool_kwargs.get("service") if isinstance(tool_kwargs, dict) else None
+            if not args:
+                userlist = userlist or tool_cfg.get("userlist")
+                passlist = passlist or tool_cfg.get("passlist")
+                service = service or tool_cfg.get("service")
+                if not (userlist and passlist and service):
+                    self.logger.info(f"Skipping {step_name}: hydra args/userlist/passlist/service not configured")
+                    return None
+
         self.logger.info(f"Tool Agent selecting tool: {tool_name}")
 
         # Tool Agent executes the tool
@@ -678,6 +753,23 @@ class WorkflowEngine:
                     self.memory.update_context("services", services)
                 if isinstance(hosts_up, list) and hosts_up:
                     self.memory.update_context("discovered_assets", hosts_up)
+            if tool_name == "kiterunner":
+                urls = parsed.get("urls") or []
+                paths = parsed.get("paths") or []
+                combined = []
+                if isinstance(urls, list):
+                    combined.extend([u for u in urls if u])
+                if paths:
+                    try:
+                        from urllib.parse import urlparse
+                        parsed_target = urlparse(self.target if "://" in self.target else f"https://{self.target}")
+                        base = f"{parsed_target.scheme}://{parsed_target.netloc}"
+                        combined.extend([f"{base}{p}" for p in paths if str(p).startswith("/")])
+                    except Exception:
+                        pass
+                if combined:
+                    self.memory.update_context("urls", combined)
+                    self.memory.update_context("discovered_assets", combined)
             if tool_name == "naabu":
                 open_ports = parsed.get("open_ports") or []
                 if isinstance(open_ports, list) and open_ports:
@@ -769,8 +861,40 @@ class WorkflowEngine:
     def _run_ip_enrichment(self, target_ip: str) -> None:
         """Perform lightweight enrichment for IP targets (PTR + TLS cert name harvesting)."""
         from urllib.parse import urlparse
-        from utils.helpers import reverse_lookup_ip, fetch_tls_names
+        from utils.helpers import reverse_lookup_ip, fetch_tls_names, is_valid_ip, extract_domain_from_url
         from core.memory import ToolExecution
+        import socket
+
+        if not is_valid_ip(target_ip):
+            host = extract_domain_from_url(target_ip) or target_ip
+            resolved: list[str] = []
+            try:
+                for res in socket.getaddrinfo(host, None):
+                    ip = res[4][0]
+                    if ip and ip not in resolved:
+                        resolved.append(ip)
+            except Exception:
+                resolved = []
+
+            if resolved:
+                self.logger.info(f"Resolved {host} -> {', '.join(resolved)}")
+                self.memory.update_context("discovered_assets", resolved)
+                self.memory.add_tool_execution(ToolExecution(
+                    tool="dns_resolve",
+                    command=f"A/AAAA lookup {host}",
+                    target=host,
+                    timestamp=datetime.now().isoformat(),
+                    exit_code=0,
+                    output=", ".join(resolved),
+                    duration=0.0
+                ))
+                for ip in resolved:
+                    if ip == target_ip:
+                        continue
+                    self._run_ip_enrichment(ip)
+            else:
+                self.logger.info(f"DNS resolve for {host}: no A/AAAA records found")
+            return
 
         hostname = reverse_lookup_ip(target_ip)
         if hostname:
@@ -813,6 +937,70 @@ class WorkflowEngine:
                 ))
             else:
                 self.logger.info(f"TLS names for {target_ip}:{port}: none or TLS unavailable")
+
+    def _run_metadata_extraction(self, target: str) -> None:
+        """Fetch robots.txt, sitemap.xml, and HTML comments for a target."""
+        import ssl
+        import urllib.request
+        from urllib.parse import urlparse
+        from core.memory import ToolExecution
+
+        def _fetch(url: str, timeout: int = 10) -> str:
+            req = urllib.request.Request(url, headers={"User-Agent": "guardian-metadata/1.0"})
+            ctx = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+
+        parsed = urlparse(target if "://" in target else f"//{target}")
+        if parsed.scheme:
+            bases = [f"{parsed.scheme}://{parsed.netloc}"]
+        else:
+            bases = [f"https://{target}", f"http://{target}"]
+
+        results = {"robots": "", "sitemap": "", "comments": []}
+        used_base = ""
+
+        for base in bases:
+            try:
+                robots = _fetch(f"{base}/robots.txt")
+                results["robots"] = robots
+                used_base = base
+                break
+            except Exception:
+                continue
+
+        for base in bases:
+            try:
+                sitemap = _fetch(f"{base}/sitemap.xml")
+                results["sitemap"] = sitemap
+                used_base = used_base or base
+                break
+            except Exception:
+                continue
+
+        page_text = ""
+        for base in bases:
+            try:
+                page_text = _fetch(base)
+                used_base = used_base or base
+                break
+            except Exception:
+                continue
+
+        if page_text:
+            comments = re.findall(r"<!--(.*?)-->", page_text, flags=re.DOTALL)
+            results["comments"] = [c.strip() for c in comments if c.strip()][:50]
+
+        self.memory.update_context("metadata", results)
+        self.memory.add_tool_execution(ToolExecution(
+            tool="metadata",
+            command=f"metadata extraction ({used_base or target})",
+            target=target,
+            timestamp=datetime.now().isoformat(),
+            exit_code=0,
+            output=str(results)[:2000],
+            duration=0.0,
+        ))
     
     async def _execute_ai_decision(self, decision: Dict[str, Any]):
         """Execute an AI-decided action"""
@@ -1014,19 +1202,55 @@ class WorkflowEngine:
         # Predefined workflows
         workflows = {
             "recon": [
-                {"name": "subdomain_discovery", "type": "tool", "tool": "subfinder"},
+                {"name": "passive_osint", "type": "multi_tool", "tools": [
+                    {"tool": "amass"},
+                    {"tool": "whois"},
+                    {"tool": "dnsrecon", "parameters": {"type": "std"}},
+                ]},
+                {"name": "dns_enumeration", "type": "tool", "tool": "dnsrecon", "parameters": {"type": "std,axfr,zonewalk,brt"}},
+                {"name": "ip_enrichment", "type": "action", "action": "ip_enrichment"},
                 {"name": "port_scanning", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
-                {"name": "nmap_vuln_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "vuln", "ports_from_context": True, "tool_timeout": 900}},
-                {"name": "web_probing", "type": "tool", "tool": web_probing_tool},
+                {"name": "service_fingerprinting", "type": "tool", "tool": "nmap", "parameters": {"args": "-sV --version-all -sC", "ports_from_context": True}},
+                {"name": "ssl_tls_analysis", "type": "tool", "tool": "testssl", "parameters": {"fast": True, "severity": "HIGH"}},
+                {"name": "technology_detection", "type": "multi_tool", "tools": [
+                    {"tool": "wappalyzer"},
+                    {"tool": "whatweb"},
+                    {"tool": "retire"},
+                ]},
+                {"name": "metadata_extraction", "type": "action", "action": "metadata_extraction"},
                 {"name": "analysis", "type": "analysis"},
                 {"name": "report", "type": "report"},
             ],
             "web": [
                 {"name": "web_discovery", "type": "tool", "tool": web_probing_tool},
+                {"name": "technology_detection", "type": "multi_tool", "tools": [
+                    {"tool": "wappalyzer"},
+                    {"tool": "whatweb"},
+                ]},
+                {"name": "metadata_extraction", "type": "action", "action": "metadata_extraction"},
                 {"name": "crawl", "type": "tool", "tool": crawl_tool},
+                {"name": "vhost_enumeration", "type": "tool", "tool": "ffuf", "parameters": {"append_fuzz": False}},
+                {"name": "api_route_discovery", "type": "tool", "tool": "kiterunner"},
                 {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei", "parameters": {"tool_timeout": 900}},
-                {"name": "api_schema_scan", "type": "tool", "tool": "schemathesis", "parameters": {"tool_timeout": 900}},
+                {"name": "api_testing", "type": "multi_tool", "tools": [
+                    {"tool": "schemathesis", "parameters": {"tool_timeout": 900}},
+                    {"tool": "graphql-cop"},
+                ]},
+                {"name": "authentication_testing", "type": "tool", "tool": "hydra"},
+                {"name": "session_management_testing", "type": "tool", "tool": "jwt_tool"},
+                {"name": "authorization_testing", "type": "tool", "tool": "nuclei", "parameters": {
+                    "tags": ["auth", "auth-bypass", "idor", "default-login"],
+                    "tool_timeout": 900
+                }},
+                {"name": "template_injection_testing", "type": "tool", "tool": "tplmap"},
                 {"name": "xss_scan", "type": "tool", "tool": "dalfox", "parameters": {"tool_timeout": 900}},
+                {"name": "file_upload_testing", "type": "tool", "tool": "upload-scanner"},
+                {"name": "csrf_testing", "type": "tool", "tool": "csrf-tester"},
+                {"name": "ssl_tls_analysis", "type": "tool", "tool": "testssl", "parameters": {"fast": True, "severity": "HIGH"}},
+                {"name": "client_side_testing", "type": "multi_tool", "tools": [
+                    {"tool": "jsparser"},
+                    {"tool": "retire"},
+                ]},
                 {"name": "burp_pro_scan", "type": "tool", "tool": "burp_pro", "condition": "burp_pro_available"},
                 {"name": "zap_scan", "type": "tool", "tool": "zap", "condition": "zap_available"},
                 {"name": "analysis", "type": "analysis"},

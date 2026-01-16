@@ -16,12 +16,36 @@ This directory contains wrappers for various penetration testing tools.
   - Installation: `go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest`
   - Features: JSONL output, CDN exclusion, top-port presets
 
+### Network Enumeration
+- **enum4linux**: SMB enumeration (users/shares/policy)
+  - Installation: `apt-get install enum4linux`
+  - Features: SMB share and domain info
+
+- **smbclient**: SMB share listing and access checks
+  - Installation: `apt-get install smbclient`
+
+- **showmount**: NFS export enumeration
+  - Installation: `apt-get install nfs-common`
+
+- **onesixtyone**: SNMP community brute force
+  - Installation: `apt-get install onesixtyone`
+
+- **snmpwalk**: SNMP enumeration
+  - Installation: `apt-get install snmp`
+
+- **xprobe2**: Active OS fingerprinting
+  - Installation: `apt-get install xprobe2`
+
 
 
 ### Web Reconnaissance  
 - **httpx**: HTTP probing and technology detection
   - Installation: `go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest`
   - Features: HTTP headers, status codes, technology fingerprinting
+
+- **Wappalyzer**: Web technology fingerprinting
+  - Installation: `npm install -g wappalyzer`
+  - Features: Framework/CMS detection
 
 - **WhatWeb**: Web technology fingerprinting
   - Installation: `apt-get install whatweb` or `gem install whatweb`
@@ -34,6 +58,16 @@ This directory contains wrappers for various penetration testing tools.
 - **Katana**: Web crawler
   - Installation: `go install github.com/projectdiscovery/katana/cmd/katana@latest`
   - Features: Fast crawling with depth control, JSONL output
+
+### OSINT / DNS
+- **Amass**: Passive OSINT and asset discovery
+  - Installation: `apt-get install amass` (Kali) or `snap install amass`
+
+- **Whois**: WHOIS lookups
+  - Installation: `apt-get install whois`
+
+- **dnsrecon**: DNS enumeration
+  - Installation: `pip install dnsrecon`
 
 ### Subdomain Enumeration
 - **Subfinder**: Passive subdomain discovery
@@ -55,6 +89,10 @@ This directory contains wrappers for various penetration testing tools.
 - **Nikto**: Web vulnerability scanner
   - Installation: `apt-get install nikto`
   - Features: 6700+ potentially dangerous files/CGIs, outdated versions
+
+- **Dalfox**: XSS scanner
+  - Installation: `go install github.com/hahwul/dalfox/v2@latest`
+  - Features: Parameter mining, reflected/stored XSS detection
 
 - **SQLMap**: Automated SQL injection and database takeover
   - Installation: `pip install sqlmap` or `apt-get install sqlmap`
@@ -89,11 +127,39 @@ This directory contains wrappers for various penetration testing tools.
 
 - **FFuf**: Fast web fuzzer
   - Installation: `go install github.com/ffuf/ffuf/v2@latest`
-  - Features: Advanced fuzzing, JSON output, recursion, filtering/matching
+  - Features: Advanced fuzzing, JSON output, recursion, filtering/matching, vhost fuzzing
 
 - **Waybackurls**: Historical URL collection
   - Installation: `go install github.com/tomnomnom/waybackurls@latest`
   - Features: Extracts URLs from the Internet Archive/other sources
+
+### Web App Testing
+- **hydra**: Authentication testing
+  - Installation: `apt-get install hydra`
+
+- **jwt_tool**: JWT analysis and testing
+  - Installation: `git clone https://github.com/ticarpi/jwt_tool`
+
+- **graphql-cop**: GraphQL security testing
+  - Installation: `git clone https://github.com/dolevf/graphql-cop.git` (run `./setup.sh` to wire a wrapper)
+
+- **kiterunner**: API route discovery without OpenAPI
+  - Installation: `go install github.com/assetnote/kiterunner@latest` (binary: `kr`)
+
+- **tplmap**: Template injection (SSTI) testing
+  - Installation: `git clone https://github.com/epinna/tplmap`
+
+- **upload-scanner**: File upload testing
+  - Installation: project-specific
+
+- **csrf-tester**: CSRF testing
+  - Installation: project-specific
+
+- **JSParser**: JavaScript endpoint extraction
+  - Installation: `git clone https://github.com/nahamsec/JSParser`
+
+- **retire**: JavaScript library vulnerability scanning
+  - Installation: `npm install -g retire`
 
 ## Tool Wrapper Architecture
 
