@@ -1,0 +1,12 @@
+nmap -sV -sC -T4 -oX - 192.168.1.232
+PTR 192.168.1.232
+nmap -sV -sC -T4 -oX - -p 53,135,139,445,3389,49153,49154,49175 192.168.1.232
+nmap -sn --traceroute -T4 -oX - 192.168.1.232
+enum4linux -a 192.168.1.232
+smbclient -L //192.168.1.232 -N
+showmount -e 192.168.1.232
+onesixtyone -q 192.168.1.232 public
+snmpwalk -v 2c -c public 192.168.1.232
+nmap -sV --script vuln -T4 -oX - -p 53,135,139,445,3389,49153,49154,49175,53,135,139,445,3389,49154,49175 192.168.1.232
+nmap -sV --script vuln -T4 -oX - -p 53,135,139,445,3389,49153,49154,49175,53,135,139,445,3389,49154,49175,53,135,139,445,3389,49154,49175 192.168.1.232
+/home/kali/code/guardian-cli-deluxe/venv/bin/testssl --jsonfile=/tmp/guardian-testssl-ymycyzlx/testssl.json --severity HIGH --fast --quiet 192.168.1.232

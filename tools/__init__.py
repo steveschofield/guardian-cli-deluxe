@@ -17,6 +17,12 @@ from .sslyze import SSLyzeTool
 from .headers import HeadersTool
 from .masscan import MasscanTool
 from .udp_proto_scanner import UdpProtoScannerTool
+from .enum4linux import Enum4linuxTool
+from .smbclient import SmbclientTool
+from .showmount import ShowmountTool
+from .snmpwalk import SnmpwalkTool
+from .onesixtyone import OnesixtyoneTool
+from .xprobe2 import Xprobe2Tool
 from .arjun import ArjunTool
 from .xsstrike import XSStrikeTool
 from .gitleaks import GitleaksTool
@@ -65,6 +71,12 @@ __all__ = [
     "HeadersTool",
     "MasscanTool",
     "UdpProtoScannerTool",
+    "Enum4linuxTool",
+    "SmbclientTool",
+    "ShowmountTool",
+    "SnmpwalkTool",
+    "OnesixtyoneTool",
+    "Xprobe2Tool",
     "ArjunTool",
     "XSStrikeTool",
     "GitleaksTool",

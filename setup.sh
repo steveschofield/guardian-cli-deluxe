@@ -559,6 +559,53 @@ install_recon_extras() {
   install_dnsrecon
   install_udp_proto_scanner
 
+  install_system_binary() {
+    local bin="$1"
+    local apt_pkg="$2"
+    local brew_pkg="$3"
+
+    if command -v "${bin}" >/dev/null 2>&1; then
+      link_into_venv "$(command -v "${bin}")" "${bin}"
+      return 0
+    fi
+
+    if [[ "${OS}" == "debian" ]]; then
+      if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+        echo "Installing ${bin} via apt (requires sudo)..."
+        sudo apt-get update -y && sudo apt-get install -y "${apt_pkg}" || echo "WARN: ${bin} install failed" >&2
+        if command -v "${bin}" >/dev/null 2>&1; then
+          link_into_venv "$(command -v "${bin}")" "${bin}"
+        fi
+        return 0
+      fi
+      echo "WARN: ${bin} not found and sudo not available; install manually (apt install ${apt_pkg})" >&2
+      return 0
+    fi
+
+    if [[ "${OS}" == "macos" ]]; then
+      if command -v brew >/dev/null 2>&1; then
+        echo "Installing ${bin} via Homebrew..."
+        brew install "${brew_pkg:-${bin}}" || echo "WARN: ${bin} install failed" >&2
+        if command -v "${bin}" >/dev/null 2>&1; then
+          link_into_venv "$(command -v "${bin}")" "${bin}"
+        fi
+        return 0
+      fi
+      echo "WARN: Homebrew not found; install ${bin} manually (brew install ${brew_pkg:-${bin}})" >&2
+      return 0
+    fi
+
+    echo "WARN: ${bin} not found; install manually for your OS" >&2
+    return 0
+  }
+
+  install_system_binary "enum4linux" "enum4linux" "enum4linux"
+  install_system_binary "smbclient" "smbclient" "samba"
+  install_system_binary "showmount" "nfs-common" "nfs-utils"
+  install_system_binary "snmpwalk" "snmp" "net-snmp"
+  install_system_binary "onesixtyone" "onesixtyone" "onesixtyone"
+  install_system_binary "xprobe2" "xprobe2" "xprobe2"
+
   # waybackurls: no deps (stdlib only) and no release assets; build from source in GOPATH mode.
   install_waybackurls() {
     if [[ -x "${VENV_BIN}/waybackurls" ]]; then
@@ -691,7 +738,7 @@ install_libpcap_dev() {
 echo "Fetching extra nuclei templates (CVE packs)..."
 install_nuclei_templates
 
-echo "Installing recon extras (gobuster, ffuf, dnsrecon, dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog)..."
+echo "Installing recon extras (gobuster, ffuf, dnsrecon, dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog, enum4linux, smbclient, showmount, snmpwalk, onesixtyone, xprobe2)..."
 install_recon_extras
 
 echo "Installing metasploit (optional, for MetasploitTool)..."

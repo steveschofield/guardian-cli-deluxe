@@ -11,8 +11,8 @@ ai:
   #
   # Ollama example:
   provider: ollama
-  # model: "llama3.1:8b"
-  model: deepseek-r1:8b 
+  model: "llama3.1:8b"
+  # model: deepseek-r1:8b 
   # model: llama3.2:3b
   # model: "DeepHat/DeepHat-V1-7B"
   base_url: "http://192.168.1.69:11434"
@@ -53,6 +53,11 @@ ai:
   # Overall time budget for an LLM call at the agent level (seconds).
   # If unset, Guardian falls back to `ai.timeout`.
   llm_timeout_seconds: 600
+  # Retries for LLM timeouts (set to 0 to disable).
+  llm_retry_count: 2
+  llm_retry_backoff_seconds: 2
+  llm_retry_max_backoff_seconds: 30
+  llm_retry_jitter_seconds: 0.5
   max_input_chars: 100000
   # Max characters of tool output to include in LLM prompts (larger = more context, more tokens/cost)
   max_tool_output_chars: 25000
@@ -117,6 +122,40 @@ tools:
     # Example: nmap -sV --script vuln <target>
     vuln_args: "-sV --script vuln"
     timing: T4
+
+  masscan:
+    enabled: true
+    ports: "22,53,80,135,139,443,445,3389"
+    rate: 10000
+
+  enum4linux:
+    enabled: true
+    args: "-a"
+    # Null session defaults (avoid interactive password prompts; works only if anonymous is allowed)
+    username: ""
+    password: ""
+
+  smbclient:
+    enabled: true
+    # username: "guest"
+    # password: ""
+
+  showmount:
+    enabled: true
+
+  onesixtyone:
+    enabled: true
+    # wordlist: "/usr/share/seclists/Discovery/SNMP/snmp-default-community-strings.txt"
+    community: "public"
+
+  snmpwalk:
+    enabled: true
+    version: "2c"
+    community: "public"
+
+  xprobe2:
+    enabled: true
+    args: "-v"
     
   httpx:
     enabled: true
@@ -200,6 +239,8 @@ tools:
 workflows:
   # Default workflow timeout (seconds)
   timeout: 3600
+  # Save session progress after each step (enables resume support)
+  save_progress: true
   
   # Optional: run Planner checkpoints during scripted workflows (recon/web/network)
   # Autonomous runs Planner by default

@@ -28,9 +28,8 @@ class LLMLogger:
             output_dir = Path(config.get("output", {}).get("save_path", "./reports"))
             output_dir.mkdir(parents=True, exist_ok=True)
             
-            # Create log file
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.log_file = output_dir / f"llm_io_{self.session_id}_{timestamp}.jsonl"
+            # Create log file (static name per session directory)
+            self.log_file = output_dir / "llm_io.jsonl"
     
     def log_request(self, call_id: str, provider: str, model: str, prompt: str, 
                    system_prompt: Optional[str] = None, context: Optional[list] = None) -> None:

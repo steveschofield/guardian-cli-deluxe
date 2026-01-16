@@ -9,6 +9,8 @@ from rich.table import Table
 from pathlib import Path
 
 from utils.helpers import load_config
+from utils.session_paths import resolve_session_file, find_latest_session_file
+from core.memory import PentestMemory
 from core.workflow import WorkflowEngine
 
 console = Console()
@@ -18,6 +20,7 @@ def workflow_command(
     action: str = typer.Argument(..., help="Action: 'run' or 'list'"),
     name: str = typer.Option(None, "--name", "-n", help="Workflow name (recon, web, network, autonomous)"),
     target: str = typer.Option(None, "--target", "-t", help="Target for the workflow"),
+    resume: str = typer.Option(None, "--resume", help="Resume from a session id or path (use 'latest' for newest)"),
     config_file: Path = typer.Option(
         "config/guardian.yaml",
         "--config",
@@ -42,12 +45,12 @@ def workflow_command(
         if not name:
             console.print("[bold red]Error:[/bold red] --name is required for 'run' action")
             raise typer.Exit(1)
-        
-        if not target:
-            console.print("[bold red]Error:[/bold red] --target is required for 'run' action")
+
+        if not target and not resume:
+            console.print("[bold red]Error:[/bold red] --target is required for 'run' action unless --resume is used")
             raise typer.Exit(1)
-        
-        _run_workflow(name, target, config_file)
+
+        _run_workflow(name, target, config_file, resume)
     else:
         console.print(f"[bold red]Error:[/bold red] Unknown action: {action}")
         raise typer.Exit(1)
@@ -67,17 +70,45 @@ def _list_workflows():
     console.print(table)
 
 
-def _run_workflow(name: str, target: str, config_file: Path):
+def _run_workflow(name: str, target: str, config_file: Path, resume: str = None):
     """Run a workflow"""
-    console.print(f"[bold cyan]🚀 Running {name} workflow on {target}[/bold cyan]\n")
-    
     try:
         config = load_config(str(config_file))
         if not config:
             console.print("[bold red]Error:[/bold red] Failed to load configuration")
             raise typer.Exit(1)
         
-        engine = WorkflowEngine(config, target)
+        memory = None
+        if resume:
+            if resume == "latest":
+                session_file = find_latest_session_file(config)
+            else:
+                resume_path = Path(resume)
+                if resume_path.exists():
+                    session_file = resume_path
+                else:
+                    session_file = resolve_session_file(config, resume)
+            if not session_file or not session_file.exists():
+                console.print(f"[bold red]Error:[/bold red] Session not found for resume: {resume}")
+                raise typer.Exit(1)
+
+            memory = PentestMemory(target="")
+            if not memory.load_state(session_file):
+                console.print(f"[bold red]Error:[/bold red] Failed to load session state: {session_file}")
+                raise typer.Exit(1)
+
+            if target and target != memory.target:
+                console.print(
+                    f"[yellow]Warning:[/yellow] --target differs from session target; using {memory.target}"
+                )
+            target = memory.target
+
+        if resume:
+            console.print(f"[bold cyan]🔄 Resuming {name} workflow on {target}[/bold cyan]\n")
+        else:
+            console.print(f"[bold cyan]🚀 Running {name} workflow on {target}[/bold cyan]\n")
+
+        engine = WorkflowEngine(config, target, memory=memory)
         
         if name == "autonomous":
             results = asyncio.run(engine.run_autonomous())

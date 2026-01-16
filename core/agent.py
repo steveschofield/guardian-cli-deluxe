@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import time
+import random
 from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -62,98 +63,134 @@ class BaseAgent(ABC):
 
         started = time.time()
         call_id = uuid4().hex
+        retry_count = ai_cfg.get("llm_retry_count", 2)
+        backoff_s = ai_cfg.get("llm_retry_backoff_seconds", 2)
+        max_backoff_s = ai_cfg.get("llm_retry_max_backoff_seconds", 30)
+        jitter_s = ai_cfg.get("llm_retry_jitter_seconds", 0.5)
         try:
-            self._maybe_log_llm_request(call_id=call_id, prompt=prompt, system_prompt=system_prompt)
+            retry_count = int(retry_count)
+        except Exception:
+            retry_count = 2
+        try:
+            backoff_s = float(backoff_s)
+        except Exception:
+            backoff_s = 2.0
+        try:
+            max_backoff_s = float(max_backoff_s)
+        except Exception:
+            max_backoff_s = 30.0
+        try:
+            jitter_s = float(jitter_s)
+        except Exception:
+            jitter_s = 0.5
 
-            result = await asyncio.wait_for(
-                self.llm.generate_with_reasoning(
+        self._maybe_log_llm_request(call_id=call_id, prompt=prompt, system_prompt=system_prompt)
+
+        attempt = 0
+        while True:
+            attempt_started = time.time()
+            try:
+                result = await asyncio.wait_for(
+                    self.llm.generate_with_reasoning(
+                        prompt=prompt,
+                        system_prompt=system_prompt
+                    ),
+                    timeout=llm_timeout
+                )
+
+                usage = getattr(self.llm, "last_usage", None)
+                request_id = getattr(self.llm, "last_request_id", None)
+                model = getattr(self.llm, "last_model", None)
+                bits: list[str] = []
+                if isinstance(usage, dict):
+                    prompt_tokens = usage.get("prompt_tokens")
+                    completion_tokens = usage.get("completion_tokens")
+                    total_tokens = usage.get("total_tokens")
+                    if model:
+                        bits.append(f"model={model}")
+                    if request_id:
+                        bits.append(f"request_id={request_id}")
+                    tok = []
+                    if prompt_tokens is not None:
+                        tok.append(f"prompt={prompt_tokens}")
+                    if completion_tokens is not None:
+                        tok.append(f"completion={completion_tokens}")
+                    if total_tokens is not None:
+                        tok.append(f"total={total_tokens}")
+                    if tok:
+                        bits.append("tokens(" + ", ".join(tok) + ")")
+                if bits:
+                    self.logger.info(f"[{self.name}] LLM usage: " + " ".join(bits))
+
+                self._maybe_log_llm_response(
+                    call_id=call_id,
                     prompt=prompt,
-                    system_prompt=system_prompt
-                ),
-                timeout=llm_timeout
-            )
+                    system_prompt=system_prompt,
+                    response=result.get("response", ""),
+                    reasoning=result.get("reasoning", ""),
+                    usage=usage if isinstance(usage, dict) else None,
+                    request_id=request_id if isinstance(request_id, str) else None,
+                    model=model if isinstance(model, str) else None,
+                )
 
-            usage = getattr(self.llm, "last_usage", None)
-            request_id = getattr(self.llm, "last_request_id", None)
-            model = getattr(self.llm, "last_model", None)
-            bits: list[str] = []
-            if isinstance(usage, dict):
-                prompt_tokens = usage.get("prompt_tokens")
-                completion_tokens = usage.get("completion_tokens")
-                total_tokens = usage.get("total_tokens")
-                if model:
-                    bits.append(f"model={model}")
+                # Log AI decision
+                context = {"prompt": prompt[:200]}
+                if isinstance(usage, dict):
+                    context["llm_usage"] = usage
                 if request_id:
-                    bits.append(f"request_id={request_id}")
-                tok = []
-                if prompt_tokens is not None:
-                    tok.append(f"prompt={prompt_tokens}")
-                if completion_tokens is not None:
-                    tok.append(f"completion={completion_tokens}")
-                if total_tokens is not None:
-                    tok.append(f"total={total_tokens}")
-                if tok:
-                    bits.append("tokens(" + ", ".join(tok) + ")")
-            if bits:
-                self.logger.info(f"[{self.name}] LLM usage: " + " ".join(bits))
+                    context["llm_request_id"] = request_id
+                if model:
+                    context["llm_model"] = model
+                self.logger.log_ai_decision(
+                    agent=self.name,
+                    decision=result["response"],
+                    reasoning=result["reasoning"],
+                    context=context
+                )
+                self.logger.debug(
+                    f"[{self.name}] LLM call completed in {time.time() - attempt_started:.2f}s"
+                )
+                
+                # Store in memory
+                self.memory.add_ai_decision(
+                    agent=self.name,
+                    decision=result["response"],
+                    reasoning=result["reasoning"]
+                )
+                
+                return result
 
-            self._maybe_log_llm_response(
-                call_id=call_id,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                response=result.get("response", ""),
-                reasoning=result.get("reasoning", ""),
-                usage=usage if isinstance(usage, dict) else None,
-                request_id=request_id if isinstance(request_id, str) else None,
-                model=model if isinstance(model, str) else None,
-            )
-
-            # Log AI decision
-            context = {"prompt": prompt[:200]}
-            if isinstance(usage, dict):
-                context["llm_usage"] = usage
-            if request_id:
-                context["llm_request_id"] = request_id
-            if model:
-                context["llm_model"] = model
-            self.logger.log_ai_decision(
-                agent=self.name,
-                decision=result["response"],
-                reasoning=result["reasoning"],
-                context=context
-            )
-            self.logger.debug(
-                f"[{self.name}] LLM call completed in {time.time() - started:.2f}s"
-            )
-            
-            # Store in memory
-            self.memory.add_ai_decision(
-                agent=self.name,
-                decision=result["response"],
-                reasoning=result["reasoning"]
-            )
-            
-            return result
-            
-        except asyncio.TimeoutError:
-            elapsed = time.time() - started
-            self.logger.error(f"Agent {self.name} LLM call timed out after {elapsed:.2f}s")
-            self._maybe_log_llm_error(
-                call_id=call_id,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                error=f"timeout after {elapsed:.2f}s",
-            )
-            raise
-        except Exception as e:
-            self.logger.error(f"Agent {self.name} thinking error: {e}")
-            self._maybe_log_llm_error(
-                call_id=call_id,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                error=str(e),
-            )
-            raise
+            except asyncio.TimeoutError:
+                elapsed = time.time() - attempt_started
+                total_elapsed = time.time() - started
+                if attempt < retry_count:
+                    delay = min(max_backoff_s, backoff_s * (2 ** attempt))
+                    if jitter_s > 0:
+                        delay += random.uniform(0, jitter_s)
+                    self.logger.warning(
+                        f"[{self.name}] LLM timeout after {elapsed:.2f}s (attempt {attempt + 1}/{retry_count + 1}); "
+                        f"retrying in {delay:.2f}s"
+                    )
+                    await asyncio.sleep(delay)
+                    attempt += 1
+                    continue
+                self.logger.error(f"Agent {self.name} LLM call timed out after {total_elapsed:.2f}s")
+                self._maybe_log_llm_error(
+                    call_id=call_id,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    error=f"timeout after {total_elapsed:.2f}s",
+                )
+                raise
+            except Exception as e:
+                self.logger.error(f"Agent {self.name} thinking error: {e}")
+                self._maybe_log_llm_error(
+                    call_id=call_id,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    error=str(e),
+                )
+                raise
 
     def _llm_io_enabled(self) -> bool:
         """
@@ -176,8 +213,7 @@ class BaseAgent(ABC):
 
         path = getattr(self.memory, "llm_io_log_path", None)
         if not isinstance(path, (str, Path)) or not str(path):
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            path = out_dir / f"llm_io_{session_id}_{ts}.jsonl"
+            path = out_dir / "llm_io.jsonl"
             try:
                 setattr(self.memory, "llm_io_log_path", str(path))
             except Exception:

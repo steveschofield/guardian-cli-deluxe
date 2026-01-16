@@ -24,12 +24,18 @@ from utils.circuit_breaker import EnhancedErrorHandler
 class WorkflowEngine:
     """Orchestrates the penetration testing workflow"""
     
-    def __init__(self, config: Dict[str, Any], target: str):
+    def __init__(self, config: Dict[str, Any], target: Optional[str] = None, memory: Optional[PentestMemory] = None):
         self.config = config or {}
-        self.target = target
 
         # Initialize session memory early so output paths can use session id.
-        self.memory = PentestMemory(target)
+        if memory is None:
+            if not target:
+                raise ValueError("target is required when memory is not provided")
+            self.memory = PentestMemory(target)
+        else:
+            self.memory = memory
+
+        self.target = self.memory.target or (target or "")
         self._configure_session_outputs()
 
         self.logger = get_logger(self.config)
@@ -190,7 +196,12 @@ class WorkflowEngine:
             raise ValueError(f"Invalid target: {reason}")
         
         self.is_running = True
-        self.memory.update_phase(f"{workflow_name}_workflow")
+        if self.memory.completed_actions:
+            self.logger.info(
+                f"Resuming session {self.memory.session_id} with {len(self.memory.completed_actions)} completed steps"
+            )
+        else:
+            self.memory.update_phase(f"{workflow_name}_workflow")
         
         try:
             # Load workflow steps
@@ -202,6 +213,10 @@ class WorkflowEngine:
             for step in steps:
                 if not self.is_running:
                     break
+                if self.memory.is_action_completed(step["name"]):
+                    self.logger.info(f"Skipping step: {step['name']} (already completed)")
+                    self.current_step += 1
+                    continue
                 self._log_progress(prefix="Workflow", total=len(steps), current=self.current_step)
                 self.logger.info(f"Executing step: {step['name']}")
                 step_started = datetime.now()
@@ -211,6 +226,7 @@ class WorkflowEngine:
                     self.logger.info(f"Planner checkpoint decision after {step['name']}: {decision.get('next_action')}")
                 self._record_step_duration(step_started)
                 self.current_step += 1
+                self._save_progress_if_enabled()
             
             # Generate final analysis
             analysis = await self.planner.analyze_results()
@@ -263,7 +279,12 @@ class WorkflowEngine:
             raise ValueError(f"Invalid target: {reason}")
         
         self.is_running = True
-        self.memory.update_phase("reconnaissance")
+        if self.memory.completed_actions:
+            self.logger.info(
+                f"Resuming session {self.memory.session_id} with {len(self.memory.completed_actions)} completed actions"
+            )
+        else:
+            self.memory.update_phase("reconnaissance")
         
         try:
             while self.is_running and self.current_step < self.max_steps:
@@ -285,6 +306,7 @@ class WorkflowEngine:
                 self._record_step_duration(step_started)
                 
                 self.current_step += 1
+                self._save_progress_if_enabled()
                 
                 # Progress phase if needed
                 self._maybe_advance_phase()
@@ -360,190 +382,63 @@ class WorkflowEngine:
             if not tool_name:
                 self.logger.warning("No available tool found for this step, skipping")
                 return
-            objective = step.get("objective", f"Execute {tool_name}")
-            
-            # Check if tool is available, skip if not
-            if tool_name not in self.tool_agent.available_tools:
-                self.logger.warning(f"Tool {tool_name} not available on this platform, skipping step")
-                return
-            
-            self.logger.info(f"Tool Agent selecting tool: {tool_name}")
-            
-            # Tool Agent executes the tool
-            tool_kwargs = step.get("parameters", {}) or {}
-
-            if tool_name == "schemathesis":
-                api_cfg = (self.config or {}).get("tools", {}).get("schemathesis", {}) or {}
-                if not api_cfg.get("enabled", True):
-                    self.logger.info(f"Skipping {step['name']}: Schemathesis disabled in config")
-                    return
-                schema = tool_kwargs.get("schema") or api_cfg.get("schema") or api_cfg.get("openapi")
-                if not schema:
-                    self.logger.info(f"Skipping {step['name']}: Schemathesis schema/openapi not configured")
-                    return
-                tool_kwargs = dict(tool_kwargs)
-                tool_kwargs.setdefault("schema", schema)
-                base_url = tool_kwargs.get("base_url") or api_cfg.get("base_url") or api_cfg.get("url")
-                if base_url:
-                    tool_kwargs.setdefault("base_url", base_url)
-                for key in ("workers", "checks", "max_examples"):
-                    if key not in tool_kwargs and api_cfg.get(key) is not None:
-                        tool_kwargs[key] = api_cfg.get(key)
-
-            # Allow steps to derive nmap ports from discovered open ports (speeds up vuln scripts).
-            if tool_name == "nmap":
-                if tool_kwargs.get("ports_from_context") and not tool_kwargs.get("ports"):
-                    open_ports = self.memory.context.get("open_ports") or []
-                    if isinstance(open_ports, list) and open_ports:
-                        ports = []
-                        for p in open_ports:
-                            try:
-                                ports.append(str(int(p)))
-                            except Exception:
-                                continue
-                        ports_filter = tool_kwargs.get("ports_filter")
-                        if ports_filter:
-                            if isinstance(ports_filter, str):
-                                wanted = {int(x.strip()) for x in ports_filter.split(",") if x.strip()}
-                            elif isinstance(ports_filter, list):
-                                wanted = {int(x) for x in ports_filter}
-                            else:
-                                wanted = set()
-                            ports = [p for p in ports if int(p) in wanted]
-                        if ports:
-                            tool_kwargs = dict(tool_kwargs)
-                            tool_kwargs["ports"] = ",".join(ports)
-                        else:
-                            self.logger.info(
-                                f"Skipping {step['name']}: no matching open ports for filtered scan"
-                            )
-                            return
-                    tool_kwargs = dict(tool_kwargs)
-                    tool_kwargs.pop("ports_from_context", None)
-                    tool_kwargs.pop("ports_filter", None)
-
-            # If we have discovered URLs, run URL-first scanners using the URL list.
-            # NOTE: only enable for tools that accept a `from_file` input in our wrappers.
-            if tool_name in {"katana", "nuclei", "dalfox"}:
-                urls = self._get_discovered_urls()
-                if urls and "from_file" not in tool_kwargs:
-                    url_file = self._write_urls_file(urls, name=f"{tool_name}_{self.memory.session_id}.txt")
-                    tool_kwargs = dict(tool_kwargs)
-                    tool_kwargs["from_file"] = str(url_file)
-
-            if not self._scope_allows(self.target):
-                self.logger.error(f"Target validation failed before tool execution: {self.target}")
+            result = await self._execute_tool_step(
+                tool_name=tool_name,
+                tool_kwargs=step.get("parameters", {}) or {},
+                step_name=step.get("name", tool_name),
+                workflow_name=workflow_name,
+            )
+            if result is None:
                 return
 
-            try:
-                result = await self.tool_agent.execute_tool(
+        elif step_type == "multi_tool":
+            tools = step.get("tools") or []
+            if not isinstance(tools, list) or not tools:
+                self.logger.warning("No tools configured for multi_tool step, skipping")
+                return
+
+            snmp_community = None
+            for entry in tools:
+                if isinstance(entry, dict):
+                    tool_name = entry.get("tool")
+                    tool_kwargs = entry.get("parameters", {}) or {}
+                else:
+                    tool_name = str(entry)
+                    tool_kwargs = {}
+
+                if not tool_name:
+                    continue
+
+                if tool_name == "snmpwalk" and snmp_community and "community" not in tool_kwargs:
+                    tool_kwargs = dict(tool_kwargs)
+                    tool_kwargs["community"] = snmp_community
+
+                result = await self._execute_tool_step(
                     tool_name=tool_name,
-                    target=self.target,
-                    **tool_kwargs
+                    tool_kwargs=tool_kwargs,
+                    step_name=f"{step.get('name', 'multi_tool')}:{tool_name}",
+                    workflow_name=workflow_name,
                 )
-            except Exception as e:
-                self.logger.warning(f"Tool {tool_name} failed with exception: {e}")
-                result = {"success": False, "tool": tool_name, "error": str(e), "exit_code": 1}
 
-            self._log_tool_execution(tool=tool_name, args=tool_kwargs, result=result)
-            
-            if result.get("success"):
-                parsed = result.get("parsed") if isinstance(result.get("parsed"), dict) else {}
+                if tool_name == "onesixtyone" and isinstance(result, dict):
+                    parsed = result.get("parsed") if isinstance(result.get("parsed"), dict) else {}
+                    matches = parsed.get("matches") or []
+                    if matches and isinstance(matches, list):
+                        comm = matches[0].get("community") if isinstance(matches[0], dict) else None
+                        if comm:
+                            snmp_community = comm
 
-                # Persist high-signal context from discovery tools.
-                if tool_name in {"httpx", "katana"}:
-                    urls = parsed.get("urls") or []
-                    if isinstance(urls, list) and urls:
-                        self.memory.update_context("urls", urls)
-                        self.memory.update_context("discovered_assets", urls)
-
-                if tool_name == "nmap":
-                    open_ports = parsed.get("open_ports") or []
-                    services = parsed.get("services") or []
-                    hosts_up = parsed.get("hosts_up") or []
-                    if isinstance(open_ports, list) and open_ports:
-                        self.memory.update_context("open_ports", open_ports)
-                    if isinstance(services, list) and services:
-                        self.memory.update_context("services", services)
-                    if isinstance(hosts_up, list) and hosts_up:
-                        self.memory.update_context("discovered_assets", hosts_up)
-                if tool_name == "naabu":
-                    open_ports = parsed.get("open_ports") or []
-                    if isinstance(open_ports, list) and open_ports:
-                        ports = []
-                        hosts = set()
-                        for entry in open_ports:
-                            if isinstance(entry, dict):
-                                port = entry.get("port")
-                                host = entry.get("host")
-                                if host:
-                                    hosts.add(host)
-                                if port is not None:
-                                    try:
-                                        ports.append(int(port))
-                                    except Exception:
-                                        continue
-                        if ports:
-                            self.memory.update_context("open_ports", ports)
-                        if hosts:
-                            self.memory.update_context("discovered_assets", sorted(hosts))
-                if tool_name == "masscan":
-                    open_ports = parsed.get("open_ports") or []
-                    if isinstance(open_ports, list) and open_ports:
-                        ports = []
-                        hosts = set()
-                        for entry in open_ports:
-                            if isinstance(entry, dict):
-                                port = entry.get("port")
-                                host = entry.get("host")
-                                if host:
-                                    hosts.add(host)
-                                if port is not None:
-                                    try:
-                                        ports.append(int(port))
-                                    except Exception:
-                                        continue
-                        if ports:
-                            self.memory.update_context("open_ports", ports)
-                        if hosts:
-                            self.memory.update_context("discovered_assets", sorted(hosts))
-                if tool_name == "udp-proto-scanner":
-                    open_ports = parsed.get("open_ports") or []
-                    if isinstance(open_ports, list) and open_ports:
-                        ports = []
-                        hosts = set()
-                        for entry in open_ports:
-                            if isinstance(entry, dict):
-                                port = entry.get("port")
-                                host = entry.get("host")
-                                if host:
-                                    hosts.add(host)
-                                if port is not None:
-                                    try:
-                                        ports.append(int(port))
-                                    except Exception:
-                                        continue
-                        if ports:
-                            self.memory.update_context("open_ports", ports)
-                        if hosts:
-                            self.memory.update_context("discovered_assets", sorted(hosts))
-
-                # Use Analyst Agent to interpret results
-                self.logger.info("Analyst Agent analyzing results...")
-                analysis = await self.analyst.interpret_output(
-                    tool=tool_name,
-                    target=self.target,
-                    command=result.get("command", ""),
-                    output=result.get("raw_output", "")
-                )
-                
-                self.logger.info(f"Found {len(analysis['findings'])} findings from {tool_name}")
-                
-                # Update last tool execution with findings count
-                if self.memory.tool_executions:
-                    self.memory.tool_executions[-1].findings_count = len(analysis["findings"])
+        elif step_type == "action":
+            action = step.get("action") or step.get("name")
+            if action == "ip_enrichment":
+                from utils.helpers import is_valid_ip, extract_domain_from_url
+                host = extract_domain_from_url(self.target) or self.target
+                if is_valid_ip(host):
+                    self._run_ip_enrichment(host)
+                else:
+                    self.logger.info(f"Skipping ip_enrichment: {self.target} is not an IP target")
             else:
-                self.logger.warning(f"Tool execution failed: {result.get('error')}")
+                self.logger.warning(f"Unknown action step: {action}")
             
         elif step_type == "analysis":
             # AI analysis step
@@ -645,6 +540,224 @@ class WorkflowEngine:
         self._scope_cache[target] = bool(is_valid)
         return bool(is_valid)
 
+    def _target_is_network(self, target: str) -> bool:
+        if not target:
+            return False
+        try:
+            import ipaddress
+            if "/" in target:
+                ipaddress.ip_network(target, strict=False)
+                return True
+            if "-" in target:
+                parts = [p.strip() for p in target.split("-")]
+                if len(parts) == 2:
+                    ipaddress.ip_address(parts[0])
+                    ipaddress.ip_address(parts[1])
+                    return True
+        except Exception:
+            return False
+        return False
+
+    async def _execute_tool_step(
+        self,
+        tool_name: str,
+        tool_kwargs: Dict[str, Any],
+        step_name: str,
+        workflow_name: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        # Check if tool is available, skip if not
+        if tool_name not in self.tool_agent.available_tools:
+            self.logger.warning(f"Tool {tool_name} not available on this platform, skipping step")
+            return None
+
+        # Special-case network discovery for non-network targets.
+        if step_name == "network_discovery":
+            from utils.helpers import extract_domain_from_url
+            host = extract_domain_from_url(self.target) or self.target
+            if not self._target_is_network(host):
+                self.logger.info(f"Skipping network_discovery: target is not a CIDR/range ({host})")
+                return None
+
+        self.logger.info(f"Tool Agent selecting tool: {tool_name}")
+
+        # Tool Agent executes the tool
+        tool_kwargs = tool_kwargs or {}
+
+        if tool_name == "schemathesis":
+            api_cfg = (self.config or {}).get("tools", {}).get("schemathesis", {}) or {}
+            if not api_cfg.get("enabled", True):
+                self.logger.info(f"Skipping {step_name}: Schemathesis disabled in config")
+                return None
+            schema = tool_kwargs.get("schema") or api_cfg.get("schema") or api_cfg.get("openapi")
+            if not schema:
+                self.logger.info(f"Skipping {step_name}: Schemathesis schema/openapi not configured")
+                return None
+            tool_kwargs = dict(tool_kwargs)
+            tool_kwargs.setdefault("schema", schema)
+            base_url = tool_kwargs.get("base_url") or api_cfg.get("base_url") or api_cfg.get("url")
+            if base_url:
+                tool_kwargs.setdefault("base_url", base_url)
+            for key in ("workers", "checks", "max_examples"):
+                if key not in tool_kwargs and api_cfg.get(key) is not None:
+                    tool_kwargs[key] = api_cfg.get(key)
+
+        # Allow steps to derive nmap ports from discovered open ports (speeds up vuln scripts).
+        if tool_name == "nmap":
+            if tool_kwargs.get("ports_from_context") and not tool_kwargs.get("ports"):
+                open_ports = self.memory.context.get("open_ports") or []
+                if isinstance(open_ports, list) and open_ports:
+                    ports = []
+                    for p in open_ports:
+                        try:
+                            ports.append(str(int(p)))
+                        except Exception:
+                            continue
+                    ports_filter = tool_kwargs.get("ports_filter")
+                    if ports_filter:
+                        if isinstance(ports_filter, str):
+                            wanted = {int(x.strip()) for x in ports_filter.split(",") if x.strip()}
+                        elif isinstance(ports_filter, list):
+                            wanted = {int(x) for x in ports_filter}
+                        else:
+                            wanted = set()
+                        ports = [p for p in ports if int(p) in wanted]
+                    if ports:
+                        tool_kwargs = dict(tool_kwargs)
+                        tool_kwargs["ports"] = ",".join(ports)
+                    else:
+                        self.logger.info(
+                            f"Skipping {step_name}: no matching open ports for filtered scan"
+                        )
+                        return None
+                tool_kwargs = dict(tool_kwargs)
+                tool_kwargs.pop("ports_from_context", None)
+                tool_kwargs.pop("ports_filter", None)
+
+        # If we have discovered URLs, run URL-first scanners using the URL list.
+        # NOTE: only enable for tools that accept a `from_file` input in our wrappers.
+        if tool_name in {"katana", "nuclei", "dalfox"}:
+            urls = self._get_discovered_urls()
+            if urls and "from_file" not in tool_kwargs:
+                url_file = self._write_urls_file(urls, name=f"{tool_name}_{self.memory.session_id}.txt")
+                tool_kwargs = dict(tool_kwargs)
+                tool_kwargs["from_file"] = str(url_file)
+
+        if not self._scope_allows(self.target):
+            self.logger.error(f"Target validation failed before tool execution: {self.target}")
+            return None
+
+        try:
+            result = await self.tool_agent.execute_tool(
+                tool_name=tool_name,
+                target=self.target,
+                **tool_kwargs
+            )
+        except Exception as e:
+            self.logger.warning(f"Tool {tool_name} failed with exception: {e}")
+            result = {"success": False, "tool": tool_name, "error": str(e), "exit_code": 1}
+
+        self._log_tool_execution(tool=tool_name, args=tool_kwargs, result=result)
+
+        if result.get("success"):
+            parsed = result.get("parsed") if isinstance(result.get("parsed"), dict) else {}
+
+            # Persist high-signal context from discovery tools.
+            if tool_name in {"httpx", "katana"}:
+                urls = parsed.get("urls") or []
+                if isinstance(urls, list) and urls:
+                    self.memory.update_context("urls", urls)
+                    self.memory.update_context("discovered_assets", urls)
+
+            if tool_name == "nmap":
+                open_ports = parsed.get("open_ports") or []
+                services = parsed.get("services") or []
+                hosts_up = parsed.get("hosts_up") or []
+                if isinstance(open_ports, list) and open_ports:
+                    self.memory.update_context("open_ports", open_ports)
+                if isinstance(services, list) and services:
+                    self.memory.update_context("services", services)
+                if isinstance(hosts_up, list) and hosts_up:
+                    self.memory.update_context("discovered_assets", hosts_up)
+            if tool_name == "naabu":
+                open_ports = parsed.get("open_ports") or []
+                if isinstance(open_ports, list) and open_ports:
+                    ports = []
+                    hosts = set()
+                    for entry in open_ports:
+                        if isinstance(entry, dict):
+                            port = entry.get("port")
+                            host = entry.get("host")
+                            if host:
+                                hosts.add(host)
+                            if port is not None:
+                                try:
+                                    ports.append(int(port))
+                                except Exception:
+                                    continue
+                    if ports:
+                        self.memory.update_context("open_ports", ports)
+                    if hosts:
+                        self.memory.update_context("discovered_assets", sorted(hosts))
+            if tool_name == "masscan":
+                open_ports = parsed.get("open_ports") or []
+                if isinstance(open_ports, list) and open_ports:
+                    ports = []
+                    hosts = set()
+                    for entry in open_ports:
+                        if isinstance(entry, dict):
+                            port = entry.get("port")
+                            host = entry.get("host")
+                            if host:
+                                hosts.add(host)
+                            if port is not None:
+                                try:
+                                    ports.append(int(port))
+                                except Exception:
+                                    continue
+                    if ports:
+                        self.memory.update_context("open_ports", ports)
+                    if hosts:
+                        self.memory.update_context("discovered_assets", sorted(hosts))
+            if tool_name == "udp-proto-scanner":
+                open_ports = parsed.get("open_ports") or []
+                if isinstance(open_ports, list) and open_ports:
+                    ports = []
+                    hosts = set()
+                    for entry in open_ports:
+                        if isinstance(entry, dict):
+                            port = entry.get("port")
+                            host = entry.get("host")
+                            if host:
+                                hosts.add(host)
+                            if port is not None:
+                                try:
+                                    ports.append(int(port))
+                                except Exception:
+                                    continue
+                    if ports:
+                        self.memory.update_context("open_ports", ports)
+                    if hosts:
+                        self.memory.update_context("discovered_assets", sorted(hosts))
+
+            # Use Analyst Agent to interpret results
+            self.logger.info("Analyst Agent analyzing results...")
+            analysis = await self.analyst.interpret_output(
+                tool=tool_name,
+                target=self.target,
+                command=result.get("command", ""),
+                output=result.get("raw_output", "")
+            )
+
+            self.logger.info(f"Found {len(analysis['findings'])} findings from {tool_name}")
+
+            # Update last tool execution with findings count
+            if self.memory.tool_executions:
+                self.memory.tool_executions[-1].findings_count = len(analysis["findings"])
+        else:
+            self.logger.warning(f"Tool execution failed: {result.get('error')}")
+
+        return result
+
     def _write_urls_file(self, urls: List[str], name: str) -> Path:
         output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -717,6 +830,10 @@ class WorkflowEngine:
                 decision = {"next_action": "technology_detection", "parameters": "", "expected_outcome": ""}
                 action = "technology_detection"
             self.logger.info(f"Recovered AI decision: {action}")
+
+        if self.memory.is_action_completed(action):
+            self.logger.info(f"Skipping AI decision: {action} (already completed)")
+            return
 
         # Handle internal (non-tool) actions without routing through ToolSelector.
         output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
@@ -916,11 +1033,23 @@ class WorkflowEngine:
                 {"name": "report", "type": "report"},
             ],
             "network": [
+                {"name": "network_discovery", "type": "tool", "tool": "masscan", "parameters": {"ports": "22,53,80,135,139,443,445,3389", "rate": 10000}},
                 {"name": "port_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
+                {"name": "ip_enrichment", "type": "action", "action": "ip_enrichment"},
+                {"name": "service_enumeration", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon", "ports_from_context": True}},
+                {"name": "os_fingerprinting", "type": "tool", "tool": "xprobe2"},
+                {"name": "network_topology", "type": "tool", "tool": "nmap", "parameters": {"args": "-sn --traceroute"}},
+                {"name": "share_enumeration", "type": "multi_tool", "tools": [
+                    {"tool": "enum4linux"},
+                    {"tool": "smbclient"},
+                    {"tool": "showmount"},
+                ]},
+                {"name": "snmp_enumeration", "type": "multi_tool", "tools": [
+                    {"tool": "onesixtyone"},
+                    {"tool": "snmpwalk"},
+                ]},
                 {"name": "nmap_vuln_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "vuln", "ports_from_context": True, "tool_timeout": 900}},
-                {"name": "web_probing", "type": "tool", "tool": web_probing_tool},
-                {"name": "crawl", "type": "tool", "tool": crawl_tool},
-                {"name": "vulnerability_scan", "type": "tool", "tool": "nuclei", "parameters": {"tool_timeout": 900}},
+                {"name": "ssl_tls_analysis", "type": "tool", "tool": "testssl", "parameters": {"fast": True, "severity": "HIGH"}},
                 {"name": "analysis", "type": "analysis"},
                 {"name": "report", "type": "report"},
             ]
@@ -983,6 +1112,11 @@ class WorkflowEngine:
             with open(payloads_file, "w", encoding="utf-8") as f:
                 f.write("\n".join(commands))
             self.logger.info(f"Exported tool commands: {payloads_file}")
+
+    def _save_progress_if_enabled(self):
+        workflows_cfg = (self.config or {}).get("workflows", {}) or {}
+        if workflows_cfg.get("save_progress", True):
+            self._save_session()
 
     def _extract_urls(self) -> List[str]:
         """Collect URLs from tool outputs and commands for export."""

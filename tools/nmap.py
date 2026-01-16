@@ -35,6 +35,9 @@ class NmapTool(BaseTool):
         recon_args = config.get("default_args", "-sV -sC")
         vuln_args = config.get("vuln_args", "-sV --script vuln")
         args = vuln_args if profile in {"vuln", "vulnerability"} else recon_args
+        override_args = kwargs.get("args") or kwargs.get("override_args")
+        if override_args:
+            args = override_args
         if args:
             command.extend(str(args).split())
         
@@ -53,6 +56,13 @@ class NmapTool(BaseTool):
 
         if "scan_type" in kwargs:
             command.append(kwargs["scan_type"])
+
+        extra_args = kwargs.get("extra_args")
+        if extra_args:
+            if isinstance(extra_args, list):
+                command.extend([str(a) for a in extra_args if str(a).strip()])
+            else:
+                command.extend(str(extra_args).split())
         
         # Target
         command.append(target_host)

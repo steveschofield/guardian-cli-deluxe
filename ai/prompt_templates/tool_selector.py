@@ -23,6 +23,12 @@ Available Tools (pick only those appropriate for the target type and objective):
 - sslyze: SSL/TLS scanning and analysis
 - headers: HTTP security header checks
 - masscan: Fast TCP port discovery
+- enum4linux: SMB enumeration (users, shares, policy)
+- smbclient: SMB share listing and access checks
+- showmount: NFS export enumeration
+- onesixtyone: SNMP community brute force
+- snmpwalk: SNMP enumeration
+- xprobe2: Active OS fingerprinting
 - udp-proto-scanner: Fast UDP probing
 - gobuster: Directory/file brute forcing
 - dirsearch: Content discovery and brute forcing
@@ -88,6 +94,12 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - sslyze: SSL/TLS scanning
 - headers: HTTP security header checks
 - masscan: Fast TCP port discovery
+- enum4linux: SMB enumeration
+- smbclient: SMB share listing
+- showmount: NFS export enumeration
+- onesixtyone: SNMP community brute force
+- snmpwalk: SNMP enumeration
+- xprobe2: OS fingerprinting
 - udp-proto-scanner: Fast UDP probing
 - gobuster: Directory/file brute forcing
 - dirsearch: Content discovery

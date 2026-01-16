@@ -92,6 +92,11 @@ class PentestMemory:
         normalized = self._normalize_action(action)
         if normalized and normalized not in self.completed_actions and normalized.lower() != "unknown":
             self.completed_actions.append(normalized)
+
+    def is_action_completed(self, action: str) -> bool:
+        """Check if an action is already marked completed"""
+        normalized = self._normalize_action(action)
+        return bool(normalized and normalized in self.completed_actions)
     
     def update_context(self, key: str, value: Any):
         """Update context information"""

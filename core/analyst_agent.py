@@ -5,6 +5,7 @@ Interprets scan results and identifies security vulnerabilities
 
 import re
 import json
+import html
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from core.agent import BaseAgent
@@ -67,7 +68,10 @@ class AnalystAgent(BaseAgent):
 
         # Reduce prompt bloat for Nmap XML by extracting only high-signal elements.
         if tool == "nmap" and output.lstrip().startswith("<?xml") and "<nmaprun" in output:
+            hostscript_findings = self._extract_nmap_hostscript_findings(output, target)
             output = self._condense_nmap_xml(output)
+        else:
+            hostscript_findings = []
 
         # Reduce prompt bloat for Nuclei JSONL by stripping huge fields (request/response/template-encoded)
         # and keeping only high-signal, evidence-friendly elements.
@@ -126,6 +130,19 @@ class AnalystAgent(BaseAgent):
 
         findings = self._postprocess_findings(findings, tool=tool, output=output)
 
+        # Merge in deterministic hostscript findings (e.g., smb-vuln-*), avoiding duplicates.
+        if hostscript_findings:
+            hostscript_findings = self._postprocess_findings(hostscript_findings, tool=tool, output=output)
+            existing_keys = {
+                (f.title.lower().strip(), (f.evidence or "").lower().strip()) for f in findings
+            }
+            for hf in hostscript_findings:
+                key = (hf.title.lower().strip(), (hf.evidence or "").lower().strip())
+                if key in existing_keys:
+                    continue
+                findings.append(hf)
+                existing_keys.add(key)
+
         # If still nothing with evidence, return empty
         if not findings:
             msg = "No evidence-backed findings; output deemed informational."
@@ -156,6 +173,7 @@ class AnalystAgent(BaseAgent):
         - host status + hostnames
         - closed/open counts when present
         - open ports: <port>, <state>, <service>, and <script ...> start tags
+        - hostscript: <script ...> start tags (vuln checks live here)
 
         Keeps verbatim XML tag strings so the model can cite evidence directly.
         """
@@ -206,6 +224,14 @@ class AnalystAgent(BaseAgent):
 
                 out.append("</port>")
 
+            # Host-level scripts (e.g., smb-vuln-*).
+            hostscript_match = re.search(r"<hostscript>([\s\S]*?)</hostscript>", xml_text)
+            if hostscript_match:
+                host_scripts = re.findall(r"<script\b[^>]+>", hostscript_match.group(1))
+                out.append(f"HOSTSCRIPT_SCRIPTS_FOUND: {len(host_scripts)}")
+                for s in host_scripts[:20]:
+                    out.append(s)
+
             # Always include run summary if present
             m = re.search(r"<finished\\b[^>]+/>", xml_text)
             if m:
@@ -214,6 +240,96 @@ class AnalystAgent(BaseAgent):
             return "\n".join(out)
         except Exception:
             return xml_text
+
+    def _extract_nmap_hostscript_findings(self, xml_text: str, target: str) -> List[Finding]:
+        """
+        Extract high-signal vulnerabilities/weaknesses from Nmap <hostscript> output.
+        This is deterministic to avoid LLM misses on critical findings.
+        """
+        findings: List[Finding] = []
+        hostscript_match = re.search(r"<hostscript>([\s\S]*?)</hostscript>", xml_text)
+        if not hostscript_match:
+            return findings
+
+        script_tags = re.findall(r"<script\b[^>]+>", hostscript_match.group(1))
+        for tag in script_tags:
+            id_match = re.search(r'id="([^"]+)"', tag)
+            out_match = re.search(r'output="([^"]*)"', tag)
+            if not id_match or not out_match:
+                continue
+
+            script_id = id_match.group(1)
+            output_raw = html.unescape(out_match.group(1))
+            output_text = output_raw.strip()
+            if not output_text:
+                continue
+
+            lower = output_text.lower()
+            if lower in {"false", "true"}:
+                continue
+            if "nt_status_access_denied" in lower or "access_denied" in lower:
+                continue
+            if "no reply from server" in lower and "vulnerable" not in lower:
+                continue
+
+            title = ""
+            severity = ""
+            description = ""
+            evidence = ""
+
+            if "vulnerable" in lower:
+                # Try to extract the first meaningful title line after VULNERABLE:
+                lines = [l.strip() for l in output_text.splitlines() if l.strip()]
+                if lines and "vulnerable" in lines[0].lower() and len(lines) > 1:
+                    title = lines[1]
+                elif len(lines) >= 1:
+                    title = lines[0]
+
+                if not title:
+                    title = f"Nmap hostscript {script_id} reported VULNERABLE"
+
+                if "critical" in lower:
+                    severity = "critical"
+                else:
+                    risk_match = re.search(r"risk factor:\\s*(\\w+)", output_text, re.IGNORECASE)
+                    if risk_match:
+                        sev = risk_match.group(1).lower()
+                        if sev in {"high", "medium", "low"}:
+                            severity = sev
+                    if not severity:
+                        severity = "high"
+
+                description = output_text
+                evidence = " | ".join(lines[:2]) if lines else output_text
+
+            elif "message_signing: disabled" in lower:
+                title = "SMB signing disabled"
+                severity = "medium"
+                description = output_text
+                evidence = "message_signing: disabled"
+
+            elif "message signing enabled but not required" in lower:
+                title = "SMB signing not required (SMB2)"
+                severity = "medium"
+                description = output_text
+                evidence = "Message signing enabled but not required"
+
+            if not title or not severity:
+                continue
+
+            finding = Finding(
+                id=f"nmap_hostscript_{script_id}_{datetime.now().timestamp()}",
+                severity=severity,
+                title=title[:200],
+                description=description[:2000],
+                evidence=evidence[:500],
+                tool="nmap",
+                target=target,
+                timestamp=datetime.now().isoformat(),
+            )
+            findings.append(finding)
+
+        return findings
 
     def _condense_nuclei_jsonl(self, text: str) -> str:
         """

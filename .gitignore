@@ -28,6 +28,7 @@ venv/
 env/
 ENV/
 .venv
+gap-analysis*
 
 # IDE
 .vscode/
