@@ -48,6 +48,8 @@ class TestSSLTool(BaseTool):
             raise RuntimeError("testssl executable not found (expected testssl/testssl.sh or vendored copy)")
 
         command = [executable]
+
+        cfg = (self.config or {}).get("tools", {}).get("testssl", {}) or {}
         
         # Machine-readable output
         jsonfile_path = kwargs.get("jsonfile_path")
@@ -62,9 +64,17 @@ class TestSSLTool(BaseTool):
         # Fast mode
         if kwargs.get("fast", False):
             command.append("--fast")
-        
+
         # Quiet mode
         command.append("--quiet")
+
+        ip_mode = kwargs.get("ip") if "ip" in kwargs else cfg.get("ip")
+        if ip_mode:
+            command.extend(["--ip", str(ip_mode)])
+
+        nodns = kwargs.get("nodns") if "nodns" in kwargs else cfg.get("nodns")
+        if nodns:
+            command.extend(["--nodns", str(nodns)])
         
         # Target (host:port or URL)
         command.append(self._normalize_target(target))

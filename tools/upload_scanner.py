@@ -44,9 +44,12 @@ class UploadScannerTool(BaseTool):
         binary = cfg.get("binary") or "upload-scanner"
         args = kwargs.get("args") if "args" in kwargs else cfg.get("args")
         script = kwargs.get("script") or cfg.get("script") or self._script_path
+        insecure = kwargs.get("insecure") if "insecure" in kwargs else cfg.get("insecure")
 
         if args:
             args = str(args).replace("{target}", target)
+            if insecure and "--insecure" not in args:
+                args = f"{args} --insecure"
             if script:
                 script = os.path.expandvars(os.path.expanduser(str(script)))
                 return [sys.executable, script] + args.split()

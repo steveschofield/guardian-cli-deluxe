@@ -5,6 +5,7 @@ Kiterunner wrapper for schema-less API route discovery
 import os
 import re
 import shutil
+import subprocess
 from typing import Dict, Any, List
 
 from tools.base_tool import BaseTool
@@ -48,6 +49,38 @@ class KiterunnerTool(BaseTool):
             candidates.append(os.path.join(guardian_home, "tools", ".bin", "kiterunner"))
         return candidates
 
+    def _ensure_kitebuilder_wordlist(self, wordlist: str) -> str:
+        if not wordlist:
+            return wordlist
+        wordlist = os.path.expandvars(os.path.expanduser(str(wordlist)))
+        if not wordlist.endswith(".json"):
+            return wordlist
+
+        output_path = os.path.splitext(wordlist)[0] + ".kite"
+        try:
+            if os.path.isfile(output_path):
+                if os.path.getmtime(output_path) >= os.path.getmtime(wordlist):
+                    return output_path
+        except Exception:
+            if os.path.isfile(output_path):
+                return output_path
+
+        binary = self._binary or shutil.which("kr") or shutil.which("kiterunner")
+        if not binary:
+            raise ValueError("kiterunner binary not found for compiling wordlist")
+
+        try:
+            result = subprocess.run(
+                [binary, "kb", "compile", wordlist, output_path],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            err = (exc.stderr or exc.stdout or "").strip()
+            raise ValueError(f"kiterunner failed to compile wordlist: {err or 'unknown error'}") from exc
+        return output_path
+
     def get_command(self, target: str, **kwargs) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("kiterunner", {}) or {}
         binary = self._binary or cfg.get("binary") or "kr"
@@ -59,7 +92,7 @@ class KiterunnerTool(BaseTool):
 
         wordlist = kwargs.get("wordlist") if "wordlist" in kwargs else cfg.get("wordlist")
         if wordlist:
-            wordlist = os.path.expandvars(os.path.expanduser(str(wordlist)))
+            wordlist = self._ensure_kitebuilder_wordlist(wordlist)
         else:
             raise ValueError("kiterunner requires args or a wordlist")
 

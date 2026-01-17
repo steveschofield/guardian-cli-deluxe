@@ -64,6 +64,7 @@ class JsparserTool(BaseTool):
         args = kwargs.get("args") if "args" in kwargs else cfg.get("args")
         script = kwargs.get("script") or cfg.get("script") or self._script_path
         binary = kwargs.get("binary") or cfg.get("binary") or self._binary_path or "jsparser"
+        insecure = kwargs.get("insecure") if "insecure" in kwargs else cfg.get("insecure")
 
         if not args:
             args = "-u {target}"
@@ -73,6 +74,8 @@ class JsparserTool(BaseTool):
             args = args.replace("{target}", target)
         elif target not in args:
             args = f"{args} {target}"
+        if insecure and "--insecure" not in args:
+            args = f"{args} --insecure"
 
         if script:
             script = os.path.expandvars(os.path.expanduser(str(script)))

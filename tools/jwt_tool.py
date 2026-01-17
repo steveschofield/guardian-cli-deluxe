@@ -29,6 +29,12 @@ class JwtTool(BaseTool):
 
         if args:
             args = str(args).replace("{target}", target)
+            if "{token}" in args:
+                if not token:
+                    raise ValueError("jwt_tool requires token when args include {token}")
+                args = args.replace("{token}", str(token))
+            elif token and str(token) not in args:
+                args = f"{args} {token}"
             return [binary] + args.split()
 
         if not token:

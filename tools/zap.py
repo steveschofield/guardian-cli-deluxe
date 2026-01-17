@@ -67,6 +67,7 @@ class ZapTool(BaseTool):
         export_har = bool(cfg.get("export_har", False))
         ajax_spider = bool(cfg.get("ajax_spider", False))
         ignore_robots = bool(cfg.get("ignore_robots", False))
+        startup_timeout = cfg.get("startup_timeout")
         context_name = (cfg.get("context_name") or "").strip()
         include_regex = (cfg.get("include_regex") or "").strip()
         login_url = (cfg.get("login_url") or "").strip()
@@ -100,6 +101,8 @@ class ZapTool(BaseTool):
             "--max-minutes",
             str(int(timeout_min)),
         ]
+        if startup_timeout:
+            args.extend(["--startup-timeout", str(int(startup_timeout))])
         if api_key:
             args.extend(["--api-key", api_key])
         if spider:
@@ -157,6 +160,7 @@ class ZapTool(BaseTool):
         export_har = bool(cfg.get("export_har", False))
         ajax_spider = bool(cfg.get("ajax_spider", False))
         ignore_robots = bool(cfg.get("ignore_robots", False))
+        startup_timeout = cfg.get("startup_timeout")
         context_name = (cfg.get("context_name") or "").strip()
         include_regex = (cfg.get("include_regex") or "").strip()
         login_url = (cfg.get("login_url") or "").strip()
@@ -190,6 +194,8 @@ class ZapTool(BaseTool):
             "--max-minutes",
             str(int(timeout_min)),
         ]
+        if startup_timeout:
+            args.extend(["--startup-timeout", str(int(startup_timeout))])
         if api_key:
             args.extend(["--api-key", api_key])
         if spider:

@@ -166,7 +166,8 @@ tools:
   jwt_tool:
     enabled: true
     # If you have a JWT, set token or add headers/cookies via args.
-    args: "-t {target} -M pb"
+    # token: "eyJhbGciOi..."
+    args: "-t {target} -M pb {token}"
 
   graphql_cop:
     enabled: true
@@ -180,15 +181,27 @@ tools:
   upload_scanner:
     enabled: true
     args: "--url {target}"
+    insecure: true
 
   csrf_tester:
     enabled: true
     args: "--url {target}"
+    insecure: true
 
   jsparser:
     enabled: true
     # script: "/path/to/JSParser.py"
     # args: "-u {target}"
+    insecure: true
+
+  retire:
+    enabled: true
+    insecure: true
+    max_scripts: 20
+
+  testssl:
+    enabled: true
+    ip: one
 
   masscan:
     enabled: true
@@ -255,6 +268,7 @@ tools:
     schema: "{target}/openapi.json"
     # Optional: base URL for the API (defaults to target)
     # base_url: "https://api.example.com"
+    tls_verify: false
     # Optional tuning
     # workers: 4
     # checks: "all"
@@ -283,6 +297,7 @@ tools:
     # Run mode: "docker" recommended, or "local" for a locally-installed ZAP script.
     mode: docker
     docker_image: "ghcr.io/zaproxy/zaproxy:stable"
+    startup_timeout: 180
     # baseline = passive (safer), full = active scan (requires pentest.safe_mode: false)
     scan: full
     # Time budget for the scan scripts (minutes)

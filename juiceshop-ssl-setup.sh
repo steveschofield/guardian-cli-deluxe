@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ========= CONFIG (edit if you want) =========
-DOMAIN="juiceshop.ss.local"
+DOMAIN="juiceshop.ss.hackme"
 PROJECT_DIR="${PWD}/juiceshop-ssl"
 NGINX_DIR="${PROJECT_DIR}/nginx"
 CERT_DIR="${PROJECT_DIR}/certs"

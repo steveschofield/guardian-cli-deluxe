@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 import urllib.request
 
 
-def _wait_for_api(api_url: str, timeout_s: int = 60) -> None:
+def _wait_for_api(api_url: str, timeout_s: int = 180) -> None:
     deadline = time.time() + timeout_s
     while time.time() < deadline:
         try:
@@ -37,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--api-key", default="")
     ap.add_argument("--target", required=True)
     ap.add_argument("--max-minutes", type=int, default=10)
+    ap.add_argument("--startup-timeout", type=int, default=180)
     ap.add_argument("--spider", action="store_true")
     ap.add_argument("--ajax-spider", action="store_true")
     ap.add_argument("--active", action="store_true")
@@ -130,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         subprocess.run(docker_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        _wait_for_api(api_url)
+        _wait_for_api(api_url, timeout_s=int(args.startup_timeout))
         proc = subprocess.run(scan_cmd, check=False)
         return int(proc.returncode or 0)
     finally:
