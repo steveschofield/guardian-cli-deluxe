@@ -23,6 +23,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+2.sh
+3.sh
+claudepr.sh
 
 # Virtual environments
 venv/
