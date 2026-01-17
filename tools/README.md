@@ -33,19 +33,10 @@ This directory contains wrappers for various penetration testing tools.
 - **snmpwalk**: SNMP enumeration
   - Installation: `apt-get install snmp`
 
-- **xprobe2**: Active OS fingerprinting
-  - Installation: `apt-get install xprobe2`
-
-
-
 ### Web Reconnaissance  
 - **httpx**: HTTP probing and technology detection
   - Installation: `go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest`
   - Features: HTTP headers, status codes, technology fingerprinting
-
-- **Wappalyzer**: Web technology fingerprinting
-  - Installation: `npm install -g wappalyzer`
-  - Features: Framework/CMS detection
 
 - **WhatWeb**: Web technology fingerprinting
   - Installation: `apt-get install whatweb` or `gem install whatweb`

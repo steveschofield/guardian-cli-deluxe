@@ -70,7 +70,8 @@ For each finding, provide:
 4. Evidence and proof of concept
 5. Impact analysis
 6. Detailed remediation steps
-7. CVSS score if applicable
+7. CVSS v3.1 score/vector if applicable
+8. OWASP Top 10 (2021) and CWE mapping if provided
 
 Format as a professional technical report section with clear headings and structure.
 """

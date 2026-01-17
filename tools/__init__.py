@@ -20,7 +20,6 @@ from .masscan import MasscanTool
 from .udp_proto_scanner import UdpProtoScannerTool
 from .amass import AmassTool
 from .whois import WhoisTool
-from .wappalyzer import WappalyzerTool
 from .hydra import HydraTool
 from .jwt_tool import JwtTool
 from .graphql_cop import GraphqlCopTool
@@ -33,7 +32,6 @@ from .smbclient import SmbclientTool
 from .showmount import ShowmountTool
 from .snmpwalk import SnmpwalkTool
 from .onesixtyone import OnesixtyoneTool
-from .xprobe2 import Xprobe2Tool
 from .arjun import ArjunTool
 from .xsstrike import XSStrikeTool
 from .gitleaks import GitleaksTool
@@ -85,7 +83,6 @@ __all__ = [
     "UdpProtoScannerTool",
     "AmassTool",
     "WhoisTool",
-    "WappalyzerTool",
     "HydraTool",
     "JwtTool",
     "GraphqlCopTool",
@@ -98,7 +95,6 @@ __all__ = [
     "ShowmountTool",
     "SnmpwalkTool",
     "OnesixtyoneTool",
-    "Xprobe2Tool",
     "ArjunTool",
     "XSStrikeTool",
     "GitleaksTool",

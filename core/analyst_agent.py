@@ -17,6 +17,12 @@ from ai.prompt_templates import (
     ANALYST_FALSE_POSITIVE_PROMPT
 )
 from utils.helpers import parse_severity
+from utils.standards import (
+    calculate_cvss_base_score,
+    estimate_cvss_from_severity,
+    infer_cwe_owasp,
+    normalize_owasp_labels,
+)
 
 
 class AnalystAgent(BaseAgent):
@@ -142,6 +148,8 @@ class AnalystAgent(BaseAgent):
                     continue
                 findings.append(hf)
                 existing_keys.add(key)
+
+        findings = self._enrich_findings_standards(findings)
 
         # If still nothing with evidence, return empty
         if not findings:
@@ -444,6 +452,46 @@ class AnalystAgent(BaseAgent):
                     f.severity = "info"
 
         return findings
+
+    def _enrich_findings_standards(self, findings: List[Finding]) -> List[Finding]:
+        """
+        Populate CVSS/CWE/OWASP metadata when missing.
+        """
+        for f in findings:
+            text = " ".join([f.title or "", f.description or "", f.evidence or ""]).strip()
+
+            # Normalize OWASP labels if provided.
+            if f.owasp_categories:
+                f.owasp_categories = normalize_owasp_labels(f.owasp_categories)
+
+            # Infer CWE/OWASP when absent.
+            if text and (not f.cwe_ids or not f.owasp_categories):
+                inferred_cwe, inferred_owasp = infer_cwe_owasp(text)
+                if inferred_cwe:
+                    for cwe in inferred_cwe:
+                        if cwe not in f.cwe_ids:
+                            f.cwe_ids.append(cwe)
+                if inferred_owasp:
+                    for cat in inferred_owasp:
+                        if cat not in f.owasp_categories:
+                            f.owasp_categories.append(cat)
+
+            # Derive CVSS score from vector if present.
+            if f.cvss_score is None and f.cvss_vector:
+                score = calculate_cvss_base_score(f.cvss_vector)
+                if score is not None:
+                    f.cvss_score = score
+                    f.cvss_score_source = "vector"
+
+            # Estimate CVSS if still missing.
+            if f.cvss_score is None:
+                f.cvss_score = estimate_cvss_from_severity(f.severity)
+                f.cvss_score_source = "estimated"
+
+            if not f.cvss_score_source or f.cvss_score_source == "none":
+                f.cvss_score_source = "provided"
+
+        return findings
     
     async def correlate_findings(self) -> Dict[str, Any]:
         """
@@ -511,6 +559,10 @@ class AnalystAgent(BaseAgent):
 
         lines = [l.strip() for l in ai_response.splitlines() if l.strip()]
         current: Optional[Finding] = None
+        cvss_vector_re = re.compile(
+            r"(CVSS:3\.[01]/)?AV:[A-Z]/AC:[A-Z]/PR:[A-Z]/UI:[A-Z]/S:[A-Z]/C:[A-Z]/I:[A-Z]/A:[A-Z]",
+            re.IGNORECASE,
+        )
 
         for line in lines:
             # Match patterns like "[High]" or "1. [Critical]" or "HIGH:"
@@ -542,8 +594,45 @@ class AnalystAgent(BaseAgent):
             if current:
                 # Evidence line
                 if "evidence:" in line.lower():
-                    evidence_text = line.split("Evidence:")[-1].strip()
+                    evidence_text = re.split(r"evidence:\s*", line, flags=re.IGNORECASE)[-1].strip()
                     current.evidence = evidence_text
+                    continue
+
+                if "cvss" in line.lower():
+                    vector_match = cvss_vector_re.search(line)
+                    if vector_match:
+                        current.cvss_vector = vector_match.group(0).strip()
+                    score_match = None
+                    if "score" in line.lower() or "base" in line.lower():
+                        score_match = re.search(r"\b([0-9](?:\.[0-9])?)\b", line)
+                    elif not re.search(r"CVSS:3\.[01]/", line, re.IGNORECASE):
+                        score_match = re.search(r"\b([0-9](?:\.[0-9])?)\b", line)
+                    if score_match:
+                        try:
+                            candidate = float(score_match.group(1))
+                            if 0.0 <= candidate <= 10.0:
+                                current.cvss_score = candidate
+                                current.cvss_score_source = "provided"
+                        except ValueError:
+                            pass
+                    continue
+
+                if line.lower().startswith("cwe"):
+                    cwes = re.findall(r"CWE-\d{1,5}", line, re.IGNORECASE)
+                    for cwe in cwes:
+                        normalized = cwe.upper()
+                        if normalized not in current.cwe_ids:
+                            current.cwe_ids.append(normalized)
+                    continue
+
+                if line.lower().startswith("owasp"):
+                    owasp_matches = re.findall(r"A\d{2}:2021(?:\s*-\s*[^,;]+)?", line, re.IGNORECASE)
+                    for match in owasp_matches:
+                        normalized = match.strip()
+                        if normalized not in current.owasp_categories:
+                            current.owasp_categories.append(normalized)
+                    continue
+
                 else:
                     current.description += line + "\n"
 

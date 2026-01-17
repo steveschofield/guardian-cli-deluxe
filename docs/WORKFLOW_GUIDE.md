@@ -125,7 +125,7 @@ Execute a pentesting tool:
 - `dnsrecon` - DNS enumeration
 - `whois` - WHOIS lookup
 - `subfinder` - Subdomain enumeration
-- `wappalyzer` / `whatweb` - Technology fingerprinting
+- `whatweb` - Technology fingerprinting
 - `testssl` - SSL/TLS testing
 - `ffuf` - Web fuzzing and vhost enumeration
 - `nuclei` - Vulnerability scanning
@@ -133,7 +133,6 @@ Execute a pentesting tool:
 - `dalfox` - XSS scanning
 - `enum4linux` / `smbclient` / `showmount` - SMB/NFS enumeration
 - `onesixtyone` / `snmpwalk` - SNMP enumeration
-- `xprobe2` - OS fingerprinting
 
 ### Analysis Step
 
@@ -399,7 +398,7 @@ configuration or target type does not apply (for example, IP targets skip domain
 4. `port_scanning` - nmap recon profile
 5. `service_fingerprinting` - nmap `-sV --version-all -sC`
 6. `ssl_tls_analysis` - testssl (fast/high)
-7. `technology_detection` - wappalyzer, whatweb, retire
+7. `technology_detection` - whatweb, retire
 8. `metadata_extraction` - robots.txt, sitemap.xml, HTML comments
 9. `analysis`
 10. `report`
@@ -407,7 +406,7 @@ configuration or target type does not apply (for example, IP targets skip domain
 ### Web Workflow (built-in)
 
 1. `web_discovery` - httpx (or gospider on macOS)
-2. `technology_detection` - wappalyzer, whatweb
+2. `technology_detection` - whatweb
 3. `metadata_extraction`
 4. `crawl` - katana (or gospider on macOS)
 5. `vhost_enumeration` - ffuf Host header fuzz
@@ -434,14 +433,13 @@ configuration or target type does not apply (for example, IP targets skip domain
 2. `port_scan` - nmap recon profile
 3. `ip_enrichment`
 4. `service_enumeration` - nmap recon profile
-5. `os_fingerprinting` - xprobe2
-6. `network_topology` - nmap `-sn --traceroute`
-7. `share_enumeration` - enum4linux, smbclient, showmount
-8. `snmp_enumeration` - onesixtyone then snmpwalk
-9. `nmap_vuln_scan` - nmap vuln profile
-10. `ssl_tls_analysis` - testssl
-11. `analysis`
-12. `report`
+5. `network_topology` - nmap `-sn --traceroute`
+6. `share_enumeration` - enum4linux, smbclient, showmount
+7. `snmp_enumeration` - onesixtyone then snmpwalk
+8. `nmap_vuln_scan` - nmap vuln profile
+9. `ssl_tls_analysis` - testssl
+10. `analysis`
+11. `report`
 
 ---
 

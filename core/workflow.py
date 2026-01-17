@@ -1233,7 +1233,6 @@ class WorkflowEngine:
                 {"name": "service_fingerprinting", "type": "tool", "tool": "nmap", "parameters": {"args": "-sV --version-all -sC", "ports_from_context": True}},
                 {"name": "ssl_tls_analysis", "type": "tool", "tool": "testssl", "parameters": {"fast": True, "severity": "HIGH"}},
                 {"name": "technology_detection", "type": "multi_tool", "tools": [
-                    {"tool": "wappalyzer"},
                     {"tool": "whatweb"},
                     {"tool": "retire"},
                 ]},
@@ -1244,7 +1243,6 @@ class WorkflowEngine:
             "web": [
                 {"name": "web_discovery", "type": "tool", "tool": web_probing_tool},
                 {"name": "technology_detection", "type": "multi_tool", "tools": [
-                    {"tool": "wappalyzer"},
                     {"tool": "whatweb"},
                 ]},
                 {"name": "metadata_extraction", "type": "action", "action": "metadata_extraction"},
@@ -1281,7 +1279,6 @@ class WorkflowEngine:
                 {"name": "port_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
                 {"name": "ip_enrichment", "type": "action", "action": "ip_enrichment"},
                 {"name": "service_enumeration", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon", "ports_from_context": True}},
-                {"name": "os_fingerprinting", "type": "tool", "tool": "xprobe2"},
                 {"name": "network_topology", "type": "tool", "tool": "nmap", "parameters": {"args": "-sn --traceroute"}},
                 {"name": "share_enumeration", "type": "multi_tool", "tools": [
                     {"tool": "enum4linux"},

@@ -100,6 +100,20 @@ output:
   max_output_size_mb: 50
   truncate_verbose_tools: true
 
+# Exploit References (Metasploit + Exploit-DB)
+exploits:
+  enabled: true
+  # Cache directory for local lookup JSON
+  cache_dir: ~/.guardian/cache/exploits
+  # Refresh cache after N days (0 = rebuild every run)
+  cache_ttl_days: 7
+  # Optional: point to local exploit-db repo (e.g., /usr/share/exploitdb on Kali)
+  exploitdb_path: /usr/share/exploitdb
+  # Optional: point to metasploit-framework install (e.g., /usr/share/metasploit-framework)
+  metasploit_path: /usr/share/metasploit-framework
+  # Match only by CVE (recommended). Set true to enable fuzzy keyword matching.
+  enable_fuzzy_match: false
+
 # Scope Validation
 scope:
   # Blacklisted IP ranges (CIDR notation)
@@ -129,10 +143,6 @@ tools:
 
   whois:
     enabled: true
-
-  wappalyzer:
-    enabled: true
-    # args: "--pretty"
 
   ffuf:
     enabled: true
@@ -210,8 +220,6 @@ tools:
     version: "2c"
     community: "public"
 
-  xprobe2:
-    enabled: true
     args: "-v"
     
   httpx:

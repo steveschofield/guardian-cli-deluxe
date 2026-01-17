@@ -25,7 +25,6 @@ Available Tools (pick only those appropriate for the target type and objective):
 - masscan: Fast TCP port discovery
 - amass: Passive OSINT and subdomain enumeration
 - whois: WHOIS lookup
-- wappalyzer: Web technology detection
 - hydra: Authentication brute force testing
 - jwt_tool: JWT token analysis and testing
 - graphql-cop: GraphQL security testing
@@ -37,7 +36,6 @@ Available Tools (pick only those appropriate for the target type and objective):
 - showmount: NFS export enumeration
 - onesixtyone: SNMP community brute force
 - snmpwalk: SNMP enumeration
-- xprobe2: Active OS fingerprinting
 - udp-proto-scanner: Fast UDP probing
 - gobuster: Directory/file brute forcing
 - dirsearch: Content discovery and brute forcing
@@ -107,7 +105,6 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - masscan: Fast TCP port discovery
 - amass: Passive OSINT
 - whois: WHOIS lookup
-- wappalyzer: Web technology detection
 - hydra: Authentication testing
 - jwt_tool: JWT token testing
 - graphql-cop: GraphQL testing
@@ -119,7 +116,6 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - showmount: NFS export enumeration
 - onesixtyone: SNMP community brute force
 - snmpwalk: SNMP enumeration
-- xprobe2: OS fingerprinting
 - udp-proto-scanner: Fast UDP probing
 - gobuster: Directory/file brute forcing
 - dirsearch: Content discovery

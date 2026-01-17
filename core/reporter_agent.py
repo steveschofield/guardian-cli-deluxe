@@ -15,6 +15,7 @@ from ai.prompt_templates import (
     REPORTER_REMEDIATION_PROMPT,
     REPORTER_AI_TRACE_PROMPT
 )
+from utils.exploit_cache import ExploitLookup
 
 
 class ReporterAgent(BaseAgent):
@@ -186,6 +187,14 @@ class ReporterAgent(BaseAgent):
 {technical}
 {evidence_section}
 
+## Standards Mapping
+
+{self._format_standards_mapping_markdown()}
+
+## Exploitation References
+
+{self._format_exploit_references_markdown()}
+
 ## Remediation Plan
 
 {remediation}
@@ -266,6 +275,12 @@ class ReporterAgent(BaseAgent):
     <h2>Technical Findings</h2>
     <div>{self._markdown_to_html(technical)}</div>
 {evidence_section}
+
+    <h2>Standards Mapping</h2>
+    {self._format_standards_mapping_html()}
+
+    <h2>Exploitation References</h2>
+    {self._format_exploit_references_html()}
     
     <h2>Remediation Plan</h2>
     <div>{self._markdown_to_html(remediation)}</div>
@@ -306,6 +321,7 @@ class ReporterAgent(BaseAgent):
             "findings_summary": self.memory.get_findings_summary(),
             "findings": [asdict(f) for f in self.memory.findings],
             "technical_findings": technical,
+            "exploit_lookup": self._get_exploit_lookup(),
             "remediation_plan": remediation,
             "ai_trace": ai_trace,
             "tool_executions": [asdict(t) for t in self.memory.tool_executions],
@@ -330,10 +346,16 @@ class ReporterAgent(BaseAgent):
         formatted = []
         
         for f in self.memory.findings:
+            cvss = self._format_cvss_display(f)
+            cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
+            owasp = ", ".join(f.owasp_categories) if f.owasp_categories else "Unmapped"
             formatted.append(f"""
 [{f.severity.upper()}] {f.title}
 Tool: {f.tool}
 Target: {f.target}
+CVSS: {cvss}
+CWE: {cwe}
+OWASP: {owasp}
 Description: {f.description[:200]}
 Evidence: {f.evidence[:200]}
 """)
@@ -350,6 +372,19 @@ Evidence: {f.evidence[:200]}
             formatted.append(f"- **{t.tool}**: {t.command} (Duration: {t.duration:.2f}s)")
         
         return "\n".join(formatted)
+
+    def _format_cvss_display(self, finding) -> str:
+        if finding.cvss_score is None:
+            return "N/A"
+
+        try:
+            score = f"{float(finding.cvss_score):.1f}"
+        except (TypeError, ValueError):
+            score = str(finding.cvss_score)
+        suffix = " (est.)" if finding.cvss_score_source == "estimated" else ""
+        if finding.cvss_vector:
+            return f"{score} ({finding.cvss_vector})"
+        return f"{score}{suffix}"
 
     def _get_tool_summary(self) -> List[Dict[str, Any]]:
         summary: Dict[str, Dict[str, Any]] = {}
@@ -421,6 +456,163 @@ Evidence: {f.evidence[:200]}
             + "".join(rows)
             + "</table>"
         )
+
+    def _get_exploit_lookup(self) -> Dict[str, Any]:
+        cached = getattr(self, "_exploit_lookup", None)
+        if isinstance(cached, dict):
+            return cached
+
+        lookup = ExploitLookup(self.config, logger=self.logger)
+        result = lookup.lookup_findings(self.memory.findings)
+        self._exploit_lookup = result
+        return result
+
+    def _format_standards_mapping_markdown(self) -> str:
+        findings = [f for f in self.memory.findings if not f.false_positive]
+        if not findings:
+            return "No findings to map"
+
+        lines = [
+            "| Severity | Finding | CVSS | OWASP | CWE |",
+            "|----------|---------|------|-------|-----|",
+        ]
+        for f in findings:
+            cvss = self._format_cvss_display(f)
+            owasp = ", ".join(f.owasp_categories) if f.owasp_categories else "Unmapped"
+            cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
+            lines.append(
+                f"| {f.severity.upper()} | {f.title} | {cvss} | {owasp} | {cwe} |"
+            )
+        return "\n".join(lines)
+
+    def _format_standards_mapping_html(self) -> str:
+        findings = [f for f in self.memory.findings if not f.false_positive]
+        if not findings:
+            return "<p>No findings to map.</p>"
+
+        import html as _html
+
+        rows = []
+        for f in findings:
+            cvss = self._format_cvss_display(f)
+            owasp = ", ".join(f.owasp_categories) if f.owasp_categories else "Unmapped"
+            cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
+            rows.append(
+                "<tr>"
+                f"<td>{_html.escape(f.severity.upper())}</td>"
+                f"<td>{_html.escape(f.title)}</td>"
+                f"<td>{_html.escape(cvss)}</td>"
+                f"<td>{_html.escape(owasp)}</td>"
+                f"<td>{_html.escape(cwe)}</td>"
+                "</tr>"
+            )
+
+        return (
+            "<table>"
+            "<tr><th>Severity</th><th>Finding</th><th>CVSS</th><th>OWASP</th><th>CWE</th></tr>"
+            + "".join(rows)
+            + "</table>"
+        )
+
+    def _format_exploit_references_markdown(self) -> str:
+        lookup = self._get_exploit_lookup()
+        matches = lookup.get("matches", {}) if isinstance(lookup, dict) else {}
+        status = lookup.get("status", {}) if isinstance(lookup, dict) else {}
+
+        if not matches:
+            return self._format_exploit_status_markdown(status) or "No matching public exploit references found"
+
+        lines = [
+            "| Severity | Finding | CVEs | Metasploit | Exploit-DB |",
+            "|----------|---------|------|------------|------------|",
+        ]
+
+        for f in self.memory.findings:
+            if f.false_positive:
+                continue
+            entry = matches.get(f.id)
+            if not entry:
+                continue
+            cves = ", ".join(entry.get("cves", [])) or "None"
+            metasploit = _format_metasploit_refs(entry.get("metasploit", []))
+            exploitdb = _format_exploitdb_refs(entry.get("exploitdb", []))
+            lines.append(
+                f"| {f.severity.upper()} | {f.title} | {cves} | {metasploit} | {exploitdb} |"
+            )
+
+        note = self._format_exploit_status_markdown(status)
+        if note:
+            lines.append("")
+            lines.append(note)
+
+        return "\n".join(lines)
+
+    def _format_exploit_references_html(self) -> str:
+        lookup = self._get_exploit_lookup()
+        matches = lookup.get("matches", {}) if isinstance(lookup, dict) else {}
+        status = lookup.get("status", {}) if isinstance(lookup, dict) else {}
+
+        if not matches:
+            note = self._format_exploit_status_html(status)
+            return note or "<p>No matching public exploit references found.</p>"
+
+        import html as _html
+
+        rows = []
+        for f in self.memory.findings:
+            if f.false_positive:
+                continue
+            entry = matches.get(f.id)
+            if not entry:
+                continue
+            cves = ", ".join(entry.get("cves", [])) or "None"
+            metasploit = _format_metasploit_refs(entry.get("metasploit", []), html=True)
+            exploitdb = _format_exploitdb_refs(entry.get("exploitdb", []), html=True)
+            rows.append(
+                "<tr>"
+                f"<td>{_html.escape(f.severity.upper())}</td>"
+                f"<td>{_html.escape(f.title)}</td>"
+                f"<td>{_html.escape(cves)}</td>"
+                f"<td>{metasploit}</td>"
+                f"<td>{exploitdb}</td>"
+                "</tr>"
+            )
+
+        table = (
+            "<table>"
+            "<tr><th>Severity</th><th>Finding</th><th>CVEs</th><th>Metasploit</th><th>Exploit-DB</th></tr>"
+            + "".join(rows)
+            + "</table>"
+        )
+
+        note = self._format_exploit_status_html(status)
+        return table + (note or "")
+
+    def _format_exploit_status_markdown(self, status: Dict[str, Any]) -> str:
+        bits = []
+        for name in ("exploitdb", "metasploit"):
+            entry = status.get(name, {})
+            if not entry:
+                continue
+            state = entry.get("state", "unknown")
+            count = entry.get("count")
+            source = entry.get("source")
+            detail = f"{name}: {state}"
+            if count is not None:
+                detail += f" ({count})"
+            if source:
+                detail += f" from {source}"
+            bits.append(detail)
+        if not bits:
+            return ""
+        return "Exploit lookup status: " + "; ".join(bits)
+
+    def _format_exploit_status_html(self, status: Dict[str, Any]) -> str:
+        msg = self._format_exploit_status_markdown(status)
+        if not msg:
+            return ""
+        import html as _html
+        return f"<p><em>{_html.escape(msg)}</em></p>"
 
     def _collect_evidence_entries(self) -> List[Dict[str, str]]:
         evidence_files = self._extract_evidence_files()
@@ -507,3 +699,42 @@ Evidence: {f.evidence[:200]}
         html = html.replace('**', '<strong>').replace('**', '</strong>')
         html = html.replace('*', '<em>').replace('*', '</em>')
         return html
+
+
+def _format_metasploit_refs(items: List[Dict[str, Any]], html: bool = False) -> str:
+    if not items:
+        return "None"
+
+    parts: List[str] = []
+    for item in items:
+        label = item.get("name") or item.get("module") or "Metasploit module"
+        url = item.get("url")
+        if html and url:
+            import html as _html
+            parts.append(f'<a href="{_html.escape(url)}">{_html.escape(label)}</a>')
+        elif url:
+            parts.append(f"[{label}]({url})")
+        else:
+            parts.append(label)
+    sep = "<br>" if html else "<br>"
+    return sep.join(parts)
+
+
+def _format_exploitdb_refs(items: List[Dict[str, Any]], html: bool = False) -> str:
+    if not items:
+        return "None"
+
+    parts: List[str] = []
+    for item in items:
+        exploit_id = item.get("id")
+        label = f"EDB-{exploit_id}" if exploit_id else (item.get("description") or "Exploit-DB")
+        url = item.get("url")
+        if html and url:
+            import html as _html
+            parts.append(f'<a href="{_html.escape(url)}">{_html.escape(label)}</a>')
+        elif url:
+            parts.append(f"[{label}]({url})")
+        else:
+            parts.append(label)
+    sep = "<br>" if html else "<br>"
+    return sep.join(parts)

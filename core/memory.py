@@ -8,7 +8,7 @@ import re
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 
 @dataclass
@@ -24,6 +24,10 @@ class Finding:
     timestamp: str
     remediation: Optional[str] = None
     cvss_score: Optional[float] = None
+    cvss_vector: Optional[str] = None
+    cvss_score_source: str = "none"  # none, provided, vector, estimated
+    cwe_ids: List[str] = field(default_factory=list)
+    owasp_categories: List[str] = field(default_factory=list)
     false_positive: bool = False
 
 

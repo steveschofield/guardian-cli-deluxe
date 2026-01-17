@@ -29,7 +29,24 @@ class KiterunnerTool(BaseTool):
             if found:
                 self._binary = found
                 return True
+        for candidate in self._local_candidates():
+            if os.path.isfile(candidate):
+                self._binary = candidate
+                return True
         return False
+
+    def _local_candidates(self) -> List[str]:
+        here = os.path.abspath(os.path.dirname(__file__))
+        repo_root = os.path.abspath(os.path.join(here, os.pardir))
+        guardian_home = os.getenv("GUARDIAN_HOME")
+        candidates = [
+            os.path.join(repo_root, "tools", ".bin", "kr"),
+            os.path.join(repo_root, "tools", ".bin", "kiterunner"),
+        ]
+        if guardian_home:
+            candidates.append(os.path.join(guardian_home, "tools", ".bin", "kr"))
+            candidates.append(os.path.join(guardian_home, "tools", ".bin", "kiterunner"))
+        return candidates
 
     def get_command(self, target: str, **kwargs) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("kiterunner", {}) or {}

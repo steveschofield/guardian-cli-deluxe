@@ -47,6 +47,9 @@ Use this format:
 FINDINGS:
 - [SEVERITY] Brief description
   Evidence: <from output>
+  CVSS v3.1: <base score> (Vector: AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H)
+  CWE: <CWE-XXX, optional>
+  OWASP: <A0X:2021 - Category, optional>
   Impact: <security impact>
   Recommendation: <how to fix>
 

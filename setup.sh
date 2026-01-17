@@ -695,7 +695,6 @@ install_recon_extras() {
   install_system_binary "showmount" "nfs-common" "nfs-utils"
   install_system_binary "snmpwalk" "snmp" "net-snmp"
   install_system_binary "onesixtyone" "onesixtyone" "onesixtyone"
-  install_system_binary "xprobe2" "xprobe2" "xprobe2"
   install_system_binary "whois" "whois" "whois"
   install_system_binary "hydra" "hydra" "hydra"
   install_system_binary "seclists" "seclists" "seclists"
@@ -936,7 +935,7 @@ install_libpcap_dev() {
 echo "Fetching extra nuclei templates (CVE packs)..."
 install_nuclei_templates
 
-echo "Installing recon extras (gobuster, ffuf, kiterunner, dnsrecon, dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog, enum4linux, smbclient, showmount, snmpwalk, onesixtyone, xprobe2, whois, amass, wappalyzer)..."
+echo "Installing recon extras (gobuster, ffuf, kiterunner, dnsrecon, dnsx, shuffledns, puredns, altdns, hakrawler, gospider, retire, naabu, katana, asnmap, waybackurls, subjs, dirsearch, linkfinder, xnlinkfinder, paramspider, schemathesis, trufflehog, enum4linux, smbclient, showmount, snmpwalk, onesixtyone, whois, amass)..."
 install_recon_extras
 
 echo "Installing metasploit (optional, for MetasploitTool)..."

@@ -33,12 +33,29 @@ class JsparserTool(BaseTool):
             self._binary_path = str(binary)
             return True
 
+        local_script = self._local_script()
+        if local_script and os.path.isfile(local_script):
+            self._script_path = local_script
+            return True
+
         found = shutil.which("jsparser")
         if found:
             self._binary_path = found
             return True
 
         return False
+
+    def _local_script(self) -> str | None:
+        here = os.path.abspath(os.path.dirname(__file__))
+        repo_root = os.path.abspath(os.path.join(here, os.pardir))
+        candidates = [
+            os.path.join(repo_root, "tools", "vendor", "guardian_tools", "jsparser.py"),
+            os.path.join(repo_root, "tools", "vendor", "JSParser", "JSParser.py"),
+        ]
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                return candidate
+        return None
 
     def get_command(self, target: str, **kwargs) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("jsparser", {}) or {}

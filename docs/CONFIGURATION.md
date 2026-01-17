@@ -124,7 +124,7 @@ Some built-in workflow steps only run when required arguments or tokens are pres
   `tools.graphql_cop.args`, `tools.kiterunner.wordlist` (or `args`), `tools.tplmap.args`,
   `tools.upload_scanner.args`, `tools.csrf_tester.args`.
 - **Vhost enumeration:** `tools.ffuf.vhost_wordlist` controls the wordlist used by the web workflow.
-- **Recon workflow:** `tools.wappalyzer` / `tools.retire` affect technology detection.
+- **Recon workflow:** `tools.whatweb` / `tools.retire` affect technology detection.
 - **Network workflow:** `tools.enum4linux` (null session defaults), `tools.onesixtyone.community` (passed to `snmpwalk`).
 
 If a tool isn't installed or the required config is missing, the step is skipped and logged.
