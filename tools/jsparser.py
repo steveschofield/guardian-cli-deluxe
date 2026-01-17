@@ -2,11 +2,13 @@
 JSParser wrapper for JavaScript endpoint extraction
 """
 
+import json
 import os
 import re
 import shutil
 import sys
 from typing import Dict, Any, List
+from urllib.parse import urlparse
 
 from tools.base_tool import BaseTool
 
@@ -15,10 +17,10 @@ class JsparserTool(BaseTool):
     """JSParser wrapper"""
 
     def __init__(self, config):
-        super().__init__(config)
-        self.tool_name = "jsparser"
         self._script_path = None
         self._binary_path = None
+        super().__init__(config)
+        self.tool_name = "jsparser"
 
     def _check_installation(self) -> bool:
         cfg = (self.config or {}).get("tools", {}).get("jsparser", {}) or {}
@@ -66,7 +68,11 @@ class JsparserTool(BaseTool):
         if not args:
             args = "-u {target}"
 
-        args = str(args).replace("{target}", target)
+        args = str(args)
+        if "{target}" in args:
+            args = args.replace("{target}", target)
+        elif target not in args:
+            args = f"{args} {target}"
 
         if script:
             script = os.path.expandvars(os.path.expanduser(str(script)))
@@ -76,8 +82,37 @@ class JsparserTool(BaseTool):
 
     def parse_output(self, output: str) -> Dict[str, Any]:
         lines = [line.strip() for line in output.splitlines() if line.strip()]
-        urls = []
-        for line in lines:
-            for match in re.findall(r"https?://[^\s\"'<>]+", line):
-                urls.append(match)
-        return {"raw": output, "urls": urls, "lines": lines}
+        urls: List[str] = []
+        scripts: List[str] = []
+        paths: List[str] = []
+
+        parsed_json = None
+        try:
+            parsed_json = json.loads(output.strip())
+        except Exception:
+            parsed_json = None
+
+        if isinstance(parsed_json, dict):
+            urls = parsed_json.get("urls") or []
+            paths = parsed_json.get("paths") or []
+            scripts = parsed_json.get("scripts_checked") or parsed_json.get("scripts") or []
+        else:
+            for line in lines:
+                for match in re.findall(r"https?://[^\s\"'<>]+", line):
+                    urls.append(match)
+
+        if not scripts and urls:
+            for url in urls:
+                try:
+                    if urlparse(url).path.lower().endswith(".js"):
+                        scripts.append(url)
+                except Exception:
+                    continue
+
+        return {
+            "raw": output,
+            "urls": list(dict.fromkeys(urls)),
+            "paths": list(dict.fromkeys(paths)),
+            "scripts": list(dict.fromkeys(scripts)),
+            "lines": lines,
+        }

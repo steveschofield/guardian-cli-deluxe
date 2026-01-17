@@ -65,6 +65,7 @@ class PentestMemory:
             "scope": [],
             "discovered_assets": [],
             "urls": [],
+            "client_side_scripts": [],
             "open_ports": [],
             "services": [],
             "technologies": [],

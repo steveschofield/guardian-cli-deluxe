@@ -14,9 +14,9 @@ class KiterunnerTool(BaseTool):
     """Kiterunner wrapper"""
 
     def __init__(self, config):
+        self._binary = None
         super().__init__(config)
         self.tool_name = "kiterunner"
-        self._binary = None
 
     def _check_installation(self) -> bool:
         cfg = (self.config or {}).get("tools", {}).get("kiterunner", {}) or {}

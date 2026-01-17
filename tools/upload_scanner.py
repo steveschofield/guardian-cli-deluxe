@@ -14,9 +14,9 @@ class UploadScannerTool(BaseTool):
     """upload-scanner wrapper"""
 
     def __init__(self, config):
+        self._script_path = None
         super().__init__(config)
         self.tool_name = "upload-scanner"
-        self._script_path = None
 
     def _check_installation(self) -> bool:
         cfg = (self.config or {}).get("tools", {}).get("upload_scanner", {}) or {}

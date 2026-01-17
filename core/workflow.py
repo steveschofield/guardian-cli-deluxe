@@ -665,6 +665,14 @@ class WorkflowEngine:
                     tool_kwargs = dict(tool_kwargs or {})
                     tool_kwargs.setdefault("seed_urls_file", str(url_file))
 
+        if tool_name == "retire" and isinstance(tool_kwargs, dict):
+            script_urls = tool_kwargs.get("script_urls")
+            if not script_urls:
+                cached = self.memory.context.get("client_side_scripts") or []
+                if cached:
+                    tool_kwargs = dict(tool_kwargs)
+                    tool_kwargs["script_urls"] = cached
+
         self.logger.info(f"Tool Agent selecting tool: {tool_name}")
 
         # Tool Agent executes the tool
@@ -790,6 +798,14 @@ class WorkflowEngine:
                 if combined:
                     self.memory.update_context("urls", combined)
                     self.memory.update_context("discovered_assets", combined)
+            if tool_name == "jsparser":
+                urls = parsed.get("urls") or []
+                scripts = parsed.get("scripts") or []
+                if isinstance(urls, list) and urls:
+                    self.memory.update_context("urls", urls)
+                    self.memory.update_context("discovered_assets", urls)
+                if isinstance(scripts, list) and scripts:
+                    self.memory.update_context("client_side_scripts", scripts)
             if tool_name == "naabu":
                 open_ports = parsed.get("open_ports") or []
                 if isinstance(open_ports, list) and open_ports:

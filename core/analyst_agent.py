@@ -431,8 +431,15 @@ class AnalystAgent(BaseAgent):
         """
         Apply conservative normalization rules so we don't overstate impact from low-signal inputs.
         """
+        filtered: List[Finding] = []
         for f in findings:
             ev = (f.evidence or "").lower()
+            text = " ".join([f.title or "", f.description or "", f.evidence or ""]).lower()
+
+            if self._is_header_presence_only(text):
+                continue
+            if self._is_service_unavailable_only(text):
+                continue
 
             # Header-only observations are usually informational without endpoint context.
             if "access-control-allow-origin" in ev and "*" in ev:
@@ -451,7 +458,97 @@ class AnalystAgent(BaseAgent):
                 if not re.search(r"\bCVE-\d{4}-\d+\b", output, re.IGNORECASE):
                     f.severity = "info"
 
-        return findings
+            filtered.append(f)
+
+        return filtered
+
+    def _is_header_presence_only(self, text: str) -> bool:
+        if "header" not in text and "headers" not in text:
+            return False
+
+        presence_markers = (
+            "header present",
+            "headers present",
+            "header detected",
+            "headers detected",
+            "header set",
+            "headers set",
+            "header found",
+            "headers found",
+        )
+        if not any(marker in text for marker in presence_markers):
+            return False
+
+        insecure_markers = (
+            "missing",
+            "absent",
+            "not set",
+            "not present",
+            "misconfig",
+            "insecure",
+            "unsafe",
+            "permissive",
+            "wildcard",
+            "weak",
+            "deprecated",
+            "expose",
+            "exposed",
+            "leak",
+            "disclos",
+            "allows",
+            "allow-all",
+            "bypass",
+            "vulnerab",
+            "cve-",
+        )
+        return not any(marker in text for marker in insecure_markers)
+
+    def _is_service_unavailable_only(self, text: str) -> bool:
+        unavailable_markers = (
+            "not running",
+            "not reachable",
+            "not responding",
+            "connection refused",
+            "failed to connect",
+            "timed out",
+            "timeout",
+            "no route to host",
+            "host down",
+            "service unavailable",
+            "endpoint not found",
+        )
+        if any(marker in text for marker in unavailable_markers):
+            if self._has_explicit_risk_markers(text):
+                return False
+            return True
+
+        not_found_markers = ("404", "not found")
+        if any(marker in text for marker in not_found_markers):
+            if any(term in text for term in ("endpoint", "service", "graphql", "api", "port")):
+                return not self._has_explicit_risk_markers(text)
+
+        return False
+
+    def _has_explicit_risk_markers(self, text: str) -> bool:
+        risk_markers = (
+            "unauth",
+            "authentication bypass",
+            "authorization bypass",
+            "bypass",
+            "exposed",
+            "misconfig",
+            "vulnerab",
+            "cve-",
+            "exploit",
+            "rce",
+            "sqli",
+            "xss",
+            "ssrf",
+            "lfi",
+            "rfi",
+            "csrf",
+        )
+        return any(marker in text for marker in risk_markers)
 
     def _enrich_findings_standards(self, findings: List[Finding]) -> List[Finding]:
         """

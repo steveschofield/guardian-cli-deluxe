@@ -15,9 +15,9 @@ class GraphqlCopTool(BaseTool):
     """graphql-cop wrapper"""
 
     def __init__(self, config):
+        self._script = None
         super().__init__(config)
         self.tool_name = "graphql-cop"
-        self._script = None
 
     def _check_installation(self) -> bool:
         cfg = (self.config or {}).get("tools", {}).get("graphql_cop", {}) or {}

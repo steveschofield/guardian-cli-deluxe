@@ -18,6 +18,7 @@ Critical rules:
 - Never infer vulnerabilities without proof
 - Distinguish between confirmed vulnerabilities and potential issues
 - Rate generic headers (CORS, CSP) as Low/Info unless explicitly flagged by tools
+- Do NOT report header presence or "service not running" as findings unless the output shows explicit insecurity
 
 Analysis framework:
 1. Evidence verification

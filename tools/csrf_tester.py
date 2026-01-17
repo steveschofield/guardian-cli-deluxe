@@ -14,10 +14,10 @@ class CsrfTesterTool(BaseTool):
     """CSRF tester wrapper"""
 
     def __init__(self, config):
-        super().__init__(config)
-        self.tool_name = "csrf-tester"
         self._binary = None
         self._script_path = None
+        super().__init__(config)
+        self.tool_name = "csrf-tester"
 
     def _resolve_binary(self) -> str | None:
         cfg = (self.config or {}).get("tools", {}).get("csrf_tester", {}) or {}
