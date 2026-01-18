@@ -581,7 +581,7 @@ class WorkflowEngine:
             "dnsx",
             "shuffledns",
             "puredns",
-            "altdns",
+            # "altdns",  # REMOVED - replaced by dnsgen + puredns
             "asnmap",
             "whois",
         }
@@ -795,7 +795,8 @@ class WorkflowEngine:
                 if combined:
                     self.memory.update_context("urls", combined)
                     self.memory.update_context("discovered_assets", combined)
-            if tool_name == "jsparser":
+            # jsparser removed - use linkfinder/xnlinkfinder instead
+            if tool_name in ("linkfinder", "xnlinkfinder"):
                 urls = parsed.get("urls") or []
                 scripts = parsed.get("scripts") or []
                 if isinstance(urls, list) and urls:
@@ -843,26 +844,8 @@ class WorkflowEngine:
                         self.memory.update_context("open_ports", ports)
                     if hosts:
                         self.memory.update_context("discovered_assets", sorted(hosts))
-            if tool_name == "udp-proto-scanner":
-                open_ports = parsed.get("open_ports") or []
-                if isinstance(open_ports, list) and open_ports:
-                    ports = []
-                    hosts = set()
-                    for entry in open_ports:
-                        if isinstance(entry, dict):
-                            port = entry.get("port")
-                            host = entry.get("host")
-                            if host:
-                                hosts.add(host)
-                            if port is not None:
-                                try:
-                                    ports.append(int(port))
-                                except Exception:
-                                    continue
-                    if ports:
-                        self.memory.update_context("open_ports", ports)
-                    if hosts:
-                        self.memory.update_context("discovered_assets", sorted(hosts))
+            # udp-proto-scanner removed - UDP scanning now handled by nmap -sU
+            # No special parsing needed as nmap output is already handled above
 
             # Use Analyst Agent to interpret results
             self.logger.info("Analyst Agent analyzing results...")
@@ -1185,7 +1168,7 @@ class WorkflowEngine:
                 "dnsx",
                 "shuffledns",
                 "puredns",
-                "altdns",
+                # "altdns",  # REMOVED - replaced by dnsgen + puredns
                 "asnmap",
             }
             if tool_selection["tool"] in domain_only_tools:
@@ -1278,7 +1261,7 @@ class WorkflowEngine:
                 {"name": "csrf_testing", "type": "tool", "tool": "csrf-tester"},
                 {"name": "ssl_tls_analysis", "type": "tool", "tool": "testssl", "parameters": {"fast": True, "severity": "HIGH"}},
                 {"name": "client_side_testing", "type": "multi_tool", "tools": [
-                    {"tool": "jsparser"},
+                    {"tool": "linkfinder"},  # or xnlinkfinder - modern replacement for jsparser
                     {"tool": "retire"},
                 ]},
                 {"name": "zap_scan", "type": "tool", "tool": "zap", "condition": "zap_available"},

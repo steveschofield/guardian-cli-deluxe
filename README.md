@@ -183,6 +183,7 @@ python -m cli.main workflow list
 - **Issues**: Create ticket in internal issue tracker
 - **Documentation**: See `docs/` directory
 - **Tool Development**: See `docs/TOOLS_DEVELOPMENT_GUIDE.md`
+- **Setup Issues**: See `STREAMLINING.md` for modern tool stack and fixes
 
 ---
 

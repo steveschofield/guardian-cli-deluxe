@@ -35,7 +35,6 @@ Available Tools (pick only those appropriate for the target type and objective):
 - showmount: NFS export enumeration
 - onesixtyone: SNMP community brute force
 - snmpwalk: SNMP enumeration
-- udp-proto-scanner: Fast UDP probing
 - dirsearch: Content discovery and brute forcing
 - ffuf: Fast web fuzzing (paths/params)
 - kiterunner: Schema-less API route discovery
@@ -45,14 +44,13 @@ Available Tools (pick only those appropriate for the target type and objective):
 - dnsrecon: DNS enumeration (domain-only)
 - dnsx: DNS probing/validation (domain-only; prefers `-l <hosts>`; `-d` requires `-w <wordlist>`)
 - shuffledns: High-performance DNS resolution (domain-only)
-- puredns: DNS resolving/bruteforce helper (domain-only)
-- altdns: Permutation-based subdomain discovery (domain-only)
+- puredns: DNS resolving/bruteforce helper (domain-only; can generate permutations with dnsgen)
 - asnmap: ASN/org → IP range mapping
 - katana: Web crawling/spidering
 - waybackurls: Historical URL collection
 - subjs: Extract JS URLs
-- jsparser: Extract endpoints from JavaScript
-- linkfinder / xnlinkfinder: Discover endpoints inside JavaScript
+- linkfinder: Discover endpoints and extract data from JavaScript files
+- xnlinkfinder: Advanced JS endpoint discovery (preferred over linkfinder)
 - paramspider: Parameter discovery from crawled URLs
 - schemathesis: OpenAPI-based API fuzzing (requires known OpenAPI URL)
 - arjun: Parameter discovery/bruteforce
@@ -111,7 +109,6 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - showmount: NFS export enumeration
 - onesixtyone: SNMP community brute force
 - snmpwalk: SNMP enumeration
-- udp-proto-scanner: Fast UDP probing
 - dirsearch: Content discovery
 - ffuf: Web fuzzing
 - kiterunner: API route discovery without OpenAPI
@@ -121,15 +118,13 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - dnsrecon: DNS enumeration
 - dnsx: DNS probing/validation
 - shuffledns: DNS resolution
-- puredns: DNS resolution helper
-- altdns: Subdomain permutations
+- puredns: DNS resolution helper (can generate permutations with dnsgen)
 - asnmap: ASN/org mapping
 - katana: Web crawling
 - waybackurls: Historical URLs
 - subjs: JS URL extraction
-- jsparser: JS endpoint extraction
-- linkfinder: JS endpoint discovery
-- xnlinkfinder: Advanced JS endpoint discovery
+- linkfinder: JS endpoint discovery and extraction
+- xnlinkfinder: Advanced JS endpoint discovery (preferred)
 - paramspider: Parameter discovery
 - schemathesis: API schema fuzzing
 - arjun: Parameter discovery
