@@ -79,6 +79,10 @@ def main(argv: list[str] | None = None) -> int:
         "8080",
         "-config",
         "api.disablekey=true",
+        "-config",
+        "api.addrs.addr.name=.*",
+        "-config",
+        "api.addrs.addr.regex=true",
     ]
 
     zap_daemon_scan = Path(__file__).resolve().parent / "zap_daemon_scan.py"
