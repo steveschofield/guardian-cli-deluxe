@@ -422,10 +422,9 @@ configuration or target type does not apply (for example, IP targets skip domain
 15. `csrf_testing` - csrf-tester (requires args)
 16. `ssl_tls_analysis` - testssl
 17. `client_side_testing` - jsparser + retire
-18. `burp_pro_scan` - optional (config + availability)
-19. `zap_scan` - optional (config + availability)
-20. `analysis`
-21. `report`
+18. `zap_scan` - optional (config + availability)
+19. `analysis`
+20. `report`
 
 ### Network Workflow (built-in)
 

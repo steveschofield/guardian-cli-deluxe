@@ -111,8 +111,7 @@ class ToolAgent(BaseAgent):
             self.available_tools["httpx"] = HttpxTool(config)
             self.available_tools["katana"] = KatanaTool(config)
         else:  # macOS only
-            from tools.burp_pro import BurpProTool
-            self.available_tools["burp_pro"] = BurpProTool(config)
+            pass
 
 
     def log_tool_availability(self):
@@ -177,7 +176,6 @@ class ToolAgent(BaseAgent):
             "dalfox": "go install github.com/hahwul/dalfox/v2@latest",
             "commix": "pip install commix",
             "feroxbuster": "cargo install feroxbuster",
-            "burp_pro": "Install Burp Suite Professional (macOS only)",
         }
 
         missing = []

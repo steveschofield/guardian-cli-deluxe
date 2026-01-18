@@ -60,7 +60,6 @@ from .zap import ZapTool
 from .dalfox import DalfoxTool
 from .commix import CommixTool
 from .feroxbuster import FeroxbusterTool
-from .burp_pro import BurpProTool
 
 __all__ = [
     "BaseTool",
@@ -123,5 +122,4 @@ __all__ = [
     "DalfoxTool",
     "CommixTool",
     "FeroxbusterTool",
-    "BurpProTool",
 ]

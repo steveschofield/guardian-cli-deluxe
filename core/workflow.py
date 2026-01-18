@@ -358,15 +358,6 @@ class WorkflowEngine:
         step_type = step.get("type", "tool")
         
         # Check conditional steps
-        if step.get("condition") == "burp_pro_available":
-            burp_config = self.config.get("tools", {}).get("burp_pro", {})
-            if not burp_config.get("run_additional_scan", True):
-                self.logger.info(f"Skipping {step['name']}: Burp Pro additional scan disabled in config")
-                return
-            if "burp_pro" not in self.tool_agent.available_tools:
-                self.logger.info(f"Skipping {step['name']}: Burp Pro not available")
-                return
-        
         if step.get("condition") == "zap_available":
             zap_config = self.config.get("tools", {}).get("zap", {})
             if not zap_config.get("run_additional_scan", True):
@@ -1285,7 +1276,6 @@ class WorkflowEngine:
                     {"tool": "jsparser"},
                     {"tool": "retire"},
                 ]},
-                {"name": "burp_pro_scan", "type": "tool", "tool": "burp_pro", "condition": "burp_pro_available"},
                 {"name": "zap_scan", "type": "tool", "tool": "zap", "condition": "zap_available"},
                 {"name": "analysis", "type": "analysis"},
                 {"name": "report", "type": "report"},

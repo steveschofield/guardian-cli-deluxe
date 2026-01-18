@@ -64,7 +64,6 @@ class ConfidenceScorer:
 
     RELIABLE_TOOLS = {
         "nmap": 0.9,
-        "burp": 0.95,
         "nuclei": 0.85,
         "sqlmap": 0.90,
         "nikto": 0.75,

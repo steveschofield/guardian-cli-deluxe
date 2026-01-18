@@ -27,12 +27,6 @@ pip install -e .
 # 1. Install security tools (Debian based and MacOS)
 ./setup.sh 2>&1 | tee setup.log
 
-# 3. Add java on MacOS for burp
-brew install java (MacOS)
-sudo apt install default-jre
-
-Add java path to .zshrc, .bashrc or .profile (i.e /opt/homebrew/opt/openjdk/bin)
-
 # 4. Initialize Guardian
 python -m cli.main init
 
@@ -111,7 +105,7 @@ Each scan generates:
 - **HTML Report**: `reports/report_<session>.html`
 - **Markdown Report**: `reports/report_<session>.md`
 - **Tool Commands**: `reports/payloads_<session>.txt` (for manual verification)
-- **Discovered URLs**: `reports/urls_<session>.txt` (for Burp/ZAP import)
+- **Discovered URLs**: `reports/urls_<session>.txt` (for proxy/ZAP import)
 - **Session Data**: `reports/session_<session>.json` (full audit trail)
 
 ---
@@ -151,12 +145,11 @@ Each scan generates:
 - **[dalfox](https://github.com/hahwul/dalfox)** - Advanced XSS scanner and parameter analysis
 - **[commix](https://github.com/commixproject/commix)** - Command injection testing framework
 - **[feroxbuster](https://github.com/epi052/feroxbuster)** - Fast API endpoint and content discovery
-- **[burp_pro](https://portswigger.net/burp/pro)** - Burp Suite Professional scanner (macOS only)
 
 **Platform Notes:**
 
 - **Kali Linux**: All tools supported
-- **macOS**: httpx/katana automatically replaced with gospider + curl fallback, Burp Pro available for professional web app scanning
+- **macOS**: httpx/katana automatically replaced with gospider + curl fallback
 
 ---
 
