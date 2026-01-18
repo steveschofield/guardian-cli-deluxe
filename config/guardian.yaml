@@ -230,8 +230,8 @@ tools:
     enabled: true
     args: "-a"
     # Null session defaults (avoid interactive password prompts; works only if anonymous is allowed)
-    username: ""
-    password: ""
+    username:
+    password:
 
   smbclient:
     enabled: true

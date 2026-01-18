@@ -2,26 +2,45 @@
 xnLinkFinder wrapper for advanced JS endpoint extraction
 """
 
+import os
 import re
+import shutil
 from typing import Dict, Any, List
 from tools.base_tool import BaseTool
-from utils.logger import get_logger
 
 
 class XnlinkfinderTool(BaseTool):
     """xnlinkfinder wrapper"""
 
     def __init__(self, config):
-        self.config = config
-        self.logger = get_logger(config)
-        # Binary installs as 'xnLinkFinder'
-        self.tool_name = "xnLinkFinder"
-        self.is_available = self._check_installation()
-        if not self.is_available:
-            self.logger.warning(f"Tool {self.tool_name} is not installed or not in PATH")
+        self._binary: str | None = None
+        super().__init__(config)
+        # Config keys use xnlinkfinder; binary installs as xnLinkFinder.
+        self.tool_name = "xnlinkfinder"
+
+    def _check_installation(self) -> bool:
+        resolved = self._resolve_tool_path()
+        if resolved:
+            self._binary = resolved
+            return True
+
+        cfg = (self.config or {}).get("tools", {}).get("xnlinkfinder", {}) or {}
+        binary = cfg.get("binary")
+        if binary and os.path.isfile(str(binary)):
+            self._binary = str(binary)
+            return True
+
+        for candidate in ("xnLinkFinder", "xnlinkfinder"):
+            found = shutil.which(candidate)
+            if found:
+                self._binary = found
+                return True
+
+        return False
 
     def get_command(self, target: str, **kwargs) -> List[str]:
-        command = [self.tool_name, "-i", target]
+        binary = self._binary or "xnLinkFinder"
+        command = [binary, "-i", target]
         if kwargs.get("domain"):
             command.extend(["-d", kwargs["domain"]])
         if kwargs.get("output"):
