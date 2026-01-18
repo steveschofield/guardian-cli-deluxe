@@ -28,7 +28,6 @@ Available Tools (pick only those appropriate for the target type and objective):
 - hydra: Authentication brute force testing
 - jwt_tool: JWT token analysis and testing
 - graphql-cop: GraphQL security testing
-- tplmap: Template injection testing (SSTI)
 - upload-scanner: File upload testing
 - csrf-tester: CSRF testing
 - enum4linux: SMB enumeration (users, shares, policy)
@@ -105,7 +104,6 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - hydra: Authentication testing
 - jwt_tool: JWT token testing
 - graphql-cop: GraphQL testing
-- tplmap: Template injection testing
 - upload-scanner: File upload testing
 - csrf-tester: CSRF testing
 - enum4linux: SMB enumeration

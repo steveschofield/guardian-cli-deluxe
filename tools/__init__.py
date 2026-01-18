@@ -22,7 +22,6 @@ from .whois import WhoisTool
 from .hydra import HydraTool
 from .jwt_tool import JwtTool
 from .graphql_cop import GraphqlCopTool
-from .tplmap import TplmapTool
 from .upload_scanner import UploadScannerTool
 from .csrf_tester import CsrfTesterTool
 from .jsparser import JsparserTool
@@ -81,7 +80,6 @@ __all__ = [
     "HydraTool",
     "JwtTool",
     "GraphqlCopTool",
-    "TplmapTool",
     "UploadScannerTool",
     "CsrfTesterTool",
     "JsparserTool",

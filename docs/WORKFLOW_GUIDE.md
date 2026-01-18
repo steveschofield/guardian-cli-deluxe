@@ -416,7 +416,6 @@ configuration or target type does not apply (for example, IP targets skip domain
 9. `authentication_testing` - hydra (requires config)
 10. `session_management_testing` - jwt_tool (requires token/args)
 11. `authorization_testing` - nuclei auth/idor tags
-12. `template_injection_testing` - tplmap (requires args)
 13. `xss_scan` - dalfox
 14. `file_upload_testing` - upload-scanner (requires args)
 15. `csrf_testing` - csrf-tester (requires args)

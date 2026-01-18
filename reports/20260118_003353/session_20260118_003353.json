@@ -1,0 +1,36 @@
+{
+  "target": "192.168.1.232",
+  "session_id": "20260118_003353",
+  "start_time": "2026-01-18T00:33:53.425779",
+  "current_phase": "recon_workflow",
+  "completed_actions": [
+    "passive_osint",
+    "ip_enrichment"
+  ],
+  "findings": [],
+  "tool_executions": [
+    {
+      "tool": "reverse_dns",
+      "command": "PTR 192.168.1.232",
+      "target": "192.168.1.232",
+      "timestamp": "2026-01-18T00:33:54.005156",
+      "exit_code": 0,
+      "output": "metasploitable3.ss.hackme",
+      "duration": 0.0,
+      "findings_count": 0
+    }
+  ],
+  "ai_decisions": [],
+  "context": {
+    "target": "192.168.1.232",
+    "scope": [],
+    "discovered_assets": [
+      "metasploitable3.ss.hackme"
+    ],
+    "urls": [],
+    "client_side_scripts": [],
+    "open_ports": [],
+    "services": [],
+    "technologies": []
+  }
+}

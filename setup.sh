@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # Guardian CLI Deluxe - COMPLETE Setup (All Tools + Fixes + Enhancements)
 # This version includes:
-# - ALL original tools from setup.sh
-# - Fixed dalfox (go install)
-# - Fixed commix (safe git clone)
-# - Enhanced retire.js
-# - ZAP hybrid mode
-# - New recon tools (interactsh, gau, CORScanner)
-# - Smart port scanning
-# - Made idempotent
+#   - ALL original tools from setup.sh
+#   - Fixed dalfox (go install)
+#   - Fixed commix (safe git clone)
+#   - Fixed gitleaks (zricethezav path)
+#   - Fixed trufflehog (binary install)
+#   - Enhanced retire.js
+#   - ZAP hybrid mode
+#   - New recon tools (interactsh, gau, CORScanner)
+#   - Smart port scanning
+#   - Made idempotent
+#   - Removed ancient/deprecated tools
+#   - Python 3.12 compatible
 
 set -euo pipefail
 
@@ -16,6 +20,23 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="${BASE_DIR}/venv"
 VENV_BIN=""
 TOOLS_DIR="${BASE_DIR}/tools/vendor"
+BIN_DIR="${BASE_DIR}/tools/.bin"
+
+# Retry settings (can override via environment)
+MAX_RETRIES="${MAX_RETRIES:-3}"
+RETRY_DELAY="${RETRY_DELAY:-5}"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Detect OS
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -23,15 +44,45 @@ if [[ "$(uname)" == "Darwin" ]]; then
 elif [[ -f /etc/debian_version ]]; then
     OS="debian"
 else
-    OS="unknown"
+    OS="linux"
 fi
 
-echo "Detected OS: ${OS}"
+log_info "Detected OS: ${OS}"
 
-# Guard against unsupported Python versions (langchain requires < 3.13).
+# ============================================================================
+# RETRY LOGIC
+# ============================================================================
+
+retry() {
+    local max_attempts="${1:-$MAX_RETRIES}"
+    local delay="${2:-$RETRY_DELAY}"
+    shift 2
+    local cmd="$*"
+    
+    local attempt=1
+    while [[ $attempt -le $max_attempts ]]; do
+        if eval "$cmd"; then
+            return 0
+        fi
+        
+        if [[ $attempt -lt $max_attempts ]]; then
+            log_warn "Attempt ${attempt}/${max_attempts} failed. Retrying in ${delay}s..."
+            sleep "$delay"
+        fi
+        ((attempt++))
+    done
+    
+    log_error "Command failed after ${max_attempts} attempts"
+    return 1
+}
+
+# ============================================================================
+# PYTHON VERSION CHECK
+# ============================================================================
+
 PYTHON_CHECK_BIN=""
-if [[ -n "${VIRTUAL_ENV:-}" && -x "${VENV_BIN}/python" ]]; then
-    PYTHON_CHECK_BIN="${VENV_BIN}/python"
+if [[ -n "${VIRTUAL_ENV:-}" && -x "${VENV_DIR}/bin/python" ]]; then
+    PYTHON_CHECK_BIN="${VENV_DIR}/bin/python"
 elif command -v python3 >/dev/null 2>&1; then
     PYTHON_CHECK_BIN="$(command -v python3)"
 elif command -v python >/dev/null 2>&1; then
@@ -44,131 +95,139 @@ import sys
 sys.exit(0 if (sys.version_info.major, sys.version_info.minor) < (3, 13) else 1)
 PY
     then
-        echo "ERROR: Python 3.13+ is not supported. Use Python 3.11 or 3.12." >&2
+        log_error "Python 3.13+ is not supported. Use Python 3.11 or 3.12."
         exit 1
     fi
 fi
 
 # ============================================================================
-# HELPER FUNCTIONS (ENHANCED)
+# HELPER FUNCTIONS
 # ============================================================================
 
-# Safe git clone - handles existing directories
 safe_git_clone() {
     local repo_url="$1"
     local target_dir="$2"
-    
+
     if [[ -d "$target_dir" ]]; then
         if [[ -d "${target_dir}/.git" ]]; then
-            echo "Updating existing repo: $(basename "$target_dir")"
-            (cd "$target_dir" && git pull --ff-only 2>/dev/null) || echo "WARN: Failed to update" >&2
+            log_info "Updating existing repo: $(basename "$target_dir")"
+            (cd "$target_dir" && git pull --ff-only 2>/dev/null) || log_warn "Failed to update"
         else
-            echo "WARN: Directory exists but not a git repo: $target_dir" >&2
+            log_warn "Directory exists but not a git repo: $target_dir"
         fi
     else
-        git clone "$repo_url" "$target_dir" || echo "WARN: Clone failed" >&2
+        retry "$MAX_RETRIES" "$RETRY_DELAY" "git clone --depth 1 '$repo_url' '$target_dir'" || log_warn "Clone failed: $repo_url"
     fi
 }
 
-# Copy ALL original helper functions from setup.sh
 link_into_venv() {
     local src="$1"
     local name="$2"
-    if [[ ! -x "${src}" ]]; then
-        echo "WARN: ${src} is not executable"
-    fi
-    ln -sf "${src}" "${VENV_BIN}/${name}"
-}
 
-install_github_release_and_link() {
-    local repo="$1"
-    local bin="$2"
-    local bin_dir="${BASE_DIR}/tools/.bin"
-    mkdir -p "${bin_dir}"
-    
-    if [[ -x "${bin_dir}/${bin}" ]]; then
-        link_into_venv "${bin_dir}/${bin}" "${bin}"
-        return 0
-    fi
-    
-    python "${BASE_DIR}/scripts/install_github_release_binary.py" "${repo}" "${bin}" || return 1
-    
-    if [[ -x "${bin_dir}/${bin}" ]]; then
-        link_into_venv "${bin_dir}/${bin}" "${bin}"
+    if [[ -x "${src}" ]]; then
+        ln -sf "${src}" "${VENV_BIN}/${name}" 2>/dev/null || cp "${src}" "${VENV_BIN}/${name}"
+        chmod +x "${VENV_BIN}/${name}" 2>/dev/null || true
+        log_success "Linked ${name}"
+    else
+        log_warn "Source not executable: ${src}"
     fi
 }
 
 go_install_and_link() {
     local pkg="$1"
     local bin="$2"
-    
+
+    if [[ -x "${VENV_BIN}/${bin}" ]]; then
+        log_info "${bin} already installed"
+        return 0
+    fi
+
     if command -v "$bin" >/dev/null 2>&1; then
         link_into_venv "$(command -v "$bin")" "$bin"
         return 0
     fi
-    
+
     if ! command -v go >/dev/null 2>&1; then
-        echo "WARN: go not found; skipping ${bin}" >&2
+        log_warn "go not found; skipping ${bin}"
         return 0
     fi
-    
-    echo "Installing ${bin}..."
-    go install "${pkg}" || echo "WARN: ${bin} install failed" >&2
-    
-    local gobin
-    gobin="$(go env GOBIN 2>/dev/null || true)"
-    if [[ -z "${gobin}" ]]; then
-        gobin="$(go env GOPATH 2>/dev/null || true)"
-        gobin="${gobin:-${GOPATH:-$HOME/go}}/bin"
-    fi
-    
-    if [[ -x "${gobin}/${bin}" ]]; then
-        link_into_venv "${gobin}/${bin}" "${bin}"
+
+    log_info "Installing ${bin} via go install..."
+    if retry "$MAX_RETRIES" "$RETRY_DELAY" "go install '${pkg}'"; then
+        local gobin
+        gobin="$(go env GOBIN 2>/dev/null || true)"
+        if [[ -z "${gobin}" ]]; then
+            gobin="$(go env GOPATH 2>/dev/null || true)"
+            gobin="${gobin:-${GOPATH:-$HOME/go}}/bin"
+        fi
+        if [[ -x "${gobin}/${bin}" ]]; then
+            link_into_venv "${gobin}/${bin}" "${bin}"
+        fi
+    else
+        log_warn "Failed to install ${bin}"
     fi
 }
 
 write_python_wrapper_into_venv() {
     local script="$1"
     local name="$2"
+
     cat > "${VENV_BIN}/${name}" <<WRAPPER
 #!/usr/bin/env bash
-exec "${VENV_BIN}/python" "${script}" "\$@"
+source "${VENV_BIN}/activate"
+exec python "${script}" "\$@"
 WRAPPER
     chmod +x "${VENV_BIN}/${name}"
+    log_success "Created wrapper: ${name}"
 }
 
-# Original install_system_binary function
 install_system_binary() {
     local bin="$1"
     local apt_pkg="$2"
-    local brew_pkg="$3"
-    
+    local brew_pkg="${3:-$apt_pkg}"
+
     if command -v "${bin}" >/dev/null 2>&1; then
         link_into_venv "$(command -v "${bin}")" "${bin}"
         return 0
     fi
-    
+
     if [[ "${OS}" == "debian" ]]; then
         if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-            echo "Installing ${bin}..."
-            sudo apt-get update -qq && sudo apt-get install -y "${apt_pkg}"
-            if command -v "${bin}" >/dev/null 2>&1; then
-                link_into_venv "$(command -v "${bin}")" "${bin}"
-            fi
+            log_info "Installing ${bin} via apt..."
+            sudo apt-get update -qq && sudo apt-get install -y "${apt_pkg}" 2>/dev/null || true
+            command -v "${bin}" >/dev/null 2>&1 && link_into_venv "$(command -v "${bin}")" "${bin}"
         fi
     elif [[ "${OS}" == "macos" ]]; then
         if command -v brew >/dev/null 2>&1; then
-            echo "Installing ${bin}..."
-            brew install "${brew_pkg:-${bin}}"
-            if command -v "${bin}" >/dev/null 2>&1; then
-                link_into_venv "$(command -v "${bin}")" "${bin}"
-            fi
+            log_info "Installing ${bin} via brew..."
+            brew install "${brew_pkg}" 2>/dev/null || true
+            command -v "${bin}" >/dev/null 2>&1 && link_into_venv "$(command -v "${bin}")" "${bin}"
         fi
     fi
 }
 
+install_github_release_and_link() {
+    local repo="$1"
+    local bin="$2"
+
+    mkdir -p "${BIN_DIR}"
+
+    if [[ -x "${BIN_DIR}/${bin}" ]]; then
+        link_into_venv "${BIN_DIR}/${bin}" "${bin}"
+        return 0
+    fi
+
+    if [[ -f "${BASE_DIR}/scripts/install_github_release_binary.py" ]]; then
+        python "${BASE_DIR}/scripts/install_github_release_binary.py" "${repo}" "${bin}" || return 1
+        [[ -x "${BIN_DIR}/${bin}" ]] && link_into_venv "${BIN_DIR}/${bin}" "${bin}"
+    else
+        log_warn "GitHub release installer script not found"
+        return 1
+    fi
+}
+
 # ============================================================================
-# CORE SETUP (FROM ORIGINAL)
+# CORE SETUP
 # ============================================================================
 
 install_libpcap_dev() {
@@ -180,14 +239,13 @@ install_libpcap_dev() {
         fi
     elif [[ "${OS}" == "debian" ]]; then
         if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y libpcap-dev
+            sudo apt-get update -qq && sudo apt-get install -y libpcap-dev 2>/dev/null || true
         fi
     fi
 }
 
 ensure_go() {
     command -v go >/dev/null 2>&1 && return
-    
     if [[ "${OS}" == "debian" ]] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
         sudo apt-get update -qq && sudo apt-get install -y golang-go
     elif [[ "${OS}" == "macos" ]] && command -v brew >/dev/null 2>&1; then
@@ -197,7 +255,6 @@ ensure_go() {
 
 ensure_node_and_npm() {
     command -v npm >/dev/null 2>&1 && return
-    
     if [[ "${OS}" == "macos" ]] && command -v brew >/dev/null 2>&1; then
         brew install node
     elif [[ "${OS}" == "debian" ]] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
@@ -205,16 +262,18 @@ ensure_node_and_npm() {
     fi
 }
 
-# Basic setup
+# ============================================================================
+# INITIAL SETUP
+# ============================================================================
+
 install_libpcap_dev
 
 if [[ -z "${VIRTUAL_ENV:-}" ]]; then
     if [[ -f "${VENV_DIR}/bin/activate" ]]; then
-        echo "No virtualenv active; using ${VENV_DIR}"
-        # shellcheck source=/dev/null
+        log_info "No virtualenv active; using ${VENV_DIR}"
         source "${VENV_DIR}/bin/activate"
     else
-        echo "ERROR: No virtualenv active." >&2
+        log_error "No virtualenv active."
         echo "Create and activate one:" >&2
         echo "  python3.12 -m venv venv" >&2
         echo "  source venv/bin/activate" >&2
@@ -227,29 +286,124 @@ VENV_BIN="${VIRTUAL_ENV}/bin"
 ensure_go
 ensure_node_and_npm
 
-echo "Using virtualenv: ${VIRTUAL_ENV}"
-mkdir -p "${TOOLS_DIR}"
-"${VENV_BIN}/pip" install -e "${BASE_DIR}"
-"${VENV_BIN}/pip" install -U "requests>=2.31.0" "urllib3>=2.0.7"
+log_info "Using virtualenv: ${VIRTUAL_ENV}"
+mkdir -p "${TOOLS_DIR}" "${BIN_DIR}"
+
+# Install project and core dependencies
+log_info "Installing guardian-cli-deluxe and core dependencies..."
+"${VENV_BIN}/pip" install --upgrade pip setuptools wheel --quiet
+"${VENV_BIN}/pip" install -e "${BASE_DIR}" --quiet 2>/dev/null || log_warn "Editable install skipped"
+
+# Uninstall old incompatible packages
+"${VENV_BIN}/pip" uninstall -y requests urllib3 chardet charset-normalizer safeurl 2>/dev/null || true
+
+# Install Python 3.12 compatible versions
+log_info "Installing Python 3.12 compatible dependencies..."
+"${VENV_BIN}/pip" install --upgrade \
+    "requests>=2.32.0" \
+    "urllib3>=2.0.0" \
+    "charset-normalizer>=3.0.0" \
+    "attrs>=22.2.0" \
+    --quiet
+
+# Install langchain ecosystem
+log_info "Installing LangChain ecosystem..."
+"${VENV_BIN}/pip" install --upgrade \
+    "langchain>=0.2.0" \
+    "langchain-core>=0.2.0" \
+    "langchain-community>=0.2.0" \
+    "langchain-ollama>=0.1.0" \
+    "langsmith>=0.1.0" \
+    --quiet
 
 if [[ -f "${BASE_DIR}/package.json" ]] && command -v npm >/dev/null 2>&1; then
-    (cd "${BASE_DIR}" && npm install)
+    (cd "${BASE_DIR}" && npm install) 2>/dev/null || true
 fi
 
 # ============================================================================
-# ALL ORIGINAL TOOLS (KEEP EVERYTHING)
+# PROJECTDISCOVERY TOOLS
 # ============================================================================
 
-# ProjectDiscovery Tools
-install_projectdiscovery_binaries() {
-    local bin_dir="${BASE_DIR}/tools/.bin"
-    mkdir -p "${bin_dir}"
-    
-    [[ ! -x "${bin_dir}/httpx" ]] && python "${BASE_DIR}/scripts/install_projectdiscovery_httpx.py" || true
-    [[ ! -x "${bin_dir}/nuclei" ]] && python "${BASE_DIR}/scripts/install_projectdiscovery_nuclei.py" || true
+install_projectdiscovery_tools() {
+    log_info "Installing ProjectDiscovery tools..."
+
+    # Try GitHub releases first, fall back to go install
+    install_github_release_and_link "projectdiscovery/httpx" "httpx" || \
+        go_install_and_link "github.com/projectdiscovery/httpx/cmd/httpx@latest" "httpx"
+
+    install_github_release_and_link "projectdiscovery/nuclei" "nuclei" || \
+        go_install_and_link "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest" "nuclei"
+
+    install_github_release_and_link "projectdiscovery/subfinder" "subfinder" || \
+        go_install_and_link "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest" "subfinder"
+
+    install_github_release_and_link "projectdiscovery/dnsx" "dnsx" || \
+        go_install_and_link "github.com/projectdiscovery/dnsx/cmd/dnsx@latest" "dnsx"
+
+    install_github_release_and_link "projectdiscovery/katana" "katana" || \
+        go_install_and_link "github.com/projectdiscovery/katana/cmd/katana@latest" "katana"
+
+    install_github_release_and_link "projectdiscovery/naabu" "naabu" || \
+        go_install_and_link "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest" "naabu"
+
+    install_github_release_and_link "projectdiscovery/shuffledns" "shuffledns" || \
+        go_install_and_link "github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest" "shuffledns"
+
+    install_github_release_and_link "projectdiscovery/asnmap" "asnmap" || \
+        go_install_and_link "github.com/projectdiscovery/asnmap/cmd/asnmap@latest" "asnmap"
+
+    go_install_and_link "github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest" "interactsh-client"
+
+    log_success "ProjectDiscovery tools installed"
 }
 
-# Core web tools (use safe_git_clone now)
+# ============================================================================
+# GO TOOLS
+# ============================================================================
+
+install_go_tools() {
+    log_info "Installing Go-based tools..."
+
+    go_install_and_link "github.com/ffuf/ffuf/v2@latest" "ffuf"
+    go_install_and_link "github.com/tomnomnom/waybackurls@latest" "waybackurls"
+    go_install_and_link "github.com/lc/gau/v2/cmd/gau@latest" "gau"
+    go_install_and_link "github.com/hahwul/dalfox/v2@latest" "dalfox"
+    go_install_and_link "github.com/zricethezav/gitleaks/v8@latest" "gitleaks"
+    go_install_and_link "github.com/d3mondev/puredns/v2@latest" "puredns"
+    go_install_and_link "github.com/lc/subjs@latest" "subjs"
+
+    # REPLACED: wappalyzer (npm, deprecated) -> webanalyze
+    go_install_and_link "github.com/rverton/webanalyze/cmd/webanalyze@latest" "webanalyze"
+
+    # Kiterunner
+    install_github_release_and_link "assetnote/kiterunner" "kr" || \
+        go_install_and_link "github.com/assetnote/kiterunner/cmd/kr@latest" "kr"
+
+    log_success "Go tools installed"
+}
+
+# ============================================================================
+# TRUFFLEHOG (BINARY - NOT PIP)
+# ============================================================================
+
+install_trufflehog() {
+    if [[ -x "${VENV_BIN}/trufflehog" ]]; then
+        log_info "trufflehog already installed"
+        return 0
+    fi
+
+    log_info "Installing trufflehog via official installer..."
+    if curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b "${VENV_BIN}" 2>/dev/null; then
+        log_success "Installed trufflehog"
+    else
+        log_warn "trufflehog installation failed"
+    fi
+}
+
+# ============================================================================
+# GIT-CLONED TOOLS
+# ============================================================================
+
 install_testssl() {
     safe_git_clone "https://github.com/drwetter/testssl.sh.git" "${TOOLS_DIR}/testssl.sh"
     [[ -f "${TOOLS_DIR}/testssl.sh/testssl.sh" ]] && link_into_venv "${TOOLS_DIR}/testssl.sh/testssl.sh" "testssl"
@@ -257,13 +411,17 @@ install_testssl() {
 
 install_xsstrike() {
     safe_git_clone "https://github.com/s0md3v/XSStrike.git" "${TOOLS_DIR}/XSStrike"
-    [[ -f "${TOOLS_DIR}/XSStrike/requirements.txt" ]] && "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/XSStrike/requirements.txt" --break-system-packages 2>/dev/null || true
+    if [[ -f "${TOOLS_DIR}/XSStrike/requirements.txt" ]]; then
+        "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/XSStrike/requirements.txt" --quiet 2>/dev/null || true
+    fi
     [[ -f "${TOOLS_DIR}/XSStrike/xsstrike.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/XSStrike/xsstrike.py" "xsstrike"
 }
 
 install_cmseek() {
     safe_git_clone "https://github.com/Tuhinshubhra/CMSeeK.git" "${TOOLS_DIR}/CMSeeK"
-    [[ -f "${TOOLS_DIR}/CMSeeK/requirements.txt" ]] && "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/CMSeeK/requirements.txt" --break-system-packages 2>/dev/null || true
+    if [[ -f "${TOOLS_DIR}/CMSeeK/requirements.txt" ]]; then
+        "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/CMSeeK/requirements.txt" --quiet 2>/dev/null || true
+    fi
     [[ -f "${TOOLS_DIR}/CMSeeK/cmseek.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/CMSeeK/cmseek.py" "cmseek"
 }
 
@@ -272,221 +430,215 @@ install_whatweb() {
     [[ -f "${TOOLS_DIR}/WhatWeb/whatweb" ]] && link_into_venv "${TOOLS_DIR}/WhatWeb/whatweb" "whatweb"
 }
 
-# FIXED: Dalfox - use go install
-install_dalfox() {
-    go_install_and_link "github.com/hahwul/dalfox/v2@latest" "dalfox"
-}
-
-# FIXED: Commix - use safe_git_clone
 install_commix() {
     safe_git_clone "https://github.com/commixproject/commix.git" "${TOOLS_DIR}/commix"
     [[ -f "${TOOLS_DIR}/commix/commix.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/commix/commix.py" "commix"
 }
 
-# All other web tools
 install_graphql_cop() {
     safe_git_clone "https://github.com/dolevf/graphql-cop.git" "${TOOLS_DIR}/graphql-cop"
-    [[ -f "${TOOLS_DIR}/graphql-cop/requirements.txt" ]] && "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/graphql-cop/requirements.txt" --break-system-packages 2>/dev/null || true
+    # Skip requirements.txt - safeurl has ancient requests pin
+    # graphql-cop works without safeurl
     [[ -f "${TOOLS_DIR}/graphql-cop/graphql-cop.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/graphql-cop/graphql-cop.py" "graphql-cop"
 }
 
-install_jsparser() {
-    safe_git_clone "https://github.com/nahamsec/JSParser.git" "${TOOLS_DIR}/JSParser"
-    [[ -f "${TOOLS_DIR}/JSParser/requirements.txt" ]] && "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/JSParser/requirements.txt" --break-system-packages 2>/dev/null || true
-    [[ -f "${TOOLS_DIR}/JSParser/JSParser.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/JSParser/JSParser.py" "jsparser"
-}
+# REMOVED: install_jsparser - ancient (2018), redundant with LinkFinder/xnLinkFinder
 
 install_jwt_tool() {
     safe_git_clone "https://github.com/ticarpi/jwt_tool.git" "${TOOLS_DIR}/jwt_tool"
-    [[ -f "${TOOLS_DIR}/jwt_tool/requirements.txt" ]] && "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/jwt_tool/requirements.txt" --break-system-packages 2>/dev/null || true
+    if [[ -f "${TOOLS_DIR}/jwt_tool/requirements.txt" ]]; then
+        "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/jwt_tool/requirements.txt" --quiet 2>/dev/null || true
+    fi
     [[ -f "${TOOLS_DIR}/jwt_tool/jwt_tool.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/jwt_tool/jwt_tool.py" "jwt_tool"
 }
 
-install_tplmap() {
-    safe_git_clone "https://github.com/epinna/tplmap.git" "${TOOLS_DIR}/tplmap"
-    [[ -f "${TOOLS_DIR}/tplmap/tplmap.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/tplmap/tplmap.py" "tplmap"
+# REPLACED: tplmap (Python 2 deps) -> SSTImap
+install_sstimap() {
+    log_info "Installing SSTImap (replaces tplmap)..."
+    "${VENV_BIN}/pip" install sstimap --quiet 2>/dev/null || true
+    # Also clone for latest version
+    safe_git_clone "https://github.com/vladko312/SSTImap.git" "${TOOLS_DIR}/SSTImap"
+    [[ -f "${TOOLS_DIR}/SSTImap/sstimap.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/SSTImap/sstimap.py" "sstimap"
 }
 
 install_feroxbuster() {
-    if ! install_github_release_and_link "epi052/feroxbuster" "feroxbuster"; then
-        if command -v cargo >/dev/null 2>&1; then
-            cargo install feroxbuster || true
-            command -v feroxbuster >/dev/null 2>&1 && link_into_venv "$(command -v feroxbuster)" "feroxbuster"
-        fi
+    if command -v feroxbuster >/dev/null 2>&1; then
+        ln -sf "$(command -v feroxbuster)" "${VENV_BIN}/feroxbuster" 2>/dev/null || true
+        log_success "Linked feroxbuster"
+        return 0
+    fi
+
+    install_github_release_and_link "epi052/feroxbuster" "feroxbuster" && return 0
+
+    # Try cargo as fallback
+    if command -v cargo >/dev/null 2>&1; then
+        log_info "Installing feroxbuster via cargo..."
+        cargo install feroxbuster 2>/dev/null || true
+        command -v feroxbuster >/dev/null 2>&1 && link_into_venv "$(command -v feroxbuster)" "feroxbuster"
     fi
 }
 
 install_nikto() {
-    command -v nikto >/dev/null 2>&1 && return
     install_system_binary "nikto" "nikto" "nikto"
 }
 
 install_wpscan() {
+    if command -v wpscan >/dev/null 2>&1; then
+        link_into_venv "$(command -v wpscan)" "wpscan"
+        return 0
+    fi
+
     if command -v gem >/dev/null 2>&1; then
-        gem install --user-install wpscan 2>/dev/null || echo "WARN: wpscan failed" >&2
+        log_info "Installing wpscan via gem..."
+        gem install --user-install wpscan 2>/dev/null || log_warn "wpscan failed"
     fi
 }
 
-# Go-based recon tools
-install_go_recon_tools() {
-    # Prefer GitHub release binaries when available.
-    install_github_release_and_link "projectdiscovery/subfinder" "subfinder" || true
-    install_github_release_and_link "projectdiscovery/dnsx" "dnsx" || true
-    install_github_release_and_link "projectdiscovery/katana" "katana" || true
-    install_github_release_and_link "projectdiscovery/naabu" "naabu" || true
-    install_github_release_and_link "projectdiscovery/shuffledns" "shuffledns" || true
-    install_github_release_and_link "projectdiscovery/asnmap" "asnmap" || true
-    install_github_release_and_link "tomnomnom/waybackurls" "waybackurls" || true
-    install_github_release_and_link "assetnote/kiterunner" "kr" || true
-    install_github_release_and_link "zricethezav/gitleaks" "gitleaks" || true
-    install_github_release_and_link "d3mondev/puredns" "puredns" || true
-
-    command -v go >/dev/null 2>&1 || return
-    
-    go_install_and_link "github.com/ffuf/ffuf/v2@latest" "ffuf"
-    go_install_and_link "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest" "subfinder"
-    go_install_and_link "github.com/projectdiscovery/dnsx/cmd/dnsx@latest" "dnsx"
-    go_install_and_link "github.com/projectdiscovery/katana/cmd/katana@latest" "katana"
-    go_install_and_link "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest" "naabu"
-    go_install_and_link "github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest" "shuffledns"
-    go_install_and_link "github.com/projectdiscovery/asnmap/cmd/asnmap@latest" "asnmap"
-    go_install_and_link "github.com/tomnomnom/waybackurls@latest" "waybackurls"
-    go_install_and_link "github.com/assetnote/kiterunner@latest" "kr"
-    go_install_and_link "github.com/zricethezav/gitleaks/v8@latest" "gitleaks"
-    go_install_and_link "github.com/d3mondev/puredns/v2@latest" "puredns"
-}
-
-# Python tools
-install_python_tools() {
-    "${VENV_BIN}/pip" install --break-system-packages arjun || true
-    "${VENV_BIN}/pip" install --break-system-packages dirsearch || true
-    "${VENV_BIN}/pip" install --break-system-packages schemathesis || true
-    "${VENV_BIN}/pip" install --break-system-packages wafw00f || true
-    "${VENV_BIN}/pip" install --break-system-packages sqlmap || true
-    "${VENV_BIN}/pip" install --break-system-packages sslyze || true
-    "${VENV_BIN}/pip" install --break-system-packages dnsrecon || true
-    "${VENV_BIN}/pip" install --break-system-packages trufflehog || true
-    "${VENV_BIN}/pip" install --break-system-packages "py-altdns @ git+https://github.com/infosec-au/altdns.git" || true
-    "${VENV_BIN}/pip" install --break-system-packages "linkfinder @ git+https://github.com/GerbenJavado/LinkFinder.git" || true
-    "${VENV_BIN}/pip" install --break-system-packages xnlinkfinder || true
-    "${VENV_BIN}/pip" install --break-system-packages "paramspider @ git+https://github.com/devanshbatham/ParamSpider.git" || true
-}
-
-# System binaries
-install_system_binary "enum4linux" "enum4linux" "enum4linux"
-install_system_binary "smbclient" "smbclient" "samba"
-install_system_binary "showmount" "nfs-common" "nfs-utils"
-install_system_binary "snmpwalk" "snmp" "net-snmp"
-install_system_binary "onesixtyone" "onesixtyone" "onesixtyone"
-install_system_binary "whois" "whois" "whois"
-install_system_binary "hydra" "hydra" "hydra"
-install_system_binary "seclists" "seclists" "seclists"
-
-# Amass
-install_amass() {
-    command -v amass >/dev/null 2>&1 && link_into_venv "$(command -v amass)" "amass" && return
-    install_system_binary "amass" "amass" "amass"
-}
-
-# Masscan
-install_masscan() {
-    command -v masscan >/dev/null 2>&1 && link_into_venv "$(command -v masscan)" "masscan" && return
-    install_system_binary "masscan" "masscan" "masscan"
-}
-
-# Wappalyzer (npm)
-install_wappalyzer() {
-    command -v wappalyzer >/dev/null 2>&1 && return
-    command -v npm >/dev/null 2>&1 || return
-    
-    npm install -g wappalyzer 2>/dev/null && command -v wappalyzer >/dev/null 2>&1 && link_into_venv "$(command -v wappalyzer)" "wappalyzer"
-}
-
-# UDP Proto Scanner
-install_udp_proto_scanner() {
-    safe_git_clone "https://github.com/portcullislabs/udp-proto-scanner.git" "${TOOLS_DIR}/udp-proto-scanner"
-    if [[ -f "${TOOLS_DIR}/udp-proto-scanner/udp-proto-scanner.pl" ]]; then
-        chmod +x "${TOOLS_DIR}/udp-proto-scanner/udp-proto-scanner.pl" 2>/dev/null || true
-        link_into_venv "${TOOLS_DIR}/udp-proto-scanner/udp-proto-scanner.pl" "udp-proto-scanner.pl"
-    fi
-}
-
-# Subjs
-install_subjs() {
-    command -v go >/dev/null 2>&1 || return
-    safe_git_clone "https://github.com/lc/subjs.git" "${TOOLS_DIR}/subjs"
-    (cd "${TOOLS_DIR}/subjs" && GOPROXY=direct GOSUMDB=off go build -o "${BASE_DIR}/tools/.bin/subjs" .) 2>/dev/null || true
-    [[ -x "${BASE_DIR}/tools/.bin/subjs" ]] && link_into_venv "${BASE_DIR}/tools/.bin/subjs" "subjs"
-}
-
-# Kiterunner wordlists
-install_kiterunner_wordlists() {
-    local dest="${TOOLS_DIR}/kiterunner/routes-small.json"
-    [[ -f "$dest" ]] && return
-    mkdir -p "${TOOLS_DIR}/kiterunner"
-    
-    local url="https://wordlists-cdn.assetnote.io/rawdata/kiterunner/routes-small.json.tar.gz"
-    curl -sL "$url" | tar -xz -C "${TOOLS_DIR}/kiterunner" 2>/dev/null || true
-}
-
-# ENHANCED: Retire.js with multi-method install
-install_retire_enhanced() {
-    command -v retire >/dev/null 2>&1 && retire --version >/dev/null 2>&1 && return
-    command -v npm >/dev/null 2>&1 || return
-    
-    # Try global
-    if npm install -g retire 2>/dev/null; then
-        command -v retire >/dev/null 2>&1 && return
-    fi
-    
-    # Try local prefix
-    local prefix="${HOME}/.local"
-    if npm install -g --prefix "${prefix}" retire 2>/dev/null; then
-        [[ -x "${prefix}/bin/retire" ]] && ln -sf "${prefix}/bin/retire" "${VENV_BIN}/retire"
-    fi
-}
-
-# Metasploit (optional)
-install_metasploit() {
-    command -v msfconsole >/dev/null 2>&1 && return
-    
-    if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-        sudo apt-get install -y metasploit-framework 2>/dev/null || true
-    fi
-}
-
-# ============================================================================
-# NEW ENHANCEMENTS
-# ============================================================================
-
-# NEW: Interactsh
-install_interactsh() {
-    go_install_and_link "github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest" "interactsh-client"
-}
-
-# NEW: GAU
-install_gau() {
-    go_install_and_link "github.com/lc/gau/v2/cmd/gau@latest" "gau"
-}
-
-# NEW: CORScanner
 install_corscanner() {
     safe_git_clone "https://github.com/chenjj/CORScanner.git" "${TOOLS_DIR}/CORScanner"
-    [[ -f "${TOOLS_DIR}/CORScanner/requirements.txt" ]] && "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/CORScanner/requirements.txt" --break-system-packages 2>/dev/null || true
-    [[ -f "${TOOLS_DIR}/CORScanner/cors_scan.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/CORScanner/cors_scan.py" "cors-scan"
+    if [[ -f "${TOOLS_DIR}/CORScanner/requirements.txt" ]]; then
+        "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/CORScanner/requirements.txt" --quiet 2>/dev/null || true
+    fi
+    [[ -f "${TOOLS_DIR}/CORScanner/cors_scan.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/CORScanner/cors_scan.py" "corscanner"
 }
 
-# NEW: ZAP Hybrid Mode
-install_zap_hybrid() {
-    local has_docker=false
-    local has_native=false
-    
-    if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
-        docker pull ghcr.io/zaproxy/zaproxy:stable 2>/dev/null && has_docker=true
+install_linkfinder() {
+    safe_git_clone "https://github.com/GerbenJavado/LinkFinder.git" "${TOOLS_DIR}/LinkFinder"
+    if [[ -f "${TOOLS_DIR}/LinkFinder/requirements.txt" ]]; then
+        "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/LinkFinder/requirements.txt" --quiet 2>/dev/null || true
     fi
-    
-    command -v zap.sh >/dev/null 2>&1 && has_native=true
-    
+    [[ -f "${TOOLS_DIR}/LinkFinder/linkfinder.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/LinkFinder/linkfinder.py" "linkfinder"
+}
+
+install_paramspider() {
+    safe_git_clone "https://github.com/devanshbatham/ParamSpider.git" "${TOOLS_DIR}/ParamSpider"
+    if [[ -f "${TOOLS_DIR}/ParamSpider/requirements.txt" ]]; then
+        "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/ParamSpider/requirements.txt" --quiet 2>/dev/null || true
+    fi
+    # Install via pip from git
+    "${VENV_BIN}/pip" install "paramspider @ git+https://github.com/devanshbatham/ParamSpider.git" --quiet 2>/dev/null || true
+}
+
+# REMOVED: install_udp_proto_scanner - ancient Perl (2017), use nmap -sU instead
+
+# ============================================================================
+# PYTHON TOOLS
+# ============================================================================
+
+install_python_tools() {
+    log_info "Installing Python security tools..."
+
+    "${VENV_BIN}/pip" install --upgrade arjun --quiet 2>/dev/null || true
+    "${VENV_BIN}/pip" install --upgrade dirsearch --quiet 2>/dev/null || true
+    "${VENV_BIN}/pip" install --upgrade schemathesis --quiet 2>/dev/null || true
+    "${VENV_BIN}/pip" install --upgrade wafw00f --quiet 2>/dev/null || true
+    "${VENV_BIN}/pip" install --upgrade sqlmap --quiet 2>/dev/null || true
+    "${VENV_BIN}/pip" install --upgrade sslyze --quiet 2>/dev/null || true
+    "${VENV_BIN}/pip" install --upgrade dnsrecon --quiet 2>/dev/null || true
+    "${VENV_BIN}/pip" install --upgrade xnlinkfinder --quiet 2>/dev/null || true
+
+    # REPLACED: py-altdns (stale, 2020) -> dnsgen (use with puredns)
+    "${VENV_BIN}/pip" install --upgrade dnsgen --quiet 2>/dev/null || true
+
+    # REMOVED: trufflehog pip - using binary v3 instead (install_trufflehog)
+
+    log_success "Python tools installed"
+}
+
+# ============================================================================
+# SYSTEM BINARIES
+# ============================================================================
+
+install_system_tools() {
+    log_info "Installing system tools..."
+
+    install_system_binary "enum4linux" "enum4linux" "enum4linux"
+    install_system_binary "smbclient" "smbclient" "samba"
+    install_system_binary "showmount" "nfs-common" "nfs-utils"
+    install_system_binary "snmpwalk" "snmp" "net-snmp"
+    install_system_binary "onesixtyone" "onesixtyone" "onesixtyone"
+    install_system_binary "whois" "whois" "whois"
+    install_system_binary "hydra" "hydra" "hydra"
+    install_system_binary "amass" "amass" "amass"
+    install_system_binary "masscan" "masscan" "masscan"
+    install_system_binary "nmap" "nmap" "nmap"
+
+    # SecLists
+    if [[ "${OS}" == "debian" ]]; then
+        install_system_binary "seclists" "seclists" ""
+    fi
+
+    log_success "System tools installed"
+}
+
+# ============================================================================
+# NPM TOOLS
+# ============================================================================
+
+install_npm_tools() {
+    command -v npm >/dev/null 2>&1 || return
+
+    log_info "Installing npm tools..."
+
+    # retire.js
+    local npm_prefix="${BASE_DIR}/.npm-global"
+    mkdir -p "$npm_prefix"
+    npm config set prefix "$npm_prefix" 2>/dev/null || true
+
+    if npm install -g retire --prefix "$npm_prefix" 2>/dev/null; then
+        [[ -f "${npm_prefix}/bin/retire" ]] && link_into_venv "${npm_prefix}/bin/retire" "retire"
+        log_success "Installed retire.js"
+    else
+        # Try local prefix fallback
+        local prefix="${HOME}/.local"
+        if npm install -g --prefix "${prefix}" retire 2>/dev/null; then
+            [[ -x "${prefix}/bin/retire" ]] && ln -sf "${prefix}/bin/retire" "${VENV_BIN}/retire"
+            log_success "Installed retire.js (local prefix)"
+        fi
+    fi
+
+    # REMOVED: wappalyzer npm - deprecated, replaced with webanalyze (Go)
+
+    log_success "npm tools installed"
+}
+
+# ============================================================================
+# WORDLISTS
+# ============================================================================
+
+install_wordlists() {
+    log_info "Setting up wordlists..."
+
+    # Kiterunner wordlists
+    local kr_dest="${TOOLS_DIR}/kiterunner/routes-small.json"
+    if [[ ! -f "$kr_dest" ]]; then
+        mkdir -p "${TOOLS_DIR}/kiterunner"
+        local url="https://wordlists-cdn.assetnote.io/rawdata/kiterunner/routes-small.json.tar.gz"
+        curl -sL "$url" | tar -xz -C "${TOOLS_DIR}/kiterunner" 2>/dev/null || true
+    fi
+
+    # SecLists (optional - large download)
+    local wordlist_dir="${BASE_DIR}/wordlists"
+    if [[ ! -d "${wordlist_dir}/SecLists" ]]; then
+        log_info "Cloning SecLists (this may take a while)..."
+        mkdir -p "$wordlist_dir"
+        git clone --depth 1 https://github.com/danielmiessler/SecLists.git "${wordlist_dir}/SecLists" 2>/dev/null || true
+    fi
+
+    log_success "Wordlists configured"
+}
+
+# ============================================================================
+# ZAP HYBRID MODE
+# ============================================================================
+
+install_zap_hybrid() {
+    log_info "Setting up ZAP hybrid mode..."
+
+    if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
+        docker pull ghcr.io/zaproxy/zaproxy:stable 2>/dev/null || true
+    fi
+
     cat > "${VENV_BIN}/guardian-zap" << 'ZAP'
 #!/usr/bin/env bash
 if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
@@ -496,9 +648,21 @@ command -v zap.sh >/dev/null 2>&1 && echo "native" && exit 0
 echo "none" >&2 && exit 1
 ZAP
     chmod +x "${VENV_BIN}/guardian-zap"
+
+    # ZAP Docker wrapper
+    cat > "${VENV_BIN}/zap-docker" << 'EOF'
+#!/usr/bin/env bash
+docker run --rm -u zap -p 8080:8080 -i ghcr.io/zaproxy/zaproxy:stable "$@"
+EOF
+    chmod +x "${VENV_BIN}/zap-docker"
+
+    log_success "ZAP hybrid mode configured"
 }
 
-# NEW: Smart Port Scanner
+# ============================================================================
+# SMART PORT SCANNER
+# ============================================================================
+
 install_smart_scanner() {
     cat > "${VENV_BIN}/guardian-portscan" << 'SCAN'
 #!/usr/bin/env bash
@@ -513,70 +677,175 @@ fi
 nmap -sV -sC -p "$PORTS" "$TARGET" -oX "$OUT/nmap.xml" --open
 SCAN
     chmod +x "${VENV_BIN}/guardian-portscan"
+    log_success "Smart port scanner configured"
 }
 
 # ============================================================================
-# INSTALLATION EXECUTION
+# METASPLOIT (OPTIONAL)
+# ============================================================================
+
+install_metasploit() {
+    command -v msfconsole >/dev/null 2>&1 && return
+
+    if [[ "${OS}" == "debian" ]] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+        log_info "Installing Metasploit..."
+        sudo apt-get install -y metasploit-framework 2>/dev/null || true
+    fi
+}
+
+# ============================================================================
+# FIX DEPENDENCY CONFLICTS
+# ============================================================================
+
+fix_dependency_conflicts() {
+    log_info "Fixing dependency conflicts..."
+
+    "${VENV_BIN}/pip" install --force-reinstall --quiet \
+        "requests>=2.32.0" \
+        "urllib3>=2.0.0" \
+        "attrs>=22.2.0" \
+        "charset-normalizer>=3.0.0" \
+        2>/dev/null || true
+
+    log_success "Dependencies fixed"
+}
+
+# ============================================================================
+# VERIFICATION
+# ============================================================================
+
+verify_installation() {
+    log_info "Verifying installation..."
+
+    local failed=0
+    local tools=(
+        "httpx"
+        "nuclei"
+        "subfinder"
+        "ffuf"
+        "dalfox"
+        "katana"
+        "gitleaks"
+        "trufflehog"
+        "feroxbuster"
+        "sqlmap"
+        "nmap"
+        "webanalyze"
+        "sstimap"
+        "dnsgen"
+    )
+
+    echo ""
+    echo "Checking critical tools:"
+    for tool in "${tools[@]}"; do
+        if [[ -x "${VENV_BIN}/${tool}" ]] || command -v "$tool" >/dev/null 2>&1; then
+            echo -e "  ${GREEN}✓${NC} ${tool}"
+        else
+            echo -e "  ${RED}✗${NC} ${tool}"
+            ((failed++)) || true
+        fi
+    done
+
+    echo ""
+    echo "Checking Python imports:"
+
+    if python -c "from langchain_ollama import ChatOllama" 2>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} langchain_ollama"
+    else
+        echo -e "  ${RED}✗${NC} langchain_ollama"
+        ((failed++)) || true
+    fi
+
+    if python -c "import requests; assert requests.__version__ >= '2.32.0'" 2>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} requests >= 2.32.0"
+    else
+        echo -e "  ${RED}✗${NC} requests >= 2.32.0"
+        ((failed++)) || true
+    fi
+
+    echo ""
+    if [[ $failed -eq 0 ]]; then
+        log_success "All critical checks passed!"
+    else
+        log_warn "${failed} checks failed - some tools may not work correctly"
+    fi
+}
+
+# ============================================================================
+# MAIN EXECUTION
 # ============================================================================
 
 echo ""
-echo "Installing all Guardian tools..."
+echo "==========================================="
+echo " Guardian CLI Deluxe - Setup"
+echo " Python 3.12 Compatible | Ancient Tools Removed"
+echo " Retry: ${MAX_RETRIES} attempts, ${RETRY_DELAY}s delay"
+echo "==========================================="
 echo ""
 
-# Core
-install_projectdiscovery_binaries
+# Core installations
+install_projectdiscovery_tools
+install_go_tools
+install_trufflehog
+
+# Git-cloned tools
 install_testssl
 install_xsstrike
 install_cmseek
 install_whatweb
-
-# Fixed
-install_dalfox
 install_commix
-
-# Web tools
 install_graphql_cop
-install_jsparser
 install_jwt_tool
-install_tplmap
+install_sstimap          # Replaces tplmap
 install_feroxbuster
 install_nikto
 install_wpscan
-
-# Go tools
-install_go_recon_tools
+install_corscanner
+install_linkfinder
+install_paramspider
 
 # Python tools
 install_python_tools
 
 # System tools
-install_amass
-install_masscan
-install_wappalyzer
-install_udp_proto_scanner
-install_subjs
+install_system_tools
+
+# npm tools
+install_npm_tools
 
 # Wordlists
-install_kiterunner_wordlists
+install_wordlists
 
-# Enhanced
-install_retire_enhanced
-
-# New
-install_interactsh
-install_gau
-install_corscanner
+# Enhancements
 install_zap_hybrid
 install_smart_scanner
 
 # Optional
 install_metasploit
 
+# Fix conflicts from tool requirements
+fix_dependency_conflicts
+
 echo ""
 echo "==========================================="
-echo "Setup Complete!"
+echo " Setup Complete!"
 echo "==========================================="
 echo ""
-echo "All tools installed with fixes and enhancements"
-echo "Ensure ${VENV_BIN} is in your PATH"
+
+verify_installation
+
+echo ""
+echo "Tools removed (ancient/deprecated):"
+echo "  - tplmap (Python 2) -> sstimap"
+echo "  - JSParser (2018) -> LinkFinder/xnLinkFinder"
+echo "  - wappalyzer npm (deprecated) -> webanalyze"
+echo "  - trufflehog pip (old) -> trufflehog binary v3"
+echo "  - py-altdns (2020) -> dnsgen"
+echo "  - udp-proto-scanner (2017) -> nmap -sU"
+echo ""
+echo "To activate the environment:"
+echo "  source ${VENV_BIN}/activate"
+echo ""
+echo "To customize retry behavior:"
+echo "  MAX_RETRIES=5 RETRY_DELAY=10 ./setup.sh"
 echo ""

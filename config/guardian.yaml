@@ -192,10 +192,6 @@ tools:
     # script: "./tools/vendor/graphql-cop/graphql-cop.py"
     args: "-t {target}/graphql"
 
-  tplmap:
-    enabled: true
-    args: "-u {target}"
-
   upload_scanner:
     enabled: true
     args: "--url {target}"

@@ -22,7 +22,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-tools/vendor/tplmap/.git/info/exclude*
 tools/vendor/commix/.git/info/exclude*
 tools/vendor*
 toos

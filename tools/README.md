@@ -133,8 +133,6 @@ This directory contains wrappers for various penetration testing tools.
 - **kiterunner**: API route discovery without OpenAPI
   - Installation: `go install github.com/assetnote/kiterunner@latest` (binary: `kr`)
 
-- **tplmap**: Template injection (SSTI) testing
-  - Installation: `git clone https://github.com/epinna/tplmap`
 
 - **upload-scanner**: File upload testing
   - Installation: project-specific

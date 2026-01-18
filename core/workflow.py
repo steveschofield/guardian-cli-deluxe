@@ -619,7 +619,7 @@ class WorkflowEngine:
 
         config_key = tool_name.replace("-", "_")
         tool_cfg = (self.config or {}).get("tools", {}).get(config_key, {}) or {}
-        if tool_name in {"graphql-cop", "tplmap", "upload-scanner", "csrf-tester"}:
+        if tool_name in {"graphql-cop", "upload-scanner", "csrf-tester"}:
             args = tool_kwargs.get("args") if isinstance(tool_kwargs, dict) else None
             args = args or tool_cfg.get("args")
             if not args:
@@ -1273,7 +1273,6 @@ class WorkflowEngine:
                     "tags": ["auth", "auth-bypass", "idor", "default-login"],
                     "tool_timeout": 900
                 }},
-                {"name": "template_injection_testing", "type": "tool", "tool": "tplmap"},
                 {"name": "xss_scan", "type": "tool", "tool": "dalfox", "parameters": {"tool_timeout": 900}},
                 {"name": "file_upload_testing", "type": "tool", "tool": "upload-scanner"},
                 {"name": "csrf_testing", "type": "tool", "tool": "csrf-tester"},

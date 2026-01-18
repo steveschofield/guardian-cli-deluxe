@@ -75,7 +75,7 @@ python -m cli.main <command> --help
 - **API Key**: Required for hosted LLMs (Gemini: https://makersuite.google.com/app/apikey, OpenRouter: https://openrouter.ai/keys). Not required for local Ollama.
 - **External Tools**: Optional but recommended (nmap, httpx, subfinder, nuclei, **nikto**)
 - **Authorization**: Only scan systems you have explicit permission to test
-- **Workflow steps**: Built-in recon/web/network workflows include DNS/OSINT, vhost, SMB/SNMP, and client-side checks. Some steps (hydra/jwt/graphql/upload/csrf/tplmap) require config and are skipped if not set.
+- **Workflow steps**: Built-in recon/web/network workflows include DNS/OSINT, vhost, SMB/SNMP, and client-side checks. Some steps (hydra/jwt/graphql/upload/csrf) require config and are skipped if not set.
 
 ## Troubleshooting
 
