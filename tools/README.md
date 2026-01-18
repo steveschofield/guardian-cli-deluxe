@@ -140,8 +140,9 @@ This directory contains wrappers for various penetration testing tools.
 - **csrf-tester**: CSRF testing
   - Installation: project-specific
 
-- **JSParser**: JavaScript endpoint extraction
-  - Installation: `git clone https://github.com/nahamsec/JSParser`
+- **linkfinder / xnlinkfinder**: JavaScript endpoint extraction (modern replacement for JSParser)
+  - Installation: `pip install linkfinder` or `pip install xnlinkfinder`
+  - Note: xnlinkfinder is the preferred modern alternative
 
 - **retire**: JavaScript library vulnerability scanning
   - Installation: `npm install -g retire`

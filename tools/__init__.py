@@ -16,7 +16,6 @@ from .wpscan import WPScanTool
 from .sslyze import SSLyzeTool
 from .headers import HeadersTool
 from .masscan import MasscanTool
-from .udp_proto_scanner import UdpProtoScannerTool
 from .amass import AmassTool
 from .whois import WhoisTool
 from .hydra import HydraTool
@@ -24,7 +23,6 @@ from .jwt_tool import JwtTool
 from .graphql_cop import GraphqlCopTool
 from .upload_scanner import UploadScannerTool
 from .csrf_tester import CsrfTesterTool
-from .jsparser import JsparserTool
 from .enum4linux import Enum4linuxTool
 from .smbclient import SmbclientTool
 from .showmount import ShowmountTool
@@ -38,7 +36,6 @@ from .dnsrecon import DnsReconTool
 from .dnsx import DnsxTool
 from .shuffledns import ShufflednsTool
 from .puredns import PurednsTool
-from .altdns import AltdnsTool
 from .retire import RetireTool
 from .naabu import NaabuTool
 from .katana import KatanaTool
@@ -74,7 +71,6 @@ __all__ = [
     "SSLyzeTool",
     "HeadersTool",
     "MasscanTool",
-    "UdpProtoScannerTool",
     "AmassTool",
     "WhoisTool",
     "HydraTool",
@@ -82,7 +78,6 @@ __all__ = [
     "GraphqlCopTool",
     "UploadScannerTool",
     "CsrfTesterTool",
-    "JsparserTool",
     "Enum4linuxTool",
     "SmbclientTool",
     "ShowmountTool",
@@ -96,7 +91,6 @@ __all__ = [
     "DnsxTool",
     "ShufflednsTool",
     "PurednsTool",
-    "AltdnsTool",
     "RetireTool",
     "NaabuTool",
     "KatanaTool",

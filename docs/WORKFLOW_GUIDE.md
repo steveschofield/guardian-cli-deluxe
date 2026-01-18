@@ -420,7 +420,7 @@ configuration or target type does not apply (for example, IP targets skip domain
 14. `file_upload_testing` - upload-scanner (requires args)
 15. `csrf_testing` - csrf-tester (requires args)
 16. `ssl_tls_analysis` - testssl
-17. `client_side_testing` - jsparser + retire
+17. `client_side_testing` - linkfinder (or xnlinkfinder) + retire
 18. `zap_scan` - optional (config + availability)
 19. `analysis`
 20. `report`

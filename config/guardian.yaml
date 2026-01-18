@@ -202,11 +202,8 @@ tools:
     args: "--url {target}"
     insecure: true
 
-  jsparser:
-    enabled: true
-    # script: "/path/to/JSParser.py"
-    # args: "-u {target}"
-    insecure: true
+  # jsparser removed - replaced by linkfinder/xnlinkfinder (modern, actively maintained)
+  # Use linkfinder or xnlinkfinder instead for JavaScript parsing
 
   retire:
     enabled: true
