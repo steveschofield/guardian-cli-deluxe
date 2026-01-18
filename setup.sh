@@ -941,5 +941,167 @@ install_recon_extras
 echo "Installing metasploit (optional, for MetasploitTool)..."
 install_metasploit
 
+
+# Execute improvements
+echo ""
+echo "Installing critical components..."
+install_docker_and_zap || echo "WARN: ZAP setup incomplete" >&2
+install_kiterunner_wordlists || echo "WARN: Kiterunner setup incomplete" >&2
+install_retire || echo "WARN: Retire.js setup incomplete" >&2
+
+verify_installation || true
+
 echo "Setup complete. Ensure ${VENV_BIN} is in your PATH."
 echo "If using Gemini via Vertex AI / ADC, run: gcloud auth application-default login"
+
+# ============================================================================
+# GUARDIAN IMPROVEMENTS - Added by apply_improvements.sh
+# Date: 2026-01-17
+# ============================================================================
+
+# Docker and ZAP Installation
+install_docker_and_zap() {
+    echo "======================================"
+    echo "Setting up Docker and OWASP ZAP"
+    echo "======================================"
+    
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "ERROR: Docker not found" >&2
+        echo "" >&2
+        echo "Install Docker:" >&2
+        if [[ "${OS}" == "macos" ]]; then
+            echo "  brew install --cask docker" >&2
+        else
+            echo "  curl -fsSL https://get.docker.com | sh" >&2
+        fi
+        return 1
+    fi
+    
+    echo "✓ Docker installed: $(docker --version)"
+    
+    if ! docker ps >/dev/null 2>&1; then
+        echo "ERROR: Docker daemon not running" >&2
+        return 1
+    fi
+    
+    echo "✓ Docker daemon running"
+    
+    echo "Pulling ZAP image (may take a few minutes)..."
+    if docker pull ghcr.io/zaproxy/zaproxy:stable; then
+        echo "✓ ZAP image pulled"
+    else
+        echo "ERROR: Failed to pull ZAP image" >&2
+        return 1
+    fi
+    
+    if docker run --rm ghcr.io/zaproxy/zaproxy:stable zap.sh -version >/dev/null 2>&1; then
+        echo "✓ ZAP working"
+    fi
+    
+    return 0
+}
+
+# Kiterunner Wordlists Installation
+install_kiterunner_wordlists() {
+    echo "======================================"
+    echo "Installing Kiterunner Wordlists"
+    echo "======================================"
+    
+    local kr_dir="${TOOLS_DIR}/vendor/kiterunner"
+    mkdir -p "${kr_dir}"
+    
+    if [[ -f "${kr_dir}/routes-small.kite" ]]; then
+        echo "✓ Wordlist exists"
+        return 0
+    fi
+    
+    local url="https://raw.githubusercontent.com/assetnote/wordlists/master/data/kiterunner-routes-small.kite"
+    
+    if curl -sSL -f "${url}" -o "${kr_dir}/routes-small.kite"; then
+        echo "✓ Wordlist downloaded"
+        return 0
+    else
+        echo "ERROR: Failed to download wordlist" >&2
+        return 1
+    fi
+}
+
+# Retire.js Installation Fix
+install_retire() {
+    echo "======================================"
+    echo "Installing Retire.js"
+    echo "======================================"
+    
+    if command -v retire >/dev/null 2>&1 && retire --version >/dev/null 2>&1; then
+        echo "✓ Retire.js already working"
+        return 0
+    fi
+    
+    if command -v npm >/dev/null 2>&1; then
+        echo "Installing via npm..."
+        if npm install -g retire >/dev/null 2>&1; then
+            if command -v retire >/dev/null 2>&1 && retire --version >/dev/null 2>&1; then
+                echo "✓ Installed via npm"
+                return 0
+            fi
+        fi
+    fi
+    
+    if command -v pip >/dev/null 2>&1; then
+        echo "Installing via pip..."
+        if pip install retire --break-system-packages >/dev/null 2>&1; then
+            if command -v retire >/dev/null 2>&1 && retire --version >/dev/null 2>&1; then
+                echo "✓ Installed via pip"
+                return 0
+            fi
+        fi
+    fi
+    
+    echo "ERROR: Failed to install retire.js" >&2
+    return 1
+}
+
+# Tool Verification
+verify_installation() {
+    echo ""
+    echo "=========================================="
+    echo "Verifying Installation"
+    echo "=========================================="
+    
+    local failed=()
+    local success=0
+    local total=0
+    
+    test_tool() {
+        local name="$1"
+        local cmd="$2"
+        ((total++))
+        if eval "$cmd" >/dev/null 2>&1; then
+            echo "✓ $name"
+            ((success++))
+        else
+            echo "✗ $name"
+            failed+=("$name")
+        fi
+    }
+    
+    echo "Core Tools:"
+    test_tool "nmap" "command -v nmap"
+    test_tool "httpx" "${VENV_BIN}/httpx -version"
+    test_tool "nuclei" "${VENV_BIN}/nuclei -version"
+    test_tool "docker" "docker --version"
+    test_tool "zap" "docker run --rm ghcr.io/zaproxy/zaproxy:stable zap.sh -version"
+    test_tool "retire" "retire --version"
+    test_tool "kiterunner-wordlist" "test -f ${TOOLS_DIR}/vendor/kiterunner/routes-small.kite"
+    
+    echo ""
+    echo "Summary: $success/$total tools verified"
+    
+    if [[ ${#failed[@]} -gt 0 ]]; then
+        echo "Failed: ${failed[*]}"
+        return 1
+    fi
+    
+    return 0
+}
+
