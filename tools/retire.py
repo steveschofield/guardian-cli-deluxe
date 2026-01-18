@@ -61,32 +61,42 @@ class RetireTool(BaseTool):
         cfg = (self.config or {}).get("tools", {}).get("retire", {}) or {}
 
         tmp_dir: Optional[tempfile.TemporaryDirectory] = None
-        if scan_path is None and self._is_url(target):
-            timeout = kwargs.get("timeout") or cfg.get("timeout", 10)
-            insecure = kwargs.get("insecure") or cfg.get("insecure", False)
-            max_scripts = kwargs.get("max_scripts") or cfg.get("max_scripts", 20)
-            try:
-                timeout = int(timeout)
-            except Exception:
-                timeout = 10
-            try:
-                max_scripts = int(max_scripts)
-            except Exception:
-                max_scripts = 20
+        if scan_path is None:
+            candidate_url = None
+            if self._is_url(target):
+                candidate_url = target
+            elif os.path.exists(target):
+                scan_path = target
+            else:
+                scheme = cfg.get("scheme") or "http"
+                candidate_url = f"{scheme}://{target}"
 
-            tmp_dir = tempfile.TemporaryDirectory(prefix="guardian-retire-")
-            scan_path = self._populate_scan_dir(
-                target_url=target,
-                out_dir=tmp_dir.name,
-                script_urls=script_urls,
-                timeout=timeout,
-                insecure=bool(insecure),
-                max_scripts=max_scripts,
-            )
-            if not scan_path:
-                if tmp_dir:
-                    tmp_dir.cleanup()
-                raise ValueError("retire: no JavaScript assets discovered to scan")
+            if candidate_url:
+                timeout = kwargs.get("timeout") or cfg.get("timeout", 10)
+                insecure = kwargs.get("insecure") or cfg.get("insecure", False)
+                max_scripts = kwargs.get("max_scripts") or cfg.get("max_scripts", 20)
+                try:
+                    timeout = int(timeout)
+                except Exception:
+                    timeout = 10
+                try:
+                    max_scripts = int(max_scripts)
+                except Exception:
+                    max_scripts = 20
+
+                tmp_dir = tempfile.TemporaryDirectory(prefix="guardian-retire-")
+                scan_path = self._populate_scan_dir(
+                    target_url=candidate_url,
+                    out_dir=tmp_dir.name,
+                    script_urls=script_urls,
+                    timeout=timeout,
+                    insecure=bool(insecure),
+                    max_scripts=max_scripts,
+                )
+                if not scan_path:
+                    if tmp_dir:
+                        tmp_dir.cleanup()
+                    raise ValueError("retire: no JavaScript assets discovered to scan")
 
         try:
             return await super().execute(target, scan_path=scan_path, **kwargs)
