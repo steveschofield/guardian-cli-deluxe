@@ -107,18 +107,20 @@ fi
 safe_git_clone() {
     local repo_url="$1"
     local target_dir="$2"
+    local clone_args="${GIT_CLONE_ARGS:---depth 1}"
+    local clone_cmd="GIT_TERMINAL_PROMPT=0 git clone ${clone_args} '$repo_url' '$target_dir'"
 
     if [[ -d "$target_dir" ]]; then
         if [[ -d "${target_dir}/.git" ]]; then
             log_info "Updating existing repo: $(basename "$target_dir")"
-            (cd "$target_dir" && git pull --ff-only 2>/dev/null) || log_warn "Failed to update"
+            (cd "$target_dir" && GIT_TERMINAL_PROMPT=0 git pull --ff-only 2>/dev/null) || log_warn "Failed to update"
         else
             log_warn "Removing broken directory (not a git repo): $(basename "$target_dir")"
             rm -rf "$target_dir"
-            retry "$MAX_RETRIES" "$RETRY_DELAY" "git clone --depth 1 '$repo_url' '$target_dir'" || log_warn "Clone failed: $repo_url"
+            retry "$MAX_RETRIES" "$RETRY_DELAY" "$clone_cmd" || log_warn "Clone failed: $repo_url"
         fi
     else
-        retry "$MAX_RETRIES" "$RETRY_DELAY" "git clone --depth 1 '$repo_url' '$target_dir'" || log_warn "Clone failed: $repo_url"
+        retry "$MAX_RETRIES" "$RETRY_DELAY" "$clone_cmd" || log_warn "Clone failed: $repo_url"
     fi
 }
 
@@ -509,6 +511,8 @@ install_linkfinder() {
     if [[ -f "${TOOLS_DIR}/LinkFinder/requirements.txt" ]]; then
         "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/LinkFinder/requirements.txt" --quiet 2>/dev/null || true
     fi
+    retry "$MAX_RETRIES" "$RETRY_DELAY" \
+        "\"${VENV_BIN}/pip\" install --upgrade \"git+https://github.com/GerbenJavado/LinkFinder.git\" --quiet" || true
     [[ -f "${TOOLS_DIR}/LinkFinder/linkfinder.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/LinkFinder/linkfinder.py" "linkfinder"
 }
 
@@ -621,10 +625,17 @@ install_wordlists() {
 
     # SecLists (optional - large download)
     local wordlist_dir="${BASE_DIR}/wordlists"
-    if [[ ! -d "${wordlist_dir}/SecLists" ]]; then
-        log_info "Cloning SecLists (this may take a while)..."
+    local seclists_dir="${wordlist_dir}/SecLists"
+    if command -v git >/dev/null 2>&1; then
+        log_info "Syncing SecLists (this may take a while)..."
         mkdir -p "$wordlist_dir"
-        git clone --depth 1 https://github.com/danielmiessler/SecLists.git "${wordlist_dir}/SecLists" 2>/dev/null || true
+        local seclists_clone_args="--depth 1 --single-branch --no-tags"
+        if git clone -h 2>/dev/null | grep -q -- '--filter'; then
+            seclists_clone_args="${seclists_clone_args} --filter=blob:none"
+        fi
+        GIT_CLONE_ARGS="${seclists_clone_args}" safe_git_clone "https://github.com/danielmiessler/SecLists.git" "${seclists_dir}"
+    else
+        log_warn "git not found; skipping SecLists"
     fi
 
     log_success "Wordlists configured"
