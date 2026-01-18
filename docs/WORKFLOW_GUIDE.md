@@ -226,7 +226,7 @@ steps:
     # ...
   - name: directory_brute
     type: tool
-    tool: gobuster
+    tool: ffuf
     # ...
   - name: vuln_scan
     type: tool
@@ -324,7 +324,7 @@ steps:
   
   - name: directory_enum
     type: tool
-    tool: gobuster
+    tool: ffuf
     objective: "Find hidden API endpoints"
     parameters:
       wordlist: "/path/to/api-wordlist.txt"
@@ -405,10 +405,10 @@ configuration or target type does not apply (for example, IP targets skip domain
 
 ### Web Workflow (built-in)
 
-1. `web_discovery` - httpx (or gospider on macOS)
+1. `web_discovery` - httpx
 2. `technology_detection` - whatweb
 3. `metadata_extraction`
-4. `crawl` - katana (or gospider on macOS)
+4. `crawl` - katana
 5. `vhost_enumeration` - ffuf Host header fuzz
 6. `api_route_discovery` - kiterunner (requires wordlist)
 7. `vulnerability_scan` - nuclei
@@ -525,7 +525,7 @@ workflows:
         primary: "nmap"
     web:
       web_discovery:
-        preferred: ["httpx", "gospider"]
+        preferred: ["httpx"]
 ```
 
 - `preferred` tools are tried in order; the first available tool runs.

@@ -112,10 +112,6 @@ This directory contains wrappers for various penetration testing tools.
   - Features: Certificate analysis, protocol support, vulnerability detection (Heartbleed, ROBOT)
 
 ### Content Discovery
-- **Gobuster**: Directory/file brute forcing
-  - Installation: `go install github.com/OJ/gobuster/v3@latest`
-  - Features: Fast directory enumeration, status code filtering, extensions
-
 - **FFuf**: Fast web fuzzer
   - Installation: `go install github.com/ffuf/ffuf/v2@latest`
   - Features: Advanced fuzzing, JSON output, recursion, filtering/matching, vhost fuzzing

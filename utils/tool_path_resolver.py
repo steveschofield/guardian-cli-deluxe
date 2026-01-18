@@ -69,7 +69,6 @@ class ToolPathResolver:
                 "nmap",
                 "nikto",
                 "sqlmap",
-                "gobuster",
                 "ffuf",
                 "whatweb",
                 "wafw00f",

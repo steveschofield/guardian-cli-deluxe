@@ -9,7 +9,6 @@ from .whatweb import WhatWebTool
 from .wafw00f import Wafw00fTool
 from .nikto import NiktoTool
 from .testssl import TestSSLTool
-from .gobuster import GobusterTool
 from .sqlmap import SQLMapTool
 from .ffuf import FFufTool
 from .kiterunner import KiterunnerTool
@@ -41,8 +40,6 @@ from .dnsx import DnsxTool
 from .shuffledns import ShufflednsTool
 from .puredns import PurednsTool
 from .altdns import AltdnsTool
-from .hakrawler import HakrawlerTool
-from .gospider import GospiderTool
 from .retire import RetireTool
 from .naabu import NaabuTool
 from .katana import KatanaTool
@@ -71,7 +68,6 @@ __all__ = [
     "Wafw00fTool",
     "NiktoTool",
     "TestSSLTool",
-    "GobusterTool",
     "SQLMapTool",
     "FFufTool",
     "KiterunnerTool",
@@ -103,8 +99,6 @@ __all__ = [
     "ShufflednsTool",
     "PurednsTool",
     "AltdnsTool",
-    "HakrawlerTool",
-    "GospiderTool",
     "RetireTool",
     "NaabuTool",
     "KatanaTool",

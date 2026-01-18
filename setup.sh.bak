@@ -400,7 +400,7 @@ install_application_security_tools() {
   echo "Installing application security tools..."
   
   # Dalfox - XSS scanner
-  if ! install_github_release_and_link "hahwul/dalfox" "dalfox"; then
+  if ! install_dalfox_fixed
     go_install_and_link "github.com/hahwul/dalfox/v2@latest" "dalfox"
   fi
   
@@ -939,6 +939,47 @@ install_retire || echo "WARN: Retire.js setup incomplete" >&2
 
 verify_installation || true
 
+
+# ============================================================================
+# Execute Enhancements
+# ============================================================================
+echo ""
+echo "=========================================="
+echo "Installing Enhanced Tools"
+echo "=========================================="
+
+# New reconnaissance tools
+echo ""
+install_interactsh_client || true
+echo ""
+install_gau || true
+echo ""
+install_waybackurls || true
+echo ""
+install_arjun || true
+echo ""
+install_corscanner || true
+
+# Enhanced existing tools
+echo ""
+install_retire_enhanced || true
+echo ""
+install_zap_hybrid || true
+echo ""
+install_masscan_enhanced || true
+echo ""
+create_smart_port_scanner || true
+
+# Verify everything
+echo ""
+verify_new_tools || true
+
+echo ""
+echo "=========================================="
+echo "Enhanced Tools Installation Complete"
+echo "=========================================="
+echo ""
+
 echo "Setup complete. Ensure ${VENV_BIN} is in your PATH."
 echo "If using Gemini via Vertex AI / ADC, run: gcloud auth application-default login"
 
@@ -1091,4 +1132,45 @@ verify_installation() {
     fi
     
     return 0
+}
+
+# ============================================================================
+# GUARDIAN ENHANCEMENTS - Added 2026-01-17
+# ============================================================================
+
+
+# ============================================================================
+# GUARDIAN ENHANCEMENTS - Integrated into setup.sh
+# Added: 2026-01-17
+# New tools: interactsh, gau, waybackurls, arjun, CORScanner
+# Enhancements: ZAP hybrid, retire.js fix, smart port scanning
+# ============================================================================
+
+
+
+# Fix for dalfox - use go install instead of binary download
+install_dalfox_fixed() {
+    echo "Installing dalfox..."
+    
+    if command -v dalfox >/dev/null 2>&1; then
+        echo "✓ dalfox already installed"
+        return 0
+    fi
+    
+    if command -v go >/dev/null 2>&1; then
+        echo "Installing via go install..."
+        if go install github.com/hahwul/dalfox/v2@latest; then
+            # Link into venv
+            local go_bin="${GOPATH:-$HOME/go}/bin"
+            if [[ -x "${go_bin}/dalfox" ]]; then
+                link_into_venv "${go_bin}/dalfox" "dalfox"
+                echo "✓ dalfox installed"
+                return 0
+            fi
+        fi
+    fi
+    
+    echo "WARN: Failed to install dalfox" >&2
+    echo "Manual install: go install github.com/hahwul/dalfox/v2@latest" >&2
+    return 1
 }

@@ -3,10 +3,8 @@ Fallback tool implementations for missing ProjectDiscovery tools
 Uses alternative tools when httpx/katana are not available
 """
 
-import subprocess
-import json
 import asyncio
-from typing import Dict, Any, List
+from typing import Dict, Any
 from urllib.parse import urlparse
 
 
@@ -71,92 +69,14 @@ class HttpxFallback:
 
 
 class KatanaFallback:
-    """Fallback for katana using gospider or hakrawler"""
+    """Fallback for katana using wget"""
     
     def __init__(self, config):
         self.config = config
-        self.available_crawlers = self._check_available_crawlers()
-    
-    def _check_available_crawlers(self) -> List[str]:
-        """Check which alternative crawlers are available"""
-        crawlers = []
-        for tool in ['gospider', 'hakrawler']:
-            try:
-                subprocess.run([tool, '--help'], capture_output=True, timeout=5)
-                crawlers.append(tool)
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                pass
-        return crawlers
     
     async def crawl_url(self, url: str, depth: int = 2) -> Dict[str, Any]:
         """Crawl URL using available alternative"""
-        if 'gospider' in self.available_crawlers:
-            return await self._crawl_with_gospider(url, depth)
-        elif 'hakrawler' in self.available_crawlers:
-            return await self._crawl_with_hakrawler(url, depth)
-        else:
-            return await self._crawl_with_wget(url, depth)
-    
-    async def _crawl_with_gospider(self, url: str, depth: int) -> Dict[str, Any]:
-        """Crawl using gospider"""
-        try:
-            cmd = [
-                "gospider", "-s", url, "-d", str(depth),
-                "-c", "10", "-t", "10", "--json"
-            ]
-            
-            result = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await result.communicate()
-            
-            if result.returncode == 0:
-                urls = []
-                for line in stdout.decode().split('\n'):
-                    if line.strip():
-                        try:
-                            data = json.loads(line)
-                            if data.get('output'):
-                                urls.append(data['output'])
-                        except json.JSONDecodeError:
-                            continue
-                
-                return {
-                    "urls": list(set(urls)),
-                    "crawler": "gospider",
-                    "success": True
-                }
-            else:
-                return {"success": False, "error": stderr.decode()}
-                
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-    
-    async def _crawl_with_hakrawler(self, url: str, depth: int) -> Dict[str, Any]:
-        """Crawl using hakrawler"""
-        try:
-            cmd = [
-                "hakrawler", "-url", url, "-depth", str(depth),
-                "-plain"
-            ]
-            
-            result = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await result.communicate()
-            
-            if result.returncode == 0:
-                urls = [line.strip() for line in stdout.decode().split('\n') if line.strip()]
-                return {
-                    "urls": list(set(urls)),
-                    "crawler": "hakrawler", 
-                    "success": True
-                }
-            else:
-                return {"success": False, "error": stderr.decode()}
-                
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+        return await self._crawl_with_wget(url, depth)
     
     async def _crawl_with_wget(self, url: str, depth: int) -> Dict[str, Any]:
         """Basic crawling using wget as last resort"""

@@ -939,6 +939,47 @@ install_retire || echo "WARN: Retire.js setup incomplete" >&2
 
 verify_installation || true
 
+
+# ============================================================================
+# Execute Enhancements
+# ============================================================================
+echo ""
+echo "=========================================="
+echo "Installing Enhanced Tools"
+echo "=========================================="
+
+# New reconnaissance tools
+echo ""
+install_interactsh_client || true
+echo ""
+install_gau || true
+echo ""
+install_waybackurls || true
+echo ""
+install_arjun || true
+echo ""
+install_corscanner || true
+
+# Enhanced existing tools
+echo ""
+install_retire_enhanced || true
+echo ""
+install_zap_hybrid || true
+echo ""
+install_masscan_enhanced || true
+echo ""
+create_smart_port_scanner || true
+
+# Verify everything
+echo ""
+verify_new_tools || true
+
+echo ""
+echo "=========================================="
+echo "Enhanced Tools Installation Complete"
+echo "=========================================="
+echo ""
+
 echo "Setup complete. Ensure ${VENV_BIN} is in your PATH."
 echo "If using Gemini via Vertex AI / ADC, run: gcloud auth application-default login"
 
@@ -1092,3 +1133,17 @@ verify_installation() {
     
     return 0
 }
+
+# ============================================================================
+# GUARDIAN ENHANCEMENTS - Added 2026-01-17
+# ============================================================================
+
+
+# ============================================================================
+# GUARDIAN ENHANCEMENTS - Integrated into setup.sh
+# Added: 2026-01-17
+# New tools: interactsh, gau, waybackurls, arjun, CORScanner
+# Enhancements: ZAP hybrid, retire.js fix, smart port scanning
+# ============================================================================
+
+

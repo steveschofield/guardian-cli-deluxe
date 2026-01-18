@@ -37,7 +37,6 @@ Available Tools (pick only those appropriate for the target type and objective):
 - onesixtyone: SNMP community brute force
 - snmpwalk: SNMP enumeration
 - udp-proto-scanner: Fast UDP probing
-- gobuster: Directory/file brute forcing
 - dirsearch: Content discovery and brute forcing
 - ffuf: Fast web fuzzing (paths/params)
 - kiterunner: Schema-less API route discovery
@@ -51,8 +50,6 @@ Available Tools (pick only those appropriate for the target type and objective):
 - altdns: Permutation-based subdomain discovery (domain-only)
 - asnmap: ASN/org → IP range mapping
 - katana: Web crawling/spidering
-- hakrawler: Web crawling
-- gospider: Web crawling
 - waybackurls: Historical URL collection
 - subjs: Extract JS URLs
 - jsparser: Extract endpoints from JavaScript
@@ -117,7 +114,6 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - onesixtyone: SNMP community brute force
 - snmpwalk: SNMP enumeration
 - udp-proto-scanner: Fast UDP probing
-- gobuster: Directory/file brute forcing
 - dirsearch: Content discovery
 - ffuf: Web fuzzing
 - kiterunner: API route discovery without OpenAPI
@@ -131,8 +127,6 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - altdns: Subdomain permutations
 - asnmap: ASN/org mapping
 - katana: Web crawling
-- hakrawler: Web crawling
-- gospider: Web crawling
 - waybackurls: Historical URLs
 - subjs: JS URL extraction
 - jsparser: JS endpoint extraction

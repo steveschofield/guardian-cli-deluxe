@@ -117,8 +117,7 @@ Each scan generates:
 - **[nmap](https://nmap.org/)** - Port scanning and service detection
 - **[nuclei](https://github.com/projectdiscovery/nuclei)** - Vulnerability scanning (15min timeout)
 - **[subfinder](https://github.com/projectdiscovery/subfinder)** - Subdomain enumeration
-- **[gospider](https://github.com/jaeles-project/gospider)** - Web crawling (macOS compatible with curl fallback)
-- **[gobuster](https://github.com/OJ/gobuster)** / **[ffuf](https://github.com/ffuf/ffuf)** - Directory/file brute forcing
+- **[ffuf](https://github.com/ffuf/ffuf)** - Directory/file brute forcing
 - **[testssl](https://github.com/drwetter/testssl.sh)** - SSL/TLS analysis
 - **[gitleaks](https://github.com/zricethezav/gitleaks)** - Secret detection
 - **[arjun](https://github.com/s0md3v/Arjun)** - Parameter discovery
@@ -127,14 +126,13 @@ Each scan generates:
 
 **Additional Tools** (installed via setup.sh):
 
-- **[httpx](https://github.com/projectdiscovery/httpx)** - HTTP probing (Linux only, gospider fallback on macOS)
-- **[katana](https://github.com/projectdiscovery/katana)** - Advanced web crawling (Linux only)
+- **[httpx](https://github.com/projectdiscovery/httpx)** - HTTP probing
+- **[katana](https://github.com/projectdiscovery/katana)** - Advanced web crawling
 - **[nikto](https://github.com/sullo/nikto)** - Web vulnerability scanner
 - **[sqlmap](https://github.com/sqlmapproject/sqlmap)** - SQL injection testing
 - **[wpscan](https://github.com/wpscanteam/wpscan)** - WordPress security scanner
 - **[sslyze](https://github.com/nabla-c0d3/sslyze)** - SSL/TLS configuration analysis
 - **[dnsx](https://github.com/projectdiscovery/dnsx)** - Fast DNS toolkit
-- **[hakrawler](https://github.com/hakluke/hakrawler)** - Web crawler
 - **[wafw00f](https://github.com/EnableSecurity/wafw00f)** - WAF detection
 - **[whatweb](https://github.com/urbanadventurer/WhatWeb)** - Web technology identification
 - **[metasploit](https://github.com/rapid7/metasploit-framework)** - Exploitation framework
@@ -149,7 +147,6 @@ Each scan generates:
 **Platform Notes:**
 
 - **Kali Linux**: All tools supported
-- **macOS**: httpx/katana automatically replaced with gospider + curl fallback
 
 ---
 
@@ -177,8 +174,7 @@ python -m cli.main workflow list
 
 **macOS Compatibility**
 
-- httpx/katana automatically skipped on macOS
-- gospider with curl fallback used instead
+- Ensure httpx/katana are installed on PATH before running workflows that use them.
 
 ---
 

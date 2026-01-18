@@ -364,7 +364,7 @@ workflows:
   #       primary: "nmap"
   #   web:
   #     web_discovery:
-  #       preferred: ["httpx", "gospider"]
+  #       preferred: ["httpx"]
   
   # Save intermediate results
   save_intermediate: true

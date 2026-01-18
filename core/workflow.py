@@ -1228,9 +1228,9 @@ class WorkflowEngine:
         import platform
         is_macos = platform.system().lower() == "darwin"
         
-        # Use alternative tools on macOS
-        web_probing_tool = "gospider" if is_macos else "httpx"
-        crawl_tool = "gospider" if is_macos else "katana"
+        # Use unified tooling across platforms
+        web_probing_tool = "httpx"
+        crawl_tool = "katana"
         
         # Predefined workflows
         workflows = {

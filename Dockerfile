@@ -22,7 +22,6 @@ RUN apk add --no-cache \
 RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest && \
     go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
     go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest && \
-    go install -v github.com/OJ/gobuster/v3@v3.7.0 && \
     go install -v github.com/ffuf/ffuf/v2@latest && \
     go install -v github.com/owasp-amass/amass/v4/...@master && \
     go install -v github.com/zricethezav/gitleaks/v8@latest
@@ -101,9 +100,7 @@ RUN npm install -g retire && \
     go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest && \
     go install github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest && \
     go install github.com/d3mondev/puredns@latest && \
-    pip install altdns && \
-    go install github.com/hakluke/hakrawler@latest && \
-    go install github.com/jaeles-project/gospider@latest
+    pip install altdns
 
 # Install CMSeeK from source
 RUN git clone https://github.com/Tuhinshubhra/CMSeeK.git /opt/cmseek && \
