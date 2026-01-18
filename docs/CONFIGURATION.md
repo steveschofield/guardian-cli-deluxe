@@ -116,6 +116,16 @@ OWASP ZAP is configured under `tools.zap` and supports `mode: docker` (recommend
 Advanced ZAP options (AJAX spider, auth context, seed URLs) use the daemon API. If `mode: docker`,
 Guardian will automatically run a temporary ZAP daemon container when these options are enabled.
 
+Global tool path overrides (optional):
+
+```yaml
+tools:
+  auto_discover: true
+  paths:
+    nmap: /usr/bin/nmap
+    nuclei: /usr/local/bin/nuclei
+```
+
 ### Workflow-Specific Tool Configuration
 
 Some built-in workflow steps only run when required arguments or tokens are present:
@@ -136,6 +146,17 @@ Report/output location and verbosity:
 - `format`: `markdown` | `html` | `json`
 - `save_path`: where sessions/reports are written (default `./reports`)
 - `verbosity`: `quiet` | `normal` | `verbose` | `debug`
+
+### `reporting`
+
+Reporting-time enrichment and filtering:
+
+- `deduplicate_findings`: merge duplicate findings across tools
+- `merge_duplicate_evidence`: merge evidence text from duplicates
+- `enable_confidence_scoring`: annotate findings with confidence scores
+- `min_confidence`: `high` | `medium` | `low`
+- `verbose_reporting`: include low-confidence findings even if filtering is enabled
+- `filter_low_confidence`: drop findings below `min_confidence`
 
 ### `logging`
 

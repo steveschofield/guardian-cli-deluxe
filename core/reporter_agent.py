@@ -16,6 +16,8 @@ from ai.prompt_templates import (
     REPORTER_AI_TRACE_PROMPT
 )
 from utils.exploit_cache import ExploitLookup
+from utils.finding_deduplicator import FindingDeduplicator
+from utils.confidence_scorer import ConfidenceScorer
 
 
 class ReporterAgent(BaseAgent):
@@ -36,6 +38,9 @@ class ReporterAgent(BaseAgent):
         """
         self.log_action("GeneratingReport", f"Format: {format}")
         
+        # Reset per-report cache
+        self._report_findings_cache = None
+
         # Generate all sections
         executive_summary = await self.generate_executive_summary()
         technical_findings = await self.generate_technical_findings()
@@ -77,11 +82,12 @@ class ReporterAgent(BaseAgent):
     
     async def generate_executive_summary(self) -> str:
         """Generate executive summary for non-technical audience"""
-        summary = self.memory.get_findings_summary()
+        findings = self._get_report_findings()
+        summary = self._summarize_findings(findings)
         
         # Get top critical issues
-        critical_findings = self.memory.get_findings_by_severity("critical")
-        high_findings = self.memory.get_findings_by_severity("high")
+        critical_findings = [f for f in findings if f.severity.lower() == "critical"]
+        high_findings = [f for f in findings if f.severity.lower() == "high"]
         
         top_issues = []
         for f in (critical_findings + high_findings)[:3]:
@@ -91,7 +97,7 @@ class ReporterAgent(BaseAgent):
             target=self.memory.target,
             scope="Full penetration test",
             duration=self._calculate_duration(),
-            findings_count=len(self.memory.findings),
+            findings_count=len(findings),
             critical_count=summary["critical"],
             high_count=summary["high"],
             medium_count=summary["medium"],
@@ -156,7 +162,8 @@ class ReporterAgent(BaseAgent):
         ai_trace: str
     ) -> str:
         """Assemble Markdown report"""
-        summary = self.memory.get_findings_summary()
+        findings = self._get_report_findings()
+        summary = self._summarize_findings(findings)
         evidence_section = self._format_evidence_markdown()
         
         report = f"""# Penetration Test Report
@@ -180,7 +187,7 @@ class ReporterAgent(BaseAgent):
 | Medium   | {summary['medium']} |
 | Low      | {summary['low']} |
 | Info     | {summary['info']} |
-| **Total** | **{len(self.memory.findings)}** |
+| **Total** | **{len(findings)}** |
 
 ## Technical Findings
 
@@ -224,7 +231,8 @@ class ReporterAgent(BaseAgent):
         ai_trace: str
     ) -> str:
         """Assemble HTML report"""
-        summary = self.memory.get_findings_summary()
+        findings = self._get_report_findings()
+        summary = self._summarize_findings(findings)
         evidence_section = self._format_evidence_html()
         
         # Convert markdown-style content to HTML
@@ -269,7 +277,7 @@ class ReporterAgent(BaseAgent):
         <tr><td class="medium">Medium</td><td>{summary['medium']}</td></tr>
         <tr><td class="low">Low</td><td>{summary['low']}</td></tr>
         <tr><td class="info">Info</td><td>{summary['info']}</td></tr>
-        <tr><th>Total</th><th>{len(self.memory.findings)}</th></tr>
+        <tr><th>Total</th><th>{len(findings)}</th></tr>
     </table>
     
     <h2>Technical Findings</h2>
@@ -310,6 +318,7 @@ class ReporterAgent(BaseAgent):
         import json
         from dataclasses import asdict
         
+        findings = self._get_report_findings()
         report = {
             "metadata": {
                 "target": self.memory.target,
@@ -318,8 +327,8 @@ class ReporterAgent(BaseAgent):
                 "duration": self._calculate_duration()
             },
             "executive_summary": exec_summary,
-            "findings_summary": self.memory.get_findings_summary(),
-            "findings": [asdict(f) for f in self.memory.findings],
+            "findings_summary": self._summarize_findings(findings),
+            "findings": [asdict(f) for f in findings],
             "technical_findings": technical,
             "exploit_lookup": self._get_exploit_lookup(),
             "remediation_plan": remediation,
@@ -344,11 +353,13 @@ class ReporterAgent(BaseAgent):
     def _format_findings_detailed(self) -> str:
         """Format findings for AI consumption"""
         formatted = []
-        
-        for f in self.memory.findings:
+        findings = self._get_report_findings()
+
+        for f in findings:
             cvss = self._format_cvss_display(f)
             cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
             owasp = ", ".join(f.owasp_categories) if f.owasp_categories else "Unmapped"
+            confidence = getattr(f, "confidence", None) or "unknown"
             formatted.append(f"""
 [{f.severity.upper()}] {f.title}
 Tool: {f.tool}
@@ -356,6 +367,7 @@ Target: {f.target}
 CVSS: {cvss}
 CWE: {cwe}
 OWASP: {owasp}
+Confidence: {confidence}
 Description: {f.description[:200]}
 Evidence: {f.evidence[:200]}
 """)
@@ -463,12 +475,12 @@ Evidence: {f.evidence[:200]}
             return cached
 
         lookup = ExploitLookup(self.config, logger=self.logger)
-        result = lookup.lookup_findings(self.memory.findings)
+        result = lookup.lookup_findings(self._get_report_findings())
         self._exploit_lookup = result
         return result
 
     def _format_standards_mapping_markdown(self) -> str:
-        findings = [f for f in self.memory.findings if not f.false_positive]
+        findings = self._get_report_findings()
         if not findings:
             return "No findings to map"
 
@@ -486,7 +498,7 @@ Evidence: {f.evidence[:200]}
         return "\n".join(lines)
 
     def _format_standards_mapping_html(self) -> str:
-        findings = [f for f in self.memory.findings if not f.false_positive]
+        findings = self._get_report_findings()
         if not findings:
             return "<p>No findings to map.</p>"
 
@@ -527,9 +539,8 @@ Evidence: {f.evidence[:200]}
             "|----------|---------|------|------------|------------|",
         ]
 
-        for f in self.memory.findings:
-            if f.false_positive:
-                continue
+        findings = self._get_report_findings()
+        for f in findings:
             entry = matches.get(f.id)
             if not entry:
                 continue
@@ -559,9 +570,8 @@ Evidence: {f.evidence[:200]}
         import html as _html
 
         rows = []
-        for f in self.memory.findings:
-            if f.false_positive:
-                continue
+        findings = self._get_report_findings()
+        for f in findings:
             entry = matches.get(f.id)
             if not entry:
                 continue
@@ -617,9 +627,7 @@ Evidence: {f.evidence[:200]}
     def _collect_evidence_entries(self) -> List[Dict[str, str]]:
         evidence_files = self._extract_evidence_files()
         entries: List[Dict[str, str]] = []
-        for f in self.memory.findings:
-            if f.false_positive:
-                continue
+        for f in self._get_report_findings():
             evidence = (f.evidence or "").strip()
             if not evidence:
                 continue
@@ -699,6 +707,36 @@ Evidence: {f.evidence[:200]}
         html = html.replace('**', '<strong>').replace('**', '</strong>')
         html = html.replace('*', '<em>').replace('*', '</em>')
         return html
+
+    def _get_report_findings(self):
+        cached = getattr(self, "_report_findings_cache", None)
+        if cached is not None:
+            return cached
+
+        findings = [f for f in self.memory.findings if not f.false_positive]
+
+        deduper = FindingDeduplicator(self.config)
+        findings = deduper.deduplicate(findings)
+
+        reporting_cfg = (self.config or {}).get("reporting", {}) or {}
+        if reporting_cfg.get("enable_confidence_scoring", True):
+            scorer = ConfidenceScorer(self.config)
+            for f in findings:
+                if not getattr(f, "confidence", None):
+                    scorer.enrich_finding_with_confidence(f)
+            if reporting_cfg.get("filter_low_confidence", False) and not scorer.verbose:
+                findings = scorer.filter_findings_by_confidence(findings)
+
+        self._report_findings_cache = findings
+        return findings
+
+    def _summarize_findings(self, findings: List) -> Dict[str, int]:
+        summary = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+        for finding in findings:
+            severity = (finding.severity or "").lower()
+            if severity in summary:
+                summary[severity] += 1
+        return summary
 
 
 def _format_metasploit_refs(items: List[Dict[str, Any]], html: bool = False) -> str:

@@ -16,13 +16,10 @@ from ai.prompt_templates import (
     ANALYST_CORRELATION_PROMPT,
     ANALYST_FALSE_POSITIVE_PROMPT
 )
-from utils.helpers import parse_severity
-from utils.standards import (
-    calculate_cvss_base_score,
-    estimate_cvss_from_severity,
-    infer_cwe_owasp,
-    normalize_owasp_labels,
-)
+from utils.standards import infer_cwe_owasp, normalize_owasp_labels
+from utils.cvss_handler import CVSSHandler
+from utils.vulnerability_taxonomy import VulnerabilityTaxonomy
+from utils.confidence_scorer import ConfidenceScorer, ConfidenceLevel
 
 
 class AnalystAgent(BaseAgent):
@@ -30,6 +27,9 @@ class AnalystAgent(BaseAgent):
     
     def __init__(self, config, llm_client, memory):
         super().__init__("Analyst", config, llm_client, memory)
+        self._taxonomy = None
+        self._cvss_handler = None
+        self._confidence_scorer = None
     
     async def execute(self, tool_result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -554,6 +554,12 @@ class AnalystAgent(BaseAgent):
         """
         Populate CVSS/CWE/OWASP metadata when missing.
         """
+        taxonomy = self._get_taxonomy()
+        cvss_handler = self._get_cvss_handler()
+        confidence_scorer = self._get_confidence_scorer()
+        reporting_cfg = (self.config or {}).get("reporting", {}) or {}
+        filter_low_confidence = bool(reporting_cfg.get("filter_low_confidence", False))
+
         for f in findings:
             text = " ".join([f.title or "", f.description or "", f.evidence or ""]).strip()
 
@@ -563,32 +569,59 @@ class AnalystAgent(BaseAgent):
 
             # Infer CWE/OWASP when absent.
             if text and (not f.cwe_ids or not f.owasp_categories):
+                taxonomy.enrich_finding(f)
                 inferred_cwe, inferred_owasp = infer_cwe_owasp(text)
-                if inferred_cwe:
-                    for cwe in inferred_cwe:
-                        if cwe not in f.cwe_ids:
-                            f.cwe_ids.append(cwe)
-                if inferred_owasp:
-                    for cat in inferred_owasp:
-                        if cat not in f.owasp_categories:
-                            f.owasp_categories.append(cat)
+                for cwe in inferred_cwe:
+                    if cwe not in f.cwe_ids:
+                        f.cwe_ids.append(cwe)
+                for cat in inferred_owasp:
+                    if cat not in f.owasp_categories:
+                        f.owasp_categories.append(cat)
 
             # Derive CVSS score from vector if present.
             if f.cvss_score is None and f.cvss_vector:
-                score = calculate_cvss_base_score(f.cvss_vector)
-                if score is not None:
-                    f.cvss_score = score
-                    f.cvss_score_source = "vector"
+                cvss_score = cvss_handler.calculate_score_from_vector(f.cvss_vector)
+                if cvss_score:
+                    f.cvss_score = cvss_score.base_score
+                    f.cvss_score_source = "calculated"
+                    f.cvss_version = cvss_score.version.value
 
             # Estimate CVSS if still missing.
             if f.cvss_score is None:
-                f.cvss_score = estimate_cvss_from_severity(f.severity)
+                estimated = cvss_handler.estimate_score(f.severity, f.title, f.description)
+                f.cvss_score = estimated.base_score
                 f.cvss_score_source = "estimated"
+                f.cvss_version = estimated.version.value
 
             if not f.cvss_score_source or f.cvss_score_source == "none":
                 f.cvss_score_source = "provided"
 
+            if confidence_scorer:
+                confidence_scorer.enrich_finding_with_confidence(f)
+                if filter_low_confidence and not confidence_scorer.verbose:
+                    level = ConfidenceLevel.from_string(getattr(f, "confidence", "unknown"))
+                    if level < confidence_scorer.min_confidence:
+                        f.false_positive = True
+
         return findings
+
+    def _get_taxonomy(self) -> VulnerabilityTaxonomy:
+        if self._taxonomy is None:
+            self._taxonomy = VulnerabilityTaxonomy(self.config)
+        return self._taxonomy
+
+    def _get_cvss_handler(self) -> CVSSHandler:
+        if self._cvss_handler is None:
+            self._cvss_handler = CVSSHandler(self.config)
+        return self._cvss_handler
+
+    def _get_confidence_scorer(self) -> ConfidenceScorer | None:
+        reporting_cfg = (self.config or {}).get("reporting", {}) or {}
+        if reporting_cfg.get("enable_confidence_scoring", True):
+            if self._confidence_scorer is None:
+                self._confidence_scorer = ConfidenceScorer(self.config)
+            return self._confidence_scorer
+        return None
     
     async def correlate_findings(self) -> Dict[str, Any]:
         """
@@ -689,6 +722,12 @@ class AnalystAgent(BaseAgent):
                 continue
 
             if current:
+                cves = re.findall(r"CVE-\d{4}-\d{4,7}", line, re.IGNORECASE)
+                for cve in cves:
+                    normalized = cve.upper()
+                    if normalized not in current.cve_ids:
+                        current.cve_ids.append(normalized)
+
                 # Evidence line
                 if "evidence:" in line.lower():
                     evidence_text = re.split(r"evidence:\s*", line, flags=re.IGNORECASE)[-1].strip()

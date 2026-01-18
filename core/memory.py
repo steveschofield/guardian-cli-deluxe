@@ -25,9 +25,14 @@ class Finding:
     remediation: Optional[str] = None
     cvss_score: Optional[float] = None
     cvss_vector: Optional[str] = None
-    cvss_score_source: str = "none"  # none, provided, vector, estimated
+    cvss_score_source: str = "none"  # none, provided, calculated, estimated
+    cvss_version: Optional[str] = None
     cwe_ids: List[str] = field(default_factory=list)
+    cve_ids: List[str] = field(default_factory=list)
     owasp_categories: List[str] = field(default_factory=list)
+    confidence: Optional[str] = None
+    confidence_score: Optional[float] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
     false_positive: bool = False
 
 

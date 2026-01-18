@@ -100,6 +100,18 @@ output:
   max_output_size_mb: 50
   truncate_verbose_tools: true
 
+# Reporting Enhancements
+reporting:
+  # Deduplicate findings across tools
+  deduplicate_findings: true
+  merge_duplicate_evidence: true
+  # Confidence scoring
+  enable_confidence_scoring: true
+  min_confidence: "medium"
+  verbose_reporting: false
+  # Set true to suppress findings below min_confidence
+  filter_low_confidence: false
+
 # Exploit References (Metasploit + Exploit-DB)
 exploits:
   enabled: true
@@ -128,6 +140,12 @@ scope:
 
 # Tool Configuration
 tools:
+  # Optional: resolve tools from custom paths (falls back to PATH)
+  auto_discover: true
+  paths:
+    # nmap: /usr/bin/nmap
+    # nuclei: /usr/local/bin/nuclei
+
   nmap:
     enabled: true
     # Recon / baseline enumeration

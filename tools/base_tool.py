@@ -3,6 +3,7 @@ Base class for all pentest tool wrappers
 """
 
 import asyncio
+import os
 import subprocess
 import shutil
 from typing import Dict, Any, Optional, List
@@ -11,6 +12,7 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 
 from utils.logger import get_logger
+from utils.tool_path_resolver import ToolPathResolver
 
 
 class BaseTool(ABC):
@@ -20,6 +22,8 @@ class BaseTool(ABC):
         self.config = config
         self.logger = get_logger(config)
         self.tool_name = self.__class__.__name__.replace("Tool", "").lower()
+        self._path_resolver = ToolPathResolver(config)
+        self._resolved_path: Optional[str] = None
         
         # Check if tool is installed
         self.is_available = self._check_installation()
@@ -38,7 +42,14 @@ class BaseTool(ABC):
 
     def get_env(self, target: str, **kwargs) -> Optional[Dict[str, str]]:
         """Return a subprocess environment for this tool (or None to inherit current env)."""
-        return None
+        resolved = self._resolve_tool_path()
+        if not resolved:
+            return None
+
+        env = os.environ.copy()
+        resolved_dir = os.path.dirname(resolved)
+        env["PATH"] = f"{resolved_dir}{os.pathsep}{env.get('PATH', '')}"
+        return env
     
     async def execute(self, target: str, **kwargs) -> Dict[str, Any]:
         """
@@ -52,6 +63,7 @@ class BaseTool(ABC):
         
         # Build command
         command = self.get_command(target, **kwargs)
+        command = self._apply_resolved_binary(command)
 
         # Enforce safe_mode at execution time (not just in prompts).
         self._validate_safe_mode(command)
@@ -152,7 +164,24 @@ class BaseTool(ABC):
     
     def _check_installation(self) -> bool:
         """Check if tool is installed and in PATH"""
+        resolved = self._resolve_tool_path()
+        if resolved:
+            self._resolved_path = resolved
+            return True
         return shutil.which(self.tool_name) is not None
+
+    def _resolve_tool_path(self) -> Optional[str]:
+        if not self._path_resolver:
+            return None
+        return self._path_resolver.resolve_tool_path(self.tool_name)
+
+    def _apply_resolved_binary(self, command: List[str]) -> List[str]:
+        if not command:
+            return command
+        resolved = self._resolved_path or self._resolve_tool_path()
+        if resolved and command[0] == self.tool_name:
+            return [resolved] + command[1:]
+        return command
 
     def _safe_mode_blocklist(self) -> Dict[str, list[str]]:
         # Tool-specific defaults; can be extended via config.

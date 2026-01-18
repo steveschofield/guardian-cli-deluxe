@@ -26,6 +26,7 @@ wheels/
 2.sh
 3.sh
 claudepr.sh
+tools/vendor/tplmap/.git/info/exclude*
 
 # Virtual environments
 venv/
