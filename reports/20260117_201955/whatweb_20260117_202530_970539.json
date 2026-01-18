@@ -1,0 +1,3 @@
+[
+{"target":"http://192.168.1.244","http_status":200,"request_config":{"headers":{"User-Agent":"Guardian-Pentest-Tool"}},"plugins":{"Apache":{"version":["2.2.8"]},"Country":{"string":["RESERVED"],"module":["ZZ"]},"HTTPServer":{"os":["Ubuntu Linux"],"string":["Apache/2.2.8 (Ubuntu) DAV/2"]},"IP":{"string":["192.168.1.244"]},"PHP":{"version":["5.2.4-2ubuntu5.10"]},"Title":{"string":["Metasploitable2 - Linux"]},"WebDAV":{"version":["2"]},"X-Powered-By":{"string":["PHP/5.2.4-2ubuntu5.10"]}}}
+]
