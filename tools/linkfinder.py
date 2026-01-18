@@ -14,8 +14,7 @@ class LinkfinderTool(BaseTool):
     """linkfinder wrapper"""
 
     def __init__(self, config):
-        self.config = config
-        self.logger = get_logger(config)
+        super().__init__(config)
         self.tool_name = "linkfinder"
         self.is_available = find_spec("linkfinder") is not None
         if not self.is_available:

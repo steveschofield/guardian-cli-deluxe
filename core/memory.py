@@ -47,6 +47,7 @@ class ToolExecution:
     output: str
     duration: float
     findings_count: int = 0
+    success: bool = True  # Whether tool execution was successful per tool-specific exit code rules
 
 
 class PentestMemory:

@@ -84,6 +84,19 @@ class AnalystAgent(BaseAgent):
         if tool == "nuclei":
             output = self._condense_nuclei_jsonl(output)
 
+        # Special handling for ZAP: smart filter alerts before AI analysis
+        if tool == "zap":
+            try:
+                parsed = json.loads(output) if output else {}
+                if parsed.get("alerts"):
+                    original_count = len(parsed["alerts"])
+                    parsed["alerts"] = self._smart_filter_zap_alerts(parsed["alerts"])
+                    filtered_count = len(parsed["alerts"])
+                    self.logger.info(f"ZAP smart filter: {original_count} → {filtered_count} alerts")
+                    output = json.dumps(parsed, indent=2)
+            except Exception as e:
+                self.logger.warning(f"Failed to smart filter ZAP alerts: {e}")
+
         # Truncate very long outputs (configurable)
         ai_cfg = (self.config or {}).get("ai", {}) or {}
         max_chars = ai_cfg.get("max_tool_output_chars", 20000)
@@ -338,6 +351,104 @@ class AnalystAgent(BaseAgent):
             findings.append(finding)
 
         return findings
+
+    def _smart_filter_zap_alerts(self, alerts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Intelligently filter ZAP alerts to focus on high-value findings.
+
+        Filtering criteria:
+        - High/Medium confidence alerts
+        - Medium+ risk levels
+        - Exclude common false positives (cache headers, info disclosure on static assets)
+        - Prioritize alerts with CWE mappings
+        - Prioritize alerts with evidence
+
+        Returns filtered list maintaining diversity across vulnerability types.
+        """
+        if not alerts:
+            return []
+
+        scored_alerts = []
+
+        for alert in alerts:
+            score = 0
+            risk = alert.get("risk", "").lower()
+            confidence = alert.get("confidence", "").lower()
+            cweid = alert.get("cweid", "")
+            evidence = alert.get("evidence", "")
+            name = alert.get("name", "").lower()
+
+            # Risk level scoring
+            if risk == "high":
+                score += 50
+            elif risk == "medium":
+                score += 30
+            elif risk == "low":
+                score += 10
+            else:  # informational
+                score += 2
+
+            # Confidence scoring
+            if confidence == "high":
+                score += 20
+            elif confidence == "medium":
+                score += 10
+
+            # Has CWE mapping (more standardized)
+            if cweid:
+                score += 15
+
+            # Has evidence
+            if evidence and len(evidence.strip()) > 5:
+                score += 10
+
+            # Penalize common false positives
+            if any(fp in name for fp in [
+                "cache-control",
+                "x-content-type-options",
+                "x-frame-options",
+                "content-security-policy"
+            ]) and risk == "informational":
+                score -= 20
+
+            # Boost critical vulnerability types
+            if any(vuln in name for vuln in [
+                "sql injection",
+                "xss",
+                "command injection",
+                "path traversal",
+                "authentication",
+                "csrf",
+                "xxe"
+            ]):
+                score += 25
+
+            scored_alerts.append((score, alert))
+
+        # Sort by score descending
+        scored_alerts.sort(key=lambda x: x[0], reverse=True)
+
+        # Take top N diverse findings (max 50)
+        max_findings = 50
+        selected = []
+        seen_types = set()
+
+        for score, alert in scored_alerts:
+            if score <= 0:  # Skip negatively scored items
+                continue
+
+            alert_type = alert.get("name", "unknown")
+
+            # Take first instance of each type, then continue adding high scores
+            if alert_type not in seen_types or len(selected) < 20:
+                selected.append(alert)
+                seen_types.add(alert_type)
+
+            if len(selected) >= max_findings:
+                break
+
+        self.logger.info(f"Smart filter: {len(alerts)} ZAP alerts → {len(selected)} selected")
+        return selected
 
     def _condense_nuclei_jsonl(self, text: str) -> str:
         """

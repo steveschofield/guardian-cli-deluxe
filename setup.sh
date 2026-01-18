@@ -441,6 +441,10 @@ install_graphql_cop() {
     safe_git_clone "https://github.com/dolevf/graphql-cop.git" "${TOOLS_DIR}/graphql-cop"
     # Skip requirements.txt - safeurl has ancient requests pin
     # graphql-cop works without safeurl
+    # Install simplejson separately (graphql-cop dependency)
+    if command -v pip &>/dev/null; then
+        pip install simplejson
+    fi
     [[ -f "${TOOLS_DIR}/graphql-cop/graphql-cop.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/graphql-cop/graphql-cop.py" "graphql-cop"
 }
 

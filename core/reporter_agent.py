@@ -7,6 +7,7 @@ from typing import Dict, Any, List
 from pathlib import Path
 from datetime import datetime
 import shlex
+import json
 from core.agent import BaseAgent
 from ai.prompt_templates import (
     REPORTER_SYSTEM_PROMPT,
@@ -46,14 +47,16 @@ class ReporterAgent(BaseAgent):
         technical_findings = await self.generate_technical_findings()
         remediation = await self.generate_remediation_plan()
         ai_trace = await self.generate_ai_trace()
-        
+        zap_summary = await self.generate_zap_summary()
+
         # Assemble report
         if format == "markdown":
-            report_content = self._assemble_markdown_report(
+            report_content = await self._assemble_markdown_report(
                 executive_summary,
                 technical_findings,
                 remediation,
-                ai_trace
+                ai_trace,
+                zap_summary
             )
         elif format == "html":
             report_content = self._assemble_html_report(
@@ -153,19 +156,100 @@ class ReporterAgent(BaseAgent):
         
         result = await self.think(prompt, REPORTER_SYSTEM_PROMPT)
         return result["response"]
-    
-    def _assemble_markdown_report(
+
+    async def generate_zap_summary(self) -> str:
+        """
+        Generate ZAP findings summary section with links to detailed reports.
+        Returns empty string if no ZAP findings exist.
+        """
+        # Check if ZAP was executed
+        zap_executions = [
+            exec for exec in self.memory.tool_executions
+            if exec.tool == "zap"
+        ]
+
+        if not zap_executions:
+            return ""
+
+        # Find ZAP report files
+        session_id = self.memory.session_id
+        output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
+        zap_dir = output_dir / session_id / "zap"
+
+        if not zap_dir.exists():
+            return ""
+
+        # Load ZAP JSON to get alert counts
+        zap_json_files = list(zap_dir.glob("zap_*.json"))
+        if not zap_json_files:
+            return ""
+
+        zap_json = zap_json_files[0]  # Use most recent
+        try:
+            with open(zap_json) as f:
+                zap_data = json.load(f)
+            alerts = zap_data.get("alerts", [])
+
+            # Count by severity
+            severity_counts = {}
+            for alert in alerts:
+                risk = alert.get("risk", "Unknown")
+                severity_counts[risk] = severity_counts.get(risk, 0) + 1
+
+            # Build summary text
+            summary_parts = [
+                "## ZAP Scan Summary",
+                "",
+                f"OWASP ZAP identified **{len(alerts)} potential security issues** across the target application.",
+                "",
+                "### Severity Breakdown",
+                "",
+                "| Severity | Count |",
+                "|----------|-------|",
+            ]
+
+            for severity in ["High", "Medium", "Low", "Informational"]:
+                count = severity_counts.get(severity, 0)
+                if count > 0:
+                    summary_parts.append(f"| {severity} | {count} |")
+
+            summary_parts.extend([
+                "",
+                "### Detailed Reports",
+                "",
+                f"Full ZAP scan results are available in the following files:",
+                "",
+                f"- **JSON Report**: `zap/{zap_json.name}`",
+                f"- **HTML Report**: `zap/{zap_json.stem}.html`",
+                f"- **Markdown Report**: `zap/{zap_json.stem}.md`",
+                "",
+                "The findings below include a curated selection of the most critical ZAP discoveries, "
+                "filtered by confidence and exploitability.",
+                ""
+            ])
+
+            return "\n".join(summary_parts)
+
+        except Exception as e:
+            self.logger.warning(f"Failed to load ZAP summary: {e}")
+            return ""
+
+    async def _assemble_markdown_report(
         self,
         exec_summary: str,
         technical: str,
         remediation: str,
-        ai_trace: str
+        ai_trace: str,
+        zap_summary: str = ""
     ) -> str:
         """Assemble Markdown report"""
         findings = self._get_report_findings()
         summary = self._summarize_findings(findings)
         evidence_section = self._format_evidence_markdown()
-        
+
+        # Build ZAP section if present
+        zap_section = f"\n\n{zap_summary}\n" if zap_summary else ""
+
         report = f"""# Penetration Test Report
 
 ## Target Information
@@ -188,7 +272,7 @@ class ReporterAgent(BaseAgent):
 | Low      | {summary['low']} |
 | Info     | {summary['info']} |
 | **Total** | **{len(findings)}** |
-
+{zap_section}
 ## Technical Findings
 
 {technical}
@@ -420,7 +504,7 @@ Evidence: {f.evidence[:200]}
             output_lower = (execution.output or "").lower()
             if "skipped:" in output_lower:
                 entry["skipped"] += 1
-            elif execution.exit_code == 0:
+            elif execution.success:  # Use tool-specific success determination
                 entry["success"] += 1
             else:
                 entry["failed"] += 1

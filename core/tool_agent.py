@@ -356,37 +356,43 @@ class ToolAgent(BaseAgent):
             # Record execution in memory (even on non-zero exit for audit/debug)
             from core.memory import ToolExecution
             raw_output = self._truncate_output(result.get("raw_output", "") or "")
+
+            # Check if tool execution was successful using tool-specific exit code rules
+            exit_code = result["exit_code"]
+            is_success = tool.is_success_exit_code(exit_code)
+
             execution = ToolExecution(
                 tool=tool_name,
                 command=result["command"],
                 target=target,
                 timestamp=result.get("timestamp", ""),
-                exit_code=result["exit_code"],
+                exit_code=exit_code,
                 output=raw_output,
-                duration=result["duration"]
+                duration=result["duration"],
+                success=is_success
             )
             self.memory.add_tool_execution(execution)
 
-            # Handle non-zero exit codes
-            if result.get("exit_code", 0) != 0:
-                error_msg = result.get("error") or "Tool exited with non-zero status"
+            # Handle failed execution (based on tool-specific rules, not just non-zero exit)
+            if not is_success:
+                error_msg = result.get("error") or f"Tool exited with exit code {exit_code}"
                 return {
                     "success": False,
                     "tool": tool_name,
                     "parsed": result["parsed"],
                     "raw_output": raw_output,
                     "duration": result["duration"],
-                    "exit_code": result["exit_code"],
+                    "exit_code": exit_code,
                     "error": error_msg,
                 }
-            
+
             return {
                 "success": True,
                 "tool": tool_name,
                 "parsed": result["parsed"],
                 "raw_output": raw_output,
                 "duration": result["duration"],
-                "exit_code": result["exit_code"],
+                "exit_code": exit_code,
             }
             
         except asyncio.TimeoutError:
