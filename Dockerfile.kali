@@ -1,171 +1,353 @@
-# Kali Linux + Guardian CLI (with XFCE + XRDP)
-#
-# Notes:
-# - This image is intentionally large (Kali desktop + meta tool bundles).
-# - Default CMD starts XRDP for remote desktop access.
-# - Guardian runs inside the container; reports/logs should be volume-mounted.
-# - Fixed for proper XFCE desktop rendering and start menu functionality
-#
-# Build:
-#   docker build -f Dockerfile.kali -t guardian-kali:latest .
-#
-# Run (RDP on 3390):
-#   docker run --rm -it -p 3390:3390 guardian-kali:latest
-#
-# Connect via RDP:
-#   - Host: localhost:3390
-#   - Username: kali
-#   - Password: kali
+# Guardian CLI Deluxe - Kali Linux Docker Image
+# Full automated build with all pentesting tools and Guardian dependencies
+# Version: 2.0 - Production Ready
 
-FROM kalilinux/kali-rolling
+# Use official Kali Linux Rolling as base
+FROM kalilinux/kali-rolling:latest
 
+# Metadata
+LABEL maintainer="steve@steveschofield.com"
+LABEL description="Guardian CLI Deluxe - AI-Powered Penetration Testing Framework on Kali Linux"
+LABEL version="2.0"
+
+# Prevent interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
-SHELL ["/bin/bash", "-lc"]
+ENV TZ=UTC
 
-ARG KALI_USER=kali
-ARG KALI_PASSWORD=kali
-ARG RDP_PORT=3390
+# Set working directory
+WORKDIR /guardian
 
-# Base packages + Kali tool bundles + Guardian deps
+# ============================================================================
+# STAGE 1: System Update and Base Packages
+# ============================================================================
+
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    # Core utilities
+    apt-utils \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    vim \
+    nano \
+    unzip \
+    zip \
+    tar \
+    gzip \
+    bzip2 \
+    xz-utils \
+    # Build tools
+    build-essential \
+    gcc \
+    g++ \
+    make \
+    cmake \
+    # Network tools
+    netcat-openbsd \
+    net-tools \
+    iputils-ping \
+    dnsutils \
+    traceroute \
+    whois \
+    # Process and system tools
+    procps \
+    htop \
+    tmux \
+    screen \
+    sudo \
+    # Python and pip
+    python3 \
+    python3-pip \
+    python3-dev \
+    python3-venv \
+    python3-setuptools \
+    python3-wheel \
+    # Additional dependencies
+    libssl-dev \
+    libffi-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
+    libjpeg-dev \
+    libpq-dev && \
+    # Clean up
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# ============================================================================
+# STAGE 2: Kali Linux Pentesting Tools
+# ============================================================================
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl git \
-    bash-completion \
-    python3 python3-venv python3-pip \
-    build-essential pkg-config \
-    libpcap-dev \
-    ruby ruby-dev \
-    nodejs npm \
-    golang-go \
-    # Desktop + RDP components
-    kali-desktop-xfce \
-    xrdp \
-    xorgxrdp \
-    dbus-x11 \
-    xfce4-terminal \
-    xfce4-goodies \
-    # Kali meta-packages (broad tool coverage)
-    kali-tools-vulnerability \
-    kali-tools-web \
-    kali-tools-database \
-    kali-tools-passwords \
-    kali-tools-wireless \
-    kali-tools-reverse-engineering \
-    kali-tools-exploitation \
-    kali-tools-sniffing-spoofing \
-    kali-tools-post-exploitation \
-    iputils-ping iputils-tracepath iputils-arping traceroute \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    # Reconnaissance
+    nmap \
+    masscan \
+    rustscan \
+    netdiscover \
+    arp-scan \
+    dmitry \
+    theharvester \
+    sublist3r \
+    amass \
+    dnsenum \
+    dnsrecon \
+    fierce \
+    # Web scanners
+    nikto \
+    whatweb \
+    wpscan \
+    dirb \
+    dirbuster \
+    gobuster \
+    wfuzz \
+    ffuf \
+    # SMB/NetBIOS enumeration
+    enum4linux \
+    enum4linux-ng \
+    smbclient \
+    smbmap \
+    nbtscan \
+    rpcclient \
+    samba-common-bin \
+    # LDAP enumeration
+    ldap-utils \
+    # SNMP enumeration  
+    snmp \
+    snmpwalk \
+    onesixtyone \
+    # FTP/SSH/Telnet
+    ftp \
+    ssh \
+    telnet \
+    hydra \
+    medusa \
+    # SQL tools
+    sqlmap \
+    # Vulnerability scanners
+    nuclei \
+    # Exploitation frameworks
+    metasploit-framework \
+    # Network analysis
+    wireshark \
+    tshark \
+    tcpdump \
+    # SSL/TLS testing
+    sslscan \
+    sslyze \
+    testssl.sh \
+    # HTTP tools
+    curl \
+    wget \
+    httpie \
+    # Wordlists
+    wordlists \
+    # Other useful tools
+    john \
+    hashcat \
+    aircrack-ng \
+    crackmapexec \
+    impacket-scripts \
+    responder \
+    && \
+    # Clean up
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# XRDP runtime dirs (containers don't always have them)
-RUN mkdir -p /run/xrdp /var/run/xrdp /run/dbus && \
-    chown -R xrdp:xrdp /run/xrdp /var/run/xrdp || true
+# ============================================================================
+# STAGE 3: Additional Security Tools (via pip and other sources)
+# ============================================================================
 
-# XRDP: listen on non-default port to avoid conflicts
-RUN sed -i "s/^port=3389$/port=${RDP_PORT}/g" /etc/xrdp/xrdp.ini
+# Upgrade pip first
+RUN python3 -m pip install --upgrade pip setuptools wheel
 
-# Create a user for RDP access
-RUN useradd -m -s /bin/bash "${KALI_USER}" && \
-    echo "${KALI_USER}:${KALI_PASSWORD}" | chpasswd && \
-    usermod -aG sudo "${KALI_USER}"
+# Install Python security tools
+RUN pip install --no-cache-dir \
+    # Core Guardian dependencies
+    anthropic \
+    langchain \
+    langchain-community \
+    langchain-anthropic \
+    # AI/LLM dependencies
+    openai \
+    google-generativeai \
+    # HTTP and API tools
+    requests \
+    httpx \
+    aiohttp \
+    # Data processing
+    pyyaml \
+    python-dotenv \
+    click \
+    rich \
+    colorama \
+    # Security tools
+    impacket \
+    crackmapexec \
+    bloodhound \
+    ldap3 \
+    pysmb \
+    pycryptodome \
+    # Network tools
+    scapy \
+    python-nmap \
+    # Web testing
+    beautifulsoup4 \
+    lxml \
+    selenium \
+    playwright \
+    # Reporting
+    jinja2 \
+    markdown \
+    reportlab \
+    # Additional utilities
+    paramiko \
+    fabric \
+    netmiko
 
-# Configure XRDP startwm.sh to properly launch XFCE
-RUN printf '%s\n' \
-    '#!/bin/sh' \
-    '' \
-    '# Load system profile' \
-    'if [ -r /etc/profile ]; then' \
-    '    . /etc/profile' \
-    'fi' \
-    '' \
-    '# Load user profile' \
-    'if [ -r "$HOME/.profile" ]; then' \
-    '    . "$HOME/.profile" >/dev/null 2>&1' \
-    'fi' \
-    '' \
-    '# Start XFCE with dbus session for panel/menu functionality' \
-    'exec dbus-launch --exit-with-session startxfce4' \
-    > /etc/xrdp/startwm.sh && \
-    chmod +x /etc/xrdp/startwm.sh
+# ============================================================================
+# STAGE 4: Install Additional Tools from GitHub
+# ============================================================================
 
-# Create proper XFCE session files for the user
-RUN mkdir -p "/home/${KALI_USER}/.config/xfce4" && \
-    echo "startxfce4" > "/home/${KALI_USER}/.xsession" && \
-    chmod +x "/home/${KALI_USER}/.xsession" && \
-    echo "#!/bin/sh" > "/home/${KALI_USER}/.xinitrc" && \
-    echo "exec startxfce4" >> "/home/${KALI_USER}/.xinitrc" && \
-    chmod +x "/home/${KALI_USER}/.xinitrc" && \
-    chown -R "${KALI_USER}:${KALI_USER}" "/home/${KALI_USER}/.config" "/home/${KALI_USER}/.xsession" "/home/${KALI_USER}/.xinitrc"
+# Create tools directory
+RUN mkdir -p /opt/tools
 
-# Configure xrdp-sesman to use the correct session
-RUN mkdir -p /etc/xrdp && \
-    echo "[Xorg]" > /etc/xrdp/sesman.ini.tmp && \
-    echo "param=xfce4-session" >> /etc/xrdp/sesman.ini.tmp && \
-    cat /etc/xrdp/sesman.ini.tmp >> /etc/xrdp/sesman.ini || true && \
-    rm -f /etc/xrdp/sesman.ini.tmp
+# Install dalfox (XSS scanner)
+RUN wget -q https://github.com/hahwul/dalfox/releases/download/v2.9.2/dalfox_2.9.2_linux_amd64.tar.gz && \
+    tar -xzf dalfox_2.9.2_linux_amd64.tar.gz && \
+    mv dalfox /usr/local/bin/ && \
+    chmod +x /usr/local/bin/dalfox && \
+    rm dalfox_2.9.2_linux_amd64.tar.gz
 
-# Create SSL certificate for xrdp (prevents connection warnings)
-RUN cd /etc/xrdp && \
-    if [ ! -f key.pem ]; then \
-        openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 365 \
-        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost" 2>/dev/null || true; \
+# Install commix (command injection)
+RUN git clone --depth 1 https://github.com/commixproject/commix.git /opt/tools/commix && \
+    ln -s /opt/tools/commix/commix.py /usr/local/bin/commix && \
+    chmod +x /usr/local/bin/commix
+
+# Install xsstrike
+RUN git clone --depth 1 https://github.com/s0md3v/XSStrike.git /opt/tools/xsstrike && \
+    pip install --no-cache-dir -r /opt/tools/xsstrike/requirements.txt
+
+# Install sublist3r (if not already installed via apt)
+RUN git clone --depth 1 https://github.com/aboul3la/Sublist3r.git /opt/tools/Sublist3r && \
+    pip install --no-cache-dir -r /opt/tools/Sublist3r/requirements.txt
+
+# ============================================================================
+# STAGE 5: Setup Guardian CLI Deluxe
+# ============================================================================
+
+# Copy Guardian CLI Deluxe files
+COPY . /guardian/
+
+# Install Guardian Python dependencies
+RUN if [ -f requirements.txt ]; then \
+        pip install --no-cache-dir -r requirements.txt; \
     fi
 
-# Install Guardian into a virtualenv (editable install)
-WORKDIR /opt/guardian
+# Install Guardian Python package (if setup.py exists)
+RUN if [ -f setup.py ]; then \
+        pip install --no-cache-dir -e .; \
+    fi
 
-# Copy all root files and directories
-# .dockerignore will exclude unwanted files like .git, __pycache__, etc.
-COPY . .
+# Make scripts executable
+RUN find /guardian -name "*.sh" -type f -exec chmod +x {} \; && \
+    find /guardian -name "*.py" -type f -exec chmod +x {} \;
 
-WORKDIR /opt/guardian
+# Create necessary directories
+RUN mkdir -p /guardian/reports && \
+    mkdir -p /guardian/logs && \
+    mkdir -p /guardian/data && \
+    mkdir -p /guardian/config && \
+    mkdir -p /guardian/workflows && \
+    mkdir -p /guardian/tools && \
+    mkdir -p /root/.guardian
 
-RUN python3 -m venv /opt/guardian/venv && \
-    /opt/guardian/venv/bin/pip install -U pip setuptools wheel && \
-    /opt/guardian/venv/bin/pip install -e . && \
-    mkdir -p /opt/guardian/reports /opt/guardian/logs && \
-    chmod 777 /opt/guardian/reports /opt/guardian/logs
+# ============================================================================
+# STAGE 6: Configuration and Environment Setup
+# ============================================================================
 
-ENV PATH="/opt/guardian/tools/.bin:/opt/guardian/venv/bin:${PATH}" \
-    GUARDIAN_HOME=/opt/guardian
+# Set up environment variables
+ENV PATH="/guardian:/guardian/tools:/opt/tools:${PATH}"
+ENV PYTHONPATH="/guardian:${PYTHONPATH}"
+ENV GUARDIAN_HOME="/guardian"
+ENV GUARDIAN_CONFIG="/guardian/config/guardian.yaml"
 
-# Expose the RDP port
-EXPOSE ${RDP_PORT}
+# Create guardian user (optional, for non-root operation)
+RUN useradd -m -s /bin/bash guardian && \
+    usermod -aG sudo guardian && \
+    echo "guardian ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Health check to verify xrdp is running
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD pgrep xrdp > /dev/null || exit 1
-RUN chown -R kali:kali /opt/guardian
-RUN apt-get update && apt-get install -y sudo && \
-    echo "kali ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/kali && \
-    chmod 0440 /etc/sudoers.d/kali && \
-    rm -rf /var/lib/apt/lists/*
-USER kali
-RUN set -o pipefail; \
-    VIRTUAL_ENV=/opt/guardian/venv PATH="/opt/guardian/venv/bin:${PATH}" \
-    ./setup.sh 2>&1 | tee /opt/guardian/setup.log
-USER root
-# Create an entrypoint script for proper service startup
-RUN printf '%s\n' \
-    '#!/bin/bash' \
-    'set -e' \
-    '' \
-    'echo "Starting D-Bus..."' \
-    'mkdir -p /run/dbus' \
-    'service dbus start || /usr/bin/dbus-daemon --system --fork || true' \
-    '' \
-    'echo "Starting XRDP session manager..."' \
-    'service xrdp-sesman start || /usr/sbin/xrdp-sesman' \
-    '' \
-    'echo "Starting XRDP..."' \
-    'service xrdp start || /usr/sbin/xrdp' \
-    '' \
-    'echo "XRDP started successfully on port 3390"' \
-    'echo "Connect with: RDP client -> localhost:3390 (user: kali, pass: kali)"' \
-    '' \
-    '# Keep container running and tail logs' \
-    'tail -f /var/log/xrdp.log /var/log/xrdp-sesman.log 2>/dev/null' \
-    > /entrypoint.sh && \
+# Set permissions
+RUN chown -R guardian:guardian /guardian && \
+    chmod -R 755 /guardian
+
+# ============================================================================
+# STAGE 7: Verification and Testing
+# ============================================================================
+
+# Verify critical tools are installed
+RUN echo "=== Verifying Tool Installation ===" && \
+    which nmap && nmap --version && \
+    which enum4linux && echo "enum4linux: OK" && \
+    which enum4linux-ng && echo "enum4linux-ng: OK" && \
+    which sqlmap && echo "sqlmap: OK" && \
+    which nikto && echo "nikto: OK" && \
+    which nuclei && nuclei -version && \
+    which python3 && python3 --version && \
+    which pip && pip --version && \
+    echo "=== All Critical Tools Verified ==="
+
+# Verify Python packages
+RUN python3 -c "import anthropic; print('anthropic: OK')" && \
+    python3 -c "import langchain; print('langchain: OK')" && \
+    python3 -c "import yaml; print('pyyaml: OK')" && \
+    python3 -c "import requests; print('requests: OK')" && \
+    echo "=== All Python Packages Verified ==="
+
+# ============================================================================
+# STAGE 8: Entrypoint and Startup
+# ============================================================================
+
+# Create entrypoint script
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo 'set -e' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo '# Display welcome banner' >> /entrypoint.sh && \
+    echo 'cat << "EOF"' >> /entrypoint.sh && \
+    echo '╔══════════════════════════════════════════════════════════╗' >> /entrypoint.sh && \
+    echo '║     Guardian CLI Deluxe - Kali Linux Container          ║' >> /entrypoint.sh && \
+    echo '║     AI-Powered Penetration Testing Framework            ║' >> /entrypoint.sh && \
+    echo '╚══════════════════════════════════════════════════════════╝' >> /entrypoint.sh && \
+    echo 'EOF' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo 'echo "Container started at $(date)"' >> /entrypoint.sh && \
+    echo 'echo "Working directory: $(pwd)"' >> /entrypoint.sh && \
+    echo 'echo ""' >> /entrypoint.sh && \
+    echo 'echo "Quick Start:"' >> /entrypoint.sh && \
+    echo 'echo "  python -m cli.main --help"' >> /entrypoint.sh && \
+    echo 'echo "  python -m cli.main workflow list"' >> /entrypoint.sh && \
+    echo 'echo ""' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo '# Execute command or start bash' >> /entrypoint.sh && \
+    echo 'if [ $# -eq 0 ]; then' >> /entrypoint.sh && \
+    echo '    exec /bin/bash' >> /entrypoint.sh && \
+    echo 'else' >> /entrypoint.sh && \
+    echo '    exec "$@"' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
     chmod +x /entrypoint.sh
 
-# Use the entrypoint script
-CMD ["/entrypoint.sh"]
+# Set entrypoint
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Default command
+CMD ["/bin/bash"]
+
+# Expose common ports (optional, for services)
+EXPOSE 8080 8443 4444 5555
+
+# Health check (optional)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python3 -c "import sys; sys.exit(0)" || exit 1
+
+# Final message
+RUN echo "=== Guardian CLI Deluxe Kali Docker Image Built Successfully ==="

@@ -1,50 +1,80 @@
+version: '3.8'
+
 services:
-  guardian:
+  guardian-kali:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: guardian-cli:latest
-    container_name: guardian-pentest
+      dockerfile: Dockerfile.kali
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: guardian-cli-deluxe:kali-latest
+    container_name: guardian-kali
+    hostname: guardian-kali
     
-    # Environment variables (use .env file)
-    env_file:
-      - .env
+    # Security settings
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
     
-    # Volume mounts for persistence
-    volumes:
-      # Reports directory (persistent output)
-      - ./reports:/guardian/reports
-      
-      # Logs directory
-      - ./logs:/guardian/logs
-      
-      # Custom configuration (optional)
-      - ./config:/guardian/config
-      
-      # Custom workflows (optional)
-      - ./workflows:/guardian/workflows
-    
-    # Network configuration
+    # Network mode
     network_mode: bridge
     
-    # Resource limits (optional - adjust based on your needs)
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: '2'
-    #       memory: 4G
-    #     reservations:
-    #       cpus: '1'
-    #       memory: 2G
+    # Environment variables
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GUARDIAN_HOME=/guardian
+      - PYTHONUNBUFFERED=1
+      - TZ=UTC
     
-    # Restart policy
-    restart: "no"
+    # Volume mounts
+    volumes:
+      # Mount current directory for development
+      - ./:/guardian
+      # Persist reports
+      - guardian-reports:/guardian/reports
+      # Persist logs
+      - guardian-logs:/guardian/logs
+      # Persist data
+      - guardian-data:/guardian/data
+      # Optional: Mount custom config
+      - ./config:/guardian/config
+      # Optional: Mount custom workflows
+      - ./workflows:/guardian/workflows
     
-    # Interactive mode
+    # Working directory
+    working_dir: /guardian
+    
+    # Keep container running
     stdin_open: true
     tty: true
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
 
-# Optional: Named volumes for better management
-# volumes:
-#   guardian_reports:
-#   guardian_logs:
+# Named volumes
+volumes:
+  guardian-reports:
+    name: guardian-reports
+  guardian-logs:
+    name: guardian-logs
+  guardian-data:
+    name: guardian-data
+
+networks:
+  default:
+    name: guardian-network

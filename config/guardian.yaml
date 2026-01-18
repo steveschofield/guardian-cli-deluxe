@@ -219,12 +219,94 @@ tools:
     ports: "22,53,80,135,139,443,445,3389"
     rate: 10000
 
-  enum4linux:
-    enabled: true
-    args: "-a"
+  #enum4linux:
+  #  enabled: true
+  #  args: "-a"
     # Null session defaults (avoid interactive password prompts; works only if anonymous is allowed)
-    username:
-    password:
+  #  username:
+  #  password:
+  
+  enum4linux:
+    name: "enum4linux"
+    description: "SMB/NetBIOS enumeration tool"
+    command: "enum4linux"
+    
+    # NULL SESSION CONFIGURATION
+    # For null session testing, DO NOT include -u or -p flags
+    # The tool will automatically attempt null session authentication
+    
+    default_args: "-a"  # All simple enumeration
+    
+    # Null session mode (default)
+    null_session:
+      enabled: true
+      args: "-a {target}"
+      description: "Perform enumeration with null session (no credentials)"
+    
+    # Authenticated session mode (optional, use only when credentials are provided)
+    authenticated_session:
+      enabled: false
+      args: "-u {username} -p {password} -a {target}"
+      description: "Perform enumeration with provided credentials"
+    
+    # Additional enumeration options
+    options:
+      shares: "-S"              # Enumerate shares
+      users: "-U"               # Enumerate users  
+      groups: "-G"              # Enumerate groups
+      password_policy: "-P"     # Get password policy
+      os_info: "-o"            # Get OS information
+      printer_info: "-i"        # Get printer information
+      all: "-a"                 # All simple enumeration
+      verbose: "-v"             # Verbose output
+    
+    # Timeout settings
+    timeout: 300  # 5 minutes
+    
+    # Output format
+    output:
+      format: "text"
+      save_to_file: true
+      
+  enum4linux-ng:
+    name: "enum4linux-ng"
+    description: "Next generation SMB/NetBIOS enumeration tool"
+    command: "enum4linux-ng.py"
+    
+    # NULL SESSION CONFIGURATION for enum4linux-ng
+    # Same principle: no -u or -p flags for null session
+    
+    default_args: "-A"  # All enumeration
+    
+    # Null session mode (default)
+    null_session:
+      enabled: true
+      args: "-A {target}"
+      description: "Perform enumeration with null session (no credentials)"
+    
+    # Authenticated session mode (optional)
+    authenticated_session:
+      enabled: false
+      args: "-u {username} -p {password} -A {target}"
+      description: "Perform enumeration with provided credentials"
+    
+    # Additional options
+    options:
+      all: "-A"                    # All enumeration
+      shares: "-S"                 # Enumerate shares
+      users: "-U"                  # Enumerate users
+      groups: "-G"                 # Enumerate groups
+      json_output: "-oJ {filepath}"  # JSON output
+      yaml_output: "-oY {filepath}"  # YAML output
+      verbose: "-v"                # Verbose output
+      
+    # Timeout settings
+    timeout: 300  # 5 minutes
+    
+    # Output format
+    output:
+      format: "yaml"
+      save_to_file: true
 
   smbclient:
     enabled: true

@@ -1,0 +1,11 @@
+/home/kali/code/guardian-cli-deluxe/venv/bin/nmap -sV -sC -T4 -oX - 192.168.1.244
+PTR 192.168.1.244
+/home/kali/code/guardian-cli-deluxe/venv/bin/nmap -sV -sC -T4 -oX - -p 21,22,23,25,53,80,111,445,512,513,514,1524,2049,3306,5432,5900,6000 192.168.1.244
+/home/kali/code/guardian-cli-deluxe/venv/bin/nmap -sn --traceroute -T4 -oX - 192.168.1.244
+/home/kali/code/guardian-cli-deluxe/venv/bin/enum4linux -a 192.168.1.244
+/home/kali/code/guardian-cli-deluxe/venv/bin/smbclient -L //192.168.1.244 -N
+/home/kali/code/guardian-cli-deluxe/venv/bin/showmount -e 192.168.1.244
+/home/kali/code/guardian-cli-deluxe/venv/bin/onesixtyone -q 192.168.1.244 public
+/home/kali/code/guardian-cli-deluxe/venv/bin/snmpwalk -v 2c -c public 192.168.1.244
+/home/kali/code/guardian-cli-deluxe/venv/bin/nmap -sV --script vuln -T4 -oX - -p 21,22,23,25,53,80,111,445,512,513,514,1524,2049,3306,5432,5900,6000,21,22,23,25,53,80,111,512,513,514,2049,5432,5900 192.168.1.244
+/home/kali/code/guardian-cli-deluxe/venv/bin/testssl --jsonfile=/tmp/guardian-testssl-tat2zq2x/testssl.json --severity HIGH --fast --quiet --ip one 192.168.1.244
