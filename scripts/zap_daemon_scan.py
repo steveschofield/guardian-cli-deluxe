@@ -75,6 +75,137 @@ def _parse_seed_urls(seed_urls: str, seed_file: str) -> list[str]:
     return urls
 
 
+def _generate_html_report(data: Dict[str, Any]) -> str:
+    """Generate a simple HTML report from ZAP scan data."""
+    alerts = data.get("alerts", [])
+    target = data.get("target", "")
+    zap_info = data.get("zap", {})
+    warnings = data.get("warnings", [])
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>ZAP Scan Report - {target}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        h1 {{ color: #333; }}
+        h2 {{ color: #666; margin-top: 30px; }}
+        .alert {{ border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }}
+        .alert-high {{ border-left: 5px solid #d9534f; }}
+        .alert-medium {{ border-left: 5px solid #f0ad4e; }}
+        .alert-low {{ border-left: 5px solid #5bc0de; }}
+        .alert-info {{ border-left: 5px solid #5cb85c; }}
+        .meta {{ color: #777; font-size: 0.9em; }}
+        .warning {{ background: #fff3cd; padding: 10px; border-left: 3px solid #ffc107; margin: 10px 0; }}
+    </style>
+</head>
+<body>
+    <h1>OWASP ZAP Scan Report</h1>
+    <div class="meta">
+        <p><strong>Target:</strong> {target}</p>
+        <p><strong>ZAP Version:</strong> {zap_info.get('version', 'unknown')}</p>
+        <p><strong>Mode:</strong> {data.get('mode', 'daemon')}</p>
+        <p><strong>Spider:</strong> {data.get('spider', False)}</p>
+        <p><strong>AJAX Spider:</strong> {data.get('ajax_spider', False)}</p>
+        <p><strong>Active Scan:</strong> {data.get('active', False)}</p>
+        <p><strong>Total Alerts:</strong> {len(alerts)}</p>
+    </div>
+"""
+
+    if warnings:
+        html += "    <h2>Warnings</h2>\n"
+        for warning in warnings:
+            html += f'    <div class="warning">{warning}</div>\n'
+
+    html += "    <h2>Alerts</h2>\n"
+
+    if not alerts:
+        html += "    <p>No alerts found.</p>\n"
+    else:
+        for alert in alerts:
+            risk = str(alert.get("risk") or alert.get("riskdesc", "")).lower()
+            alert_class = f"alert-{risk}" if risk in ["high", "medium", "low", "info"] else "alert"
+            name = alert.get("name") or alert.get("alert", "Unknown")
+            desc = alert.get("desc") or alert.get("description", "")
+            solution = alert.get("solution", "")
+            confidence = alert.get("confidence", "")
+            url = alert.get("url", "")
+            evidence = alert.get("evidence", "")
+
+            html += f'    <div class="alert {alert_class}">\n'
+            html += f'        <h3>{name}</h3>\n'
+            html += f'        <p><strong>Risk:</strong> {risk.upper()} | <strong>Confidence:</strong> {confidence}</p>\n'
+            if url:
+                html += f'        <p><strong>URL:</strong> {url}</p>\n'
+            if evidence:
+                html += f'        <p><strong>Evidence:</strong> <code>{evidence}</code></p>\n'
+            if desc:
+                html += f'        <p><strong>Description:</strong> {desc}</p>\n'
+            if solution:
+                html += f'        <p><strong>Solution:</strong> {solution}</p>\n'
+            html += '    </div>\n'
+
+    html += """</body>
+</html>
+"""
+    return html
+
+
+def _generate_md_report(data: Dict[str, Any]) -> str:
+    """Generate a Markdown report from ZAP scan data."""
+    alerts = data.get("alerts", [])
+    target = data.get("target", "")
+    zap_info = data.get("zap", {})
+    warnings = data.get("warnings", [])
+
+    md = f"""# OWASP ZAP Scan Report
+
+## Target Information
+- **Target**: {target}
+- **ZAP Version**: {zap_info.get('version', 'unknown')}
+- **Mode**: {data.get('mode', 'daemon')}
+- **Spider**: {data.get('spider', False)}
+- **AJAX Spider**: {data.get('ajax_spider', False)}
+- **Active Scan**: {data.get('active', False)}
+- **Total Alerts**: {len(alerts)}
+
+"""
+
+    if warnings:
+        md += "## Warnings\n\n"
+        for warning in warnings:
+            md += f"- {warning}\n"
+        md += "\n"
+
+    md += "## Alerts\n\n"
+
+    if not alerts:
+        md += "No alerts found.\n"
+    else:
+        for i, alert in enumerate(alerts, 1):
+            risk = str(alert.get("risk") or alert.get("riskdesc", "")).upper()
+            name = alert.get("name") or alert.get("alert", "Unknown")
+            desc = alert.get("desc") or alert.get("description", "")
+            solution = alert.get("solution", "")
+            confidence = alert.get("confidence", "")
+            url = alert.get("url", "")
+            evidence = alert.get("evidence", "")
+
+            md += f"### {i}. {name}\n\n"
+            md += f"**Risk**: {risk} | **Confidence**: {confidence}\n\n"
+            if url:
+                md += f"**URL**: `{url}`\n\n"
+            if evidence:
+                md += f"**Evidence**: `{evidence}`\n\n"
+            if desc:
+                md += f"**Description**: {desc}\n\n"
+            if solution:
+                md += f"**Solution**: {solution}\n\n"
+            md += "---\n\n"
+
+    return md
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--api-url", default="http://127.0.0.1:8080", help="ZAP daemon base URL")
@@ -99,6 +230,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--password-field", default="password", help="Password field name for login form")
     ap.add_argument("--logged-in-regex", default="", help="Regex indicating logged-in state")
     ap.add_argument("--logged-out-regex", default="", help="Regex indicating logged-out state")
+    ap.add_argument("--json-out", default="", help="Write JSON report to this path (optional)")
+    ap.add_argument("--html-out", default="", help="Write HTML report to this path (optional)")
+    ap.add_argument("--md-out", default="", help="Write Markdown report to this path (optional)")
     args = ap.parse_args(argv)
 
     api_base = args.api_url.rstrip("/")
@@ -380,6 +514,36 @@ def main(argv: Optional[list[str]] = None) -> int:
         "alerts": alerts,
         "count": len(alerts),
     }
+
+    # Write JSON report to file if requested
+    if args.json_out:
+        try:
+            json_path = Path(args.json_out)
+            json_path.parent.mkdir(parents=True, exist_ok=True)
+            json_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as e:
+            sys.stderr.write(f"Warning: Failed to write JSON report: {e}\n")
+
+    # Write HTML report if requested
+    if args.html_out:
+        try:
+            html_path = Path(args.html_out)
+            html_path.parent.mkdir(parents=True, exist_ok=True)
+            html_content = _generate_html_report(out)
+            html_path.write_text(html_content, encoding="utf-8")
+        except Exception as e:
+            sys.stderr.write(f"Warning: Failed to write HTML report: {e}\n")
+
+    # Write Markdown report if requested
+    if args.md_out:
+        try:
+            md_path = Path(args.md_out)
+            md_path.parent.mkdir(parents=True, exist_ok=True)
+            md_content = _generate_md_report(out)
+            md_path.write_text(md_content, encoding="utf-8")
+        except Exception as e:
+            sys.stderr.write(f"Warning: Failed to write Markdown report: {e}\n")
+
     sys.stdout.write(json.dumps(out, ensure_ascii=False))
     return 0
 

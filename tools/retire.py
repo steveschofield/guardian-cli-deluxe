@@ -31,6 +31,15 @@ class _ScriptTagParser(HTMLParser):
 class RetireTool(BaseTool):
     """Retire.js wrapper"""
 
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        Retire.js exit codes:
+        0 = No vulnerabilities found
+        13 = Vulnerabilities found (this is still success!)
+        Other non-zero = Actual failure
+        """
+        return exit_code in (0, 13)
+
     def get_command(self, target: str, **kwargs) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("retire", {}) or {}
         args = kwargs.get("args") if "args" in kwargs else cfg.get("args")

@@ -19,6 +19,15 @@ class KiterunnerTool(BaseTool):
         super().__init__(config)
         self.tool_name = "kiterunner"
 
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        Kiterunner exit codes:
+        0 = Success with results
+        2 = Success but no results found (not an error!)
+        Other = Actual failure
+        """
+        return exit_code in (0, 2)
+
     def _check_installation(self) -> bool:
         cfg = (self.config or {}).get("tools", {}).get("kiterunner", {}) or {}
         binary = cfg.get("binary")

@@ -40,6 +40,14 @@ class BaseTool(ABC):
         """Parse tool output into structured data"""
         pass
 
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        Check if the exit code should be considered success.
+        Tools can override this to handle non-zero success codes.
+        Default: only 0 is success.
+        """
+        return exit_code == 0
+
     def get_env(self, target: str, **kwargs) -> Optional[Dict[str, str]]:
         """Return a subprocess environment for this tool (or None to inherit current env)."""
         resolved = self._resolve_tool_path()
@@ -138,7 +146,8 @@ class BaseTool(ABC):
                 "parsed": parsed
             }
 
-            status = "completed" if process.returncode == 0 else "failed"
+            # Allow tools to define custom success exit codes
+            status = "completed" if self.is_success_exit_code(process.returncode) else "failed"
             return result
             
         except asyncio.TimeoutError:

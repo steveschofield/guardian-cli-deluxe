@@ -89,6 +89,9 @@ class ZapTool(BaseTool):
         out_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         har_name = f"zap_{scan}_{ts}.har"
+        json_name = f"zap_{scan}_{ts}.json"
+        html_name = f"zap_{scan}_{ts}.html"
+        md_name = f"zap_{scan}_{ts}.md"
 
         script = Path(__file__).resolve().parent.parent / "scripts" / "zap_daemon_scan.py"
         args = [
@@ -141,6 +144,10 @@ class ZapTool(BaseTool):
             args.extend(["--logged-out-regex", logged_out_regex])
         if export_har:
             args.extend(["--har-out", str(out_dir / har_name)])
+        # Always write report files to the zap directory
+        args.extend(["--json-out", str(out_dir / json_name)])
+        args.extend(["--html-out", str(out_dir / html_name)])
+        args.extend(["--md-out", str(out_dir / md_name)])
         return args
 
     def _build_docker_daemon_command(
@@ -180,6 +187,9 @@ class ZapTool(BaseTool):
         out_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         har_name = f"zap_{scan}_{ts}.har"
+        json_name = f"zap_{scan}_{ts}.json"
+        html_name = f"zap_{scan}_{ts}.html"
+        md_name = f"zap_{scan}_{ts}.md"
 
         script = Path(__file__).resolve().parent.parent / "scripts" / "zap_docker_daemon_scan.py"
         args = [
@@ -234,6 +244,10 @@ class ZapTool(BaseTool):
             args.extend(["--logged-out-regex", logged_out_regex])
         if export_har:
             args.extend(["--har-out", str(out_dir / har_name)])
+        # Always write report files to the zap directory
+        args.extend(["--json-out", str(out_dir / json_name)])
+        args.extend(["--html-out", str(out_dir / html_name)])
+        args.extend(["--md-out", str(out_dir / md_name)])
         return args
 
     def _build_docker_command(self, target: str, scan: str, timeout_min: int) -> List[str]:

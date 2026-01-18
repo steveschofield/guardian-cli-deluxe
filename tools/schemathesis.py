@@ -10,6 +10,16 @@ from tools.base_tool import BaseTool
 class SchemathesisTool(BaseTool):
     """schemathesis wrapper"""
 
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        Schemathesis exit codes:
+        0 = Success
+        1 = Tests failed or schema not found (could be expected if no API spec exists)
+        """
+        # Exit code 1 can mean "schema not found" which is not really a tool failure
+        # The framework should check if output contains schema errors
+        return exit_code == 0
+
     def get_command(self, target: str, **kwargs) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("schemathesis", {}) or {}
         schema = kwargs.get("schema") or kwargs.get("openapi")
@@ -35,6 +45,11 @@ class SchemathesisTool(BaseTool):
 
     def parse_output(self, output: str) -> Dict[str, Any]:
         summary = {"passed": 0, "failed": 0, "errors": 0, "raw_output": output}
+
+        # Check if schema wasn't found (common and expected scenario)
+        if "failed to load schema" in output.lower() or "404" in output or "not found" in output.lower():
+            summary["schema_not_found"] = True
+            summary["note"] = "OpenAPI schema not available at specified URL (expected if target doesn't expose API documentation)"
 
         passed = re.search(r"(?i)passed[:\s]+(\d+)", output)
         failed = re.search(r"(?i)failed[:\s]+(\d+)", output)

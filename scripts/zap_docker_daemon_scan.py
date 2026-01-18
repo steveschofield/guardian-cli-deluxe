@@ -55,6 +55,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--logged-in-regex", default="")
     ap.add_argument("--logged-out-regex", default="")
     ap.add_argument("--har-out", default="")
+    ap.add_argument("--json-out", default="")
+    ap.add_argument("--html-out", default="")
+    ap.add_argument("--md-out", default="")
     args = ap.parse_args(argv)
 
     api_url = args.api_url.rstrip("/")
@@ -132,6 +135,12 @@ def main(argv: list[str] | None = None) -> int:
         scan_cmd += ["--logged-out-regex", args.logged_out_regex]
     if args.har_out:
         scan_cmd += ["--har-out", args.har_out]
+    if args.json_out:
+        scan_cmd += ["--json-out", args.json_out]
+    if args.html_out:
+        scan_cmd += ["--html-out", args.html_out]
+    if args.md_out:
+        scan_cmd += ["--md-out", args.md_out]
 
     try:
         subprocess.run(docker_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

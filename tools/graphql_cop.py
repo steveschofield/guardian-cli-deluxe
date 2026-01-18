@@ -19,6 +19,14 @@ class GraphqlCopTool(BaseTool):
         super().__init__(config)
         self.tool_name = "graphql-cop"
 
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        GraphQL-cop exit codes:
+        0 = Success
+        1 = No GraphQL endpoint found or tests failed (expected if target doesn't have GraphQL)
+        """
+        return exit_code == 0
+
     def _check_installation(self) -> bool:
         cfg = (self.config or {}).get("tools", {}).get("graphql_cop", {}) or {}
         binary = cfg.get("binary")
@@ -56,4 +64,11 @@ class GraphqlCopTool(BaseTool):
         raise ValueError("graphql-cop requires args in config (e.g., -t https://host/graphql)")
 
     def parse_output(self, output: str) -> Dict[str, Any]:
-        return {"raw": output}
+        result = {"raw": output}
+
+        # Check if GraphQL endpoint wasn't found (common and expected)
+        if "connection refused" in output.lower() or "404" in output or "not found" in output.lower():
+            result["endpoint_not_found"] = True
+            result["note"] = "GraphQL endpoint not available (expected if target doesn't use GraphQL)"
+
+        return result
