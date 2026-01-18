@@ -610,6 +610,12 @@ class WorkflowEngine:
                 vhost_wordlist = ffuf_cfg.get("vhost_wordlist")
                 if vhost_wordlist:
                     tool_kwargs["wordlist"] = vhost_wordlist
+            output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
+            output_dir.mkdir(parents=True, exist_ok=True)
+            tool_kwargs.setdefault(
+                "output_file",
+                str(output_dir / f"ffuf_{step_name}_{self.memory.session_id}.json"),
+            )
 
         config_key = tool_name.replace("-", "_")
         tool_cfg = (self.config or {}).get("tools", {}).get(config_key, {}) or {}

@@ -15,6 +15,7 @@ class FFufTool(BaseTool):
     def __init__(self, config):
         super().__init__(config)
         self.tool_name = "ffuf"
+        self._last_output_file = None
     
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build ffuf command"""
@@ -35,7 +36,14 @@ class FFufTool(BaseTool):
         
         # JSON output for parsing
         command.extend(["-of", "json"])
-        command.extend(["-o", "-"])  # Output to stdout
+        output_file = kwargs.get("output_file")
+        if output_file:
+            output_file = os.path.expandvars(os.path.expanduser(str(output_file)))
+            self._last_output_file = output_file
+            command.extend(["-o", output_file])
+        else:
+            self._last_output_file = None
+            command.extend(["-o", "-"])  # Output to stdout
         
         # Threads
         threads = config.get("threads", 40)
@@ -104,19 +112,35 @@ class FFufTool(BaseTool):
         }
         
         try:
-            # FFuf outputs JSON
-            if not output.strip():
+            raw_output = output.strip()
+            file_output = None
+            if self._last_output_file and os.path.exists(self._last_output_file):
+                try:
+                    with open(self._last_output_file, "r", encoding="utf-8") as f:
+                        file_output = f.read().strip()
+                except OSError:
+                    file_output = None
+
+            data = None
+            for candidate in (raw_output, file_output):
+                if not candidate:
+                    continue
+                try:
+                    data = json.loads(candidate)
+                    break
+                except json.JSONDecodeError:
+                    continue
+
+            if not data:
                 return results
-            
-            data = json.loads(output)
-            
+
             # Extract results
             if "results" in data:
                 for result in data["results"]:
                     url = result.get("url", "")
                     status = result.get("status", 0)
                     length = result.get("length", 0)
-                    
+
                     results["discovered_paths"].append({
                         "url": url,
                         "status": status,
@@ -124,16 +148,16 @@ class FFufTool(BaseTool):
                         "words": result.get("words", 0),
                         "lines": result.get("lines", 0)
                     })
-                    
+
                     results["status_codes"][url] = status
                     results["sizes"][url] = length
-            
+
             # Extract metadata
             if "config" in data:
                 results["total_requests"] = data.get("config", {}).get("matcher", {}).get("count", 0)
-            
+
         except json.JSONDecodeError:
-            # Fallback: try to parse line by line if not valid JSON
+            # Fallback: ignore invalid JSON
             pass
         
         return results
