@@ -113,7 +113,9 @@ safe_git_clone() {
             log_info "Updating existing repo: $(basename "$target_dir")"
             (cd "$target_dir" && git pull --ff-only 2>/dev/null) || log_warn "Failed to update"
         else
-            log_warn "Directory exists but not a git repo: $target_dir"
+            log_warn "Removing broken directory (not a git repo): $(basename "$target_dir")"
+            rm -rf "$target_dir"
+            retry "$MAX_RETRIES" "$RETRY_DELAY" "git clone --depth 1 '$repo_url' '$target_dir'" || log_warn "Clone failed: $repo_url"
         fi
     else
         retry "$MAX_RETRIES" "$RETRY_DELAY" "git clone --depth 1 '$repo_url' '$target_dir'" || log_warn "Clone failed: $repo_url"
@@ -375,9 +377,9 @@ install_go_tools() {
     # REPLACED: wappalyzer (npm, deprecated) -> webanalyze
     go_install_and_link "github.com/rverton/webanalyze/cmd/webanalyze@latest" "webanalyze"
 
-    # Kiterunner
+    # Kiterunner - only try GitHub release (go install path is broken upstream)
     install_github_release_and_link "assetnote/kiterunner" "kr" || \
-        go_install_and_link "github.com/assetnote/kiterunner/cmd/kr@latest" "kr"
+        log_warn "kr (kiterunner) installation failed - GitHub release not available for this OS/arch"
 
     log_success "Go tools installed"
 }
