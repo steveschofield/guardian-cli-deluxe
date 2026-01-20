@@ -4,6 +4,8 @@ Prompt templates package with dynamic loading support
 Supports different prompt sets optimized for different LLMs:
 - default: Standard prompts (works with GPT-4, Claude, etc.)
 - llama3_2_3b: Optimized for Llama 3.2 3B and similar small models
+- llama3_1_8b: Balanced prompts for Llama 3.1 8B mid-size model
+- deepseek_r1_8b: Reasoning-focused prompts for DeepSeek-R1 8B
 - deephat_v1_7b: Red team focused prompts for DeepHat cybersecurity model
 """
 

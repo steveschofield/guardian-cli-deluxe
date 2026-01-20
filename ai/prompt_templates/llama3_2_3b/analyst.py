@@ -25,20 +25,25 @@ Command: {command}
 OUTPUT:
 {output}
 
-Extract findings using this format:
+Extract findings using this format (repeat the FINDING block for EACH distinct vulnerability):
 
-[SEVERITY] Title
-Evidence: "quoted from output"
-Impact: security implications
-Fix: specific remediation steps
-CVSS: score (vector) [if applicable]
-CWE/OWASP: IDs [if known]
+### FINDING: <short title>
+SEVERITY: <Critical|High|Medium|Low|Info>
+EVIDENCE: "quoted from output"
+DESCRIPTION: what the evidence indicates
+IMPACT: security implications
+RECOMMENDATION: specific remediation steps
+CVSS: score and/or vector [if applicable]
+CWE: CWE-XXX [if known]
+OWASP: A0X:2021 - Category [if known]
 
 Example:
-[HIGH] SQL Injection in login
-Evidence: "Error: mysql_fetch_array() parameter 1"
-Impact: Database access, data theft
-Fix: Use parameterized queries
+### FINDING: SQL Injection in login
+SEVERITY: High
+EVIDENCE: "Error: mysql_fetch_array() parameter 1"
+DESCRIPTION: Untrusted input appears in a database query error path
+IMPACT: Database access, data theft
+RECOMMENDATION: Use parameterized queries
 CVSS: 8.6 (AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:L)
 CWE: CWE-89
 

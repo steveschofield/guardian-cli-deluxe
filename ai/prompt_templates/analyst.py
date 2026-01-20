@@ -44,15 +44,17 @@ Analyze this output and provide:
 5. Potential attack vectors
 6. False positive assessment
 
-Use this format:
-FINDINGS:
-- [SEVERITY] Brief description
-  Evidence: <from output>
-  CVSS v3.1: <base score> (Vector: AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H)
-  CWE: <CWE-XXX, optional>
-  OWASP: <A0X:2021 - Category, optional>
-  Impact: <security impact>
-  Recommendation: <how to fix>
+Use this format (repeat the FINDING block for EACH distinct vulnerability):
+
+### FINDING: <short title>
+SEVERITY: <Critical|High|Medium|Low|Info>
+EVIDENCE: <exact quote/snippet from output>
+DESCRIPTION: <what the evidence indicates>
+IMPACT: <security impact>
+RECOMMENDATION: <how to fix>
+CVSS: <base score and/or vector if applicable>
+CWE: <CWE-XXX, optional>
+OWASP: <A0X:2021 - Category, optional>
 
 If there is no concrete evidence in the output, state that no findings are available instead of speculating.
 

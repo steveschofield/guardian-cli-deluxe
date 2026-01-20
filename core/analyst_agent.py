@@ -796,92 +796,223 @@ class AnalystAgent(BaseAgent):
     
     def _parse_findings(self, ai_response: str, tool: str, target: str) -> List[Finding]:
         """Parse findings from AI analysis response"""
-        findings: List[Finding] = []
+        text = (ai_response or "").strip()
+        if not text:
+            return []
 
-        lines = [l.strip() for l in ai_response.splitlines() if l.strip()]
-        current: Optional[Finding] = None
+        if re.search(r"(?mi)^###\s*FINDING:\s*", text):
+            return self._parse_findings_with_markers(text, tool, target)
+
+        return self._parse_findings_legacy(text, tool, target)
+
+    def _new_finding(self, tool: str, target: str, severity: str, title: str) -> Finding:
+        sev = (severity or "info").strip().lower()
+        if sev not in {"critical", "high", "medium", "low", "info"}:
+            sev = "info"
+
+        return Finding(
+            id=f"{tool}_{datetime.now().timestamp()}_{len(self.memory.findings)}",
+            severity=sev,
+            title=(title or f"{sev.title()} finding")[:200],
+            description="",
+            evidence="",
+            tool=tool,
+            target=target,
+            timestamp=datetime.now().isoformat(),
+        )
+
+    def _extract_cvss(self, text: str) -> tuple[Optional[float], Optional[str]]:
+        if not text:
+            return None, None
+
         cvss_vector_re = re.compile(
             r"(CVSS:3\.[01]/)?AV:[A-Z]/AC:[A-Z]/PR:[A-Z]/UI:[A-Z]/S:[A-Z]/C:[A-Z]/I:[A-Z]/A:[A-Z]",
             re.IGNORECASE,
         )
+        vector_match = cvss_vector_re.search(text)
+        vector = vector_match.group(0).strip() if vector_match else None
 
-        for line in lines:
-            # Match patterns like "[High]" or "1. [Critical]" or "HIGH:"
-            sev_match = re.search(r"\[?\b(critical|high|medium|low|info)\b\]?", line, re.IGNORECASE)
-            if sev_match:
-                severity = sev_match.group(1).lower()
-                # finalize previous
-                if current:
-                    findings.append(current)
-                # derive title after the severity marker
-                title_part = re.sub(r"^\s*\d+[\.\)]\s*", "", line)  # drop numbering
-                title_part = re.sub(r"\[?\b(critical|high|medium|low|info)\b\]?:?", "", title_part, flags=re.IGNORECASE)
-                title = title_part.strip(":- ").strip()
-                if not title:
-                    title = f"{severity.title()} finding"
+        score_match = re.search(r"\b(10(?:\.0)?|[0-9](?:\.[0-9])?)\b", text)
+        score: Optional[float] = None
+        if score_match:
+            try:
+                candidate = float(score_match.group(1))
+                if 0.0 <= candidate <= 10.0:
+                    score = candidate
+            except ValueError:
+                score = None
 
-                current = Finding(
-                    id=f"{tool}_{len(findings)}_{datetime.now().timestamp()}",
-                    severity=severity,
-                    title=title[:200],
-                    description="",
-                    evidence="",
-                    tool=tool,
-                    target=target,
-                    timestamp=datetime.now().isoformat()
-                )
+        return score, vector
+
+    def _parse_findings_with_markers(self, text: str, tool: str, target: str) -> List[Finding]:
+        findings: List[Finding] = []
+
+        field_re = re.compile(
+            r"(?im)^(SEVERITY|EVIDENCE|DESCRIPTION|IMPACT|RECOMMENDATION|FIX|REMEDIATION|CVSS|CWE|OWASP|CVE|"
+            r"EXPLOITABILITY|ATTACK VECTOR|DEFENSE BYPASS|MITRE ATT&CK|PREREQUISITES)\s*:\s*(.*)$"
+        )
+
+        def parse_fields(block: str) -> Dict[str, str]:
+            matches = list(field_re.finditer(block))
+            if not matches:
+                return {}
+
+            out: Dict[str, str] = {}
+            for idx, match in enumerate(matches):
+                raw_key = match.group(1).strip().upper()
+                key = re.sub(r"\s+", "_", raw_key)
+                end = matches[idx + 1].start() if idx + 1 < len(matches) else len(block)
+                tail = block[match.end() : end].strip("\n")
+                head = (match.group(2) or "").rstrip()
+                value = (head + ("\n" + tail if tail else "")).strip()
+                if value:
+                    out[key] = value
+            return out
+
+        # split() yields a leading preamble segment; ignore it.
+        for block in re.split(r"(?mi)^###\s*FINDING:\s*", text)[1:]:
+            title_line, _, rest = block.partition("\n")
+            title = title_line.strip() or "Finding"
+            fields = parse_fields(rest)
+
+            severity_raw = fields.get("SEVERITY", "")
+            severity = (severity_raw.split()[0] if severity_raw else "info").strip().lower()
+            finding = self._new_finding(tool=tool, target=target, severity=severity, title=title)
+
+            evidence = fields.get("EVIDENCE", "").strip()
+            if evidence:
+                finding.evidence = evidence
+
+            description = fields.get("DESCRIPTION", "").strip()
+            if description:
+                finding.description = description
+
+            remediation = (
+                fields.get("RECOMMENDATION")
+                or fields.get("FIX")
+                or fields.get("REMEDIATION")
+                or ""
+            ).strip()
+            if remediation:
+                finding.remediation = remediation
+
+            cvss_text = fields.get("CVSS", "")
+            cvss_score, cvss_vector = self._extract_cvss(cvss_text or rest)
+            if cvss_vector:
+                finding.cvss_vector = cvss_vector
+            if cvss_score is not None:
+                finding.cvss_score = cvss_score
+                finding.cvss_score_source = "provided"
+
+            cves = re.findall(r"CVE-\d{4}-\d{4,7}", rest, re.IGNORECASE)
+            for cve in cves:
+                normalized = cve.upper()
+                if normalized not in finding.cve_ids:
+                    finding.cve_ids.append(normalized)
+
+            cwes = re.findall(r"CWE-\d{1,5}", rest, re.IGNORECASE)
+            for cwe in cwes:
+                normalized = cwe.upper()
+                if normalized not in finding.cwe_ids:
+                    finding.cwe_ids.append(normalized)
+
+            owasp_matches = re.findall(
+                r"A\d{2}:2021(?:\s*-\s*[^,;\n]+)?", rest, re.IGNORECASE
+            )
+            for match in owasp_matches:
+                normalized = match.strip()
+                if normalized not in finding.owasp_categories:
+                    finding.owasp_categories.append(normalized)
+
+            impact = fields.get("IMPACT", "").strip()
+            if impact:
+                finding.metadata["impact"] = impact
+            exploitability = fields.get("EXPLOITABILITY", "").strip()
+            if exploitability:
+                finding.metadata["exploitability"] = exploitability
+            attack_vector = fields.get("ATTACK_VECTOR", "").strip()
+            if attack_vector:
+                finding.metadata["attack_vector"] = attack_vector
+            defense_bypass = fields.get("DEFENSE_BYPASS", "").strip()
+            if defense_bypass:
+                finding.metadata["defense_bypass"] = defense_bypass
+            mitre = fields.get("MITRE_ATT&CK", "").strip()
+            if mitre:
+                finding.metadata["mitre_attack"] = mitre
+            prerequisites = fields.get("PREREQUISITES", "").strip()
+            if prerequisites:
+                finding.metadata["prerequisites"] = prerequisites
+
+            findings.append(finding)
+
+        return findings
+
+    def _parse_findings_legacy(self, text: str, tool: str, target: str) -> List[Finding]:
+        findings: List[Finding] = []
+        current: Optional[Finding] = None
+
+        start_re = re.compile(
+            r"(?im)^(?:[-*]|\d+[\.\)])\s*\[?(critical|high|medium|low|info)\]?\s*[:\-]?\s*(.+)$|"
+            r"^(critical|high|medium|low|info)\s*[:\-]\s*(.+)$"
+        )
+
+        lines = [l.rstrip() for l in text.splitlines()]
+        for raw_line in lines:
+            line = raw_line.strip()
+            if not line:
                 continue
 
-            if current:
-                cves = re.findall(r"CVE-\d{4}-\d{4,7}", line, re.IGNORECASE)
-                for cve in cves:
-                    normalized = cve.upper()
-                    if normalized not in current.cve_ids:
-                        current.cve_ids.append(normalized)
+            m = start_re.match(line)
+            if m:
+                sev = (m.group(1) or m.group(3) or "info").strip().lower()
+                title = (m.group(2) or m.group(4) or "").strip()
+                if current:
+                    findings.append(current)
+                current = self._new_finding(tool=tool, target=target, severity=sev, title=title)
+                continue
 
-                # Evidence line
-                if "evidence:" in line.lower():
-                    evidence_text = re.split(r"evidence:\s*", line, flags=re.IGNORECASE)[-1].strip()
-                    current.evidence = evidence_text
-                    continue
+            if not current:
+                continue
 
-                if "cvss" in line.lower():
-                    vector_match = cvss_vector_re.search(line)
-                    if vector_match:
-                        current.cvss_vector = vector_match.group(0).strip()
-                    score_match = None
-                    if "score" in line.lower() or "base" in line.lower():
-                        score_match = re.search(r"\b([0-9](?:\.[0-9])?)\b", line)
-                    elif not re.search(r"CVSS:3\.[01]/", line, re.IGNORECASE):
-                        score_match = re.search(r"\b([0-9](?:\.[0-9])?)\b", line)
-                    if score_match:
-                        try:
-                            candidate = float(score_match.group(1))
-                            if 0.0 <= candidate <= 10.0:
-                                current.cvss_score = candidate
-                                current.cvss_score_source = "provided"
-                        except ValueError:
-                            pass
-                    continue
+            if re.match(r"(?im)^evidence\s*:", line):
+                current.evidence = re.sub(r"(?im)^evidence\s*:\s*", "", line).strip()
+                continue
 
-                if line.lower().startswith("cwe"):
-                    cwes = re.findall(r"CWE-\d{1,5}", line, re.IGNORECASE)
-                    for cwe in cwes:
-                        normalized = cwe.upper()
-                        if normalized not in current.cwe_ids:
-                            current.cwe_ids.append(normalized)
-                    continue
+            if re.match(r"(?im)^(recommendation|fix|remediation)\s*:", line):
+                current.remediation = re.sub(
+                    r"(?im)^(recommendation|fix|remediation)\s*:\s*", "", line
+                ).strip()
+                continue
 
-                if line.lower().startswith("owasp"):
-                    owasp_matches = re.findall(r"A\d{2}:2021(?:\s*-\s*[^,;]+)?", line, re.IGNORECASE)
-                    for match in owasp_matches:
-                        normalized = match.strip()
-                        if normalized not in current.owasp_categories:
-                            current.owasp_categories.append(normalized)
-                    continue
+            if "cvss" in line.lower():
+                cvss_score, cvss_vector = self._extract_cvss(line)
+                if cvss_vector:
+                    current.cvss_vector = cvss_vector
+                if cvss_score is not None:
+                    current.cvss_score = cvss_score
+                    current.cvss_score_source = "provided"
+                continue
 
-                else:
-                    current.description += line + "\n"
+            if line.lower().startswith("cwe"):
+                for cwe in re.findall(r"CWE-\d{1,5}", line, re.IGNORECASE):
+                    normalized = cwe.upper()
+                    if normalized not in current.cwe_ids:
+                        current.cwe_ids.append(normalized)
+                continue
+
+            if line.lower().startswith("owasp"):
+                for match in re.findall(r"A\d{2}:2021(?:\s*-\s*[^,;\n]+)?", line, re.IGNORECASE):
+                    normalized = match.strip()
+                    if normalized not in current.owasp_categories:
+                        current.owasp_categories.append(normalized)
+                continue
+
+            for cve in re.findall(r"CVE-\d{4}-\d{4,7}", line, re.IGNORECASE):
+                normalized = cve.upper()
+                if normalized not in current.cve_ids:
+                    current.cve_ids.append(normalized)
+
+            current.description += line + "\n"
 
         if current:
             findings.append(current)

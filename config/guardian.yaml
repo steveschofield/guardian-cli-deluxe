@@ -11,10 +11,10 @@ ai:
   #
   # Ollama example:
   provider: ollama
-  # model: "llama3.1:8b"
-  # model: deepseek-r1:8b 
-  # model: llama3.2:3b
-  model: "DeepHat/DeepHat-V1-7B"
+  # model: "llama3.1:8b"          # Auto-uses llama3_1_8b prompts
+  # model: "deepseek-r1:8b"       # Auto-uses deepseek_r1_8b prompts
+  # model: "llama3.2:3b"          # Auto-uses llama3_2_3b prompts
+  model: "DeepHat/DeepHat-V1-7B"  # Auto-uses deephat_v1_7b prompts
   base_url: "http://192.168.1.69:11434"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
@@ -44,9 +44,13 @@ ai:
   temperature: 0.2
 
   # Prompt set to use - optimizes prompts for different LLM capabilities
-  # Options: "default" (standard prompts), "llama3_2_3b" (optimized for small models)
-  # Auto-detect based on model name if not specified
-  prompt_set: "llama3_2_3b"  # Use optimized prompts for llama3.2:3b
+  # Options: "default", "llama3_2_3b", "llama3_1_8b", "deepseek_r1_8b", "deephat_v1_7b"
+  # Auto-detects from model name if not specified
+  # prompt_set: "llama3_2_3b"   # Explicitly set for llama3.2:3b
+  # prompt_set: "llama3_1_8b"   # Explicitly set for llama3.1:8b
+  # prompt_set: "deepseek_r1_8b"  # Explicitly set for deepseek-r1:8b
+  # prompt_set: "deephat_v1_7b"   # Explicitly set for DeepHat
+  # Leave commented for auto-detection based on model name
 
   # Log full LLM request/response payloads to JSONL
   log_llm_io_file: true

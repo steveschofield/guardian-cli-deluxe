@@ -35,25 +35,30 @@ Command: {command}
 RAW OUTPUT:
 {output}
 
-Extract exploitation opportunities:
+Extract exploitation opportunities (repeat the FINDING block for EACH distinct vulnerability):
 
-[SEVERITY] Vulnerability Title
-Evidence: "exact quote from output"
-Exploitability: Trivial/Easy/Moderate/Hard (with explanation)
-Attack Vector: how to exploit (specific steps)
-Impact: compromise level (RCE, data theft, lateral movement, etc.)
-Defense Bypass: evasion techniques if applicable
+### FINDING: <short title>
+SEVERITY: <Critical|High|Medium|Low|Info>
+EVIDENCE: "exact quote from output"
+DESCRIPTION: what the evidence indicates
+EXPLOITABILITY: Trivial/Easy/Moderate/Hard (with explanation)
+ATTACK VECTOR: how to exploit (specific steps)
+IMPACT: compromise level (RCE, data theft, lateral movement, etc.)
+DEFENSE BYPASS: evasion techniques if applicable
 MITRE ATT&CK: TTP IDs if relevant
-CVE/CWE: identifiers
-CVSS: score (vector)
+CVE: CVE-YYYY-NNNN [if applicable]
+CWE: CWE-XXX [if known]
+CVSS: score and/or vector [if applicable]
 
 Example:
-[CRITICAL] Unauthenticated RCE in Admin Panel
-Evidence: "/admin debug=1 → full stack trace with credentials"
-Exploitability: Trivial (no auth required, direct exploitation)
-Attack Vector: POST /admin?debug=1 with serialized payload
-Impact: Full system compromise, root shell, credential access
-Defense Bypass: WAF bypass via parameter pollution
+### FINDING: Unauthenticated RCE in Admin Panel
+SEVERITY: Critical
+EVIDENCE: "/admin debug=1 → full stack trace with credentials"
+DESCRIPTION: Debug mode exposes sensitive details enabling unauthenticated exploitation
+EXPLOITABILITY: Trivial (no auth required, direct exploitation)
+ATTACK VECTOR: POST /admin?debug=1 with serialized payload
+IMPACT: Full system compromise, root shell, credential access
+DEFENSE BYPASS: WAF bypass via parameter pollution
 MITRE ATT&CK: T1190 (Exploit Public-Facing Application)
 CVE: CVE-2024-XXXXX
 CVSS: 9.8 (AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H)

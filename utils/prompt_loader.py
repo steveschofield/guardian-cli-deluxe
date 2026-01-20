@@ -39,6 +39,12 @@ class PromptLoader:
         if any(pattern in model_name for pattern in ["llama3.2:3b", "llama3.2-3b", "llama-3.2-3b"]):
             return "llama3_2_3b"
 
+        if any(pattern in model_name for pattern in ["llama3.1:8b", "llama3.1-8b", "llama-3.1-8b"]):
+            return "llama3_1_8b"
+
+        if any(pattern in model_name for pattern in ["deepseek-r1:8b", "deepseek-r1-8b", "deepseek_r1"]):
+            return "deepseek_r1_8b"
+
         if any(pattern in model_name for pattern in ["deephat", "deep-hat", "deephat-v1"]):
             return "deephat_v1_7b"
 
@@ -62,6 +68,24 @@ class PromptLoader:
         if prompt_set == "llama3_2_3b":
             # Import llama3_2_3b optimized prompts
             from ai.prompt_templates import llama3_2_3b as prompt_module
+
+            # Collect all prompts
+            prompts = {}
+            for attr in dir(prompt_module):
+                if attr.isupper() and "PROMPT" in attr:
+                    prompts[attr] = getattr(prompt_module, attr)
+        elif prompt_set == "llama3_1_8b":
+            # Import llama3_1_8b optimized prompts
+            from ai.prompt_templates import llama3_1_8b as prompt_module
+
+            # Collect all prompts
+            prompts = {}
+            for attr in dir(prompt_module):
+                if attr.isupper() and "PROMPT" in attr:
+                    prompts[attr] = getattr(prompt_module, attr)
+        elif prompt_set == "deepseek_r1_8b":
+            # Import deepseek_r1_8b reasoning-focused prompts
+            from ai.prompt_templates import deepseek_r1_8b as prompt_module
 
             # Collect all prompts
             prompts = {}
