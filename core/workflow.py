@@ -804,6 +804,14 @@ class WorkflowEngine:
                     self.memory.update_context("discovered_assets", urls)
                 if isinstance(scripts, list) and scripts:
                     self.memory.update_context("client_side_scripts", scripts)
+            if tool_name == "testssl":
+                # Store certificate information including SAN
+                cert_info = parsed.get("certificate_info") or {}
+                if isinstance(cert_info, dict) and cert_info:
+                    # Update certificate_info in memory context
+                    current_cert = self.memory.context.get("certificate_info") or {}
+                    current_cert.update(cert_info)
+                    self.memory.context["certificate_info"] = current_cert
             if tool_name == "naabu":
                 open_ports = parsed.get("open_ports") or []
                 if isinstance(open_ports, list) and open_ports:

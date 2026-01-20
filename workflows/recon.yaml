@@ -11,7 +11,14 @@ steps:
     objective: "Enumerate all subdomains of the target domain"
     parameters:
       all_sources: true
-    
+
+  - name: dns_enumeration
+    type: tool
+    tool: dnsx
+    objective: "Perform DNS resolution and record enumeration for domain/IP hosts"
+    parameters:
+      recon: true
+
   - name: port_scan_main_domain
     type: tool
     tool: nmap
@@ -19,7 +26,7 @@ steps:
     parameters:
       ports: "top-1000"
       scan_type: "-sV"
-    
+
   - name: http_probing
     type: tool
     tool: httpx

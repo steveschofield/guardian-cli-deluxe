@@ -13,8 +13,8 @@ ai:
   provider: ollama
   # model: "llama3.1:8b"
   # model: deepseek-r1:8b 
-  model: llama3.2:3b
-  # model: "DeepHat/DeepHat-V1-7B"
+  # model: llama3.2:3b
+  model: "DeepHat/DeepHat-V1-7B"
   base_url: "http://192.168.1.69:11434"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
@@ -42,6 +42,11 @@ ai:
   # hf_max_retries: 4
 
   temperature: 0.2
+
+  # Prompt set to use - optimizes prompts for different LLM capabilities
+  # Options: "default" (standard prompts), "llama3_2_3b" (optimized for small models)
+  # Auto-detect based on model name if not specified
+  prompt_set: "llama3_2_3b"  # Use optimized prompts for llama3.2:3b
 
   # Log full LLM request/response payloads to JSONL
   log_llm_io_file: true
@@ -497,3 +502,9 @@ error_handling:
   
   # Log all errors to file
   log_errors: true
+
+  # DeepHat (cybersecurity specialized) example:
+  # provider: ollama
+  # model: "DeepHat/DeepHat-V1-7B:latest"
+  # prompt_set: "deephat_v1_7b"  # Red team focused prompts
+  # temperature: 0.3  # Slightly higher for creative exploitation analysis

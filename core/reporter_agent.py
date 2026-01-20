@@ -250,13 +250,22 @@ class ReporterAgent(BaseAgent):
         # Build ZAP section if present
         zap_section = f"\n\n{zap_summary}\n" if zap_summary else ""
 
+        # Build SAN section if certificate info available
+        cert_info = self.memory.context.get("certificate_info", {})
+        san_list = cert_info.get("san", [])
+        if san_list and isinstance(san_list, list):
+            san_display = "\n".join([f"  - {san}" for san in san_list])
+            san_section = f"\n- **Subject Alternative Names (SAN)**:\n{san_display}"
+        else:
+            san_section = "\n- **Subject Alternative Names (SAN)**: No additional SAN attributes listed"
+
         report = f"""# Penetration Test Report
 
 ## Target Information
 - **Target**: {self.memory.target}
 - **Session ID**: {self.memory.session_id}
 - **Date**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-- **Duration**: {self._calculate_duration()}
+- **Duration**: {self._calculate_duration()}{san_section}
 
 ## Executive Summary
 

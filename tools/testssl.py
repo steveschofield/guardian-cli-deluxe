@@ -199,6 +199,16 @@ class TestSSLTool(BaseTool):
                 if data.get("id") == "cert_commonName":
                     results["certificate_info"]["common_name"] = data.get("finding")
 
+                elif data.get("id") == "cert_subjectAltName":
+                    # Extract Subject Alternative Names
+                    san_finding = data.get("finding", "")
+                    if san_finding:
+                        # Parse SAN - testssl formats as comma-separated list
+                        san_list = [s.strip() for s in san_finding.split(",") if s.strip()]
+                        results["certificate_info"]["san"] = san_list
+                    else:
+                        results["certificate_info"]["san"] = []
+
                 elif data.get("id") == "cert_notAfter":
                     results["certificate_info"]["expiry"] = data.get("finding")
 

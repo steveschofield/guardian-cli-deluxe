@@ -75,6 +75,7 @@ class PentestMemory:
             "open_ports": [],
             "services": [],
             "technologies": [],
+            "certificate_info": {},  # TLS certificate information including SAN
         }
     
     def add_finding(self, finding: Finding):
