@@ -13,8 +13,8 @@ ai:
   provider: ollama
   # model: "llama3.1:8b"          # Auto-uses llama3_1_8b prompts
   # model: "deepseek-r1:8b"       # Auto-uses deepseek_r1_8b prompts
-  # model: "llama3.2:3b"          # Auto-uses llama3_2_3b prompts
-  model: "DeepHat/DeepHat-V1-7B"  # Auto-uses deephat_v1_7b prompts
+  model: "llama3.2:3b"          # Auto-uses llama3_2_3b prompts
+  # model: "DeepHat/DeepHat-V1-7B"  # Auto-uses deephat_v1_7b prompts
   base_url: "http://192.168.1.69:11434"
   #
   # Gemini (Vertex AI via ADC) example (recommended for higher limits):
@@ -152,6 +152,7 @@ tools:
   # Optional: resolve tools from custom paths (falls back to PATH)
   auto_discover: true
   paths:
+    godeye: /home/kali/code/guardian-cli-deluxe/venv/bin/god-eye
     # nmap: /usr/bin/nmap
     # nuclei: /usr/local/bin/nuclei
 
@@ -367,10 +368,10 @@ tools:
     active_only: false     # Set true to show only HTTP 2xx/3xx responses
 
     # AI integration (requires Ollama)
-    enable_ai: false       # Set true to enable AI-powered analysis
-    ai_url: "http://localhost:11434"  # Ollama API endpoint
+    enable_ai: true        # Set true to enable AI-powered analysis
+    ai_url: "http://192.168.1.69:11434"  # Ollama API endpoint
     # AI models for analysis
-    fast_model: "deepseek-r1:1.5b"      # Fast triage model
+    fast_model: "llama3.2:3b"      # Fast triage model
     deep_model: "qwen2.5-coder:7b"      # Deep analysis model
     ai_cascade: true       # Use cascade approach (fast -> deep)
     ai_deep: false         # Enable deep AI analysis on all findings

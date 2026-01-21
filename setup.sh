@@ -378,7 +378,23 @@ install_go_tools() {
     go_install_and_link "github.com/rverton/webanalyze/cmd/webanalyze@latest" "webanalyze"
 
     # God-eye - comprehensive recon and security assessment
-    go_install_and_link "github.com/Vyntral/god-eye@latest" "god-eye"
+    if [[ -x "${VENV_BIN}/god-eye" ]]; then
+        log_info "god-eye already installed"
+    elif command -v god-eye >/dev/null 2>&1; then
+        link_into_venv "$(command -v god-eye)" "god-eye"
+    elif command -v go >/dev/null 2>&1; then
+        safe_git_clone "https://github.com/Vyntral/god-eye.git" "${TOOLS_DIR}/god-eye"
+        if [[ -d "${TOOLS_DIR}/god-eye/cmd/god-eye" ]]; then
+            log_info "Building god-eye from source..."
+            retry "$MAX_RETRIES" "$RETRY_DELAY" \
+                "cd '${TOOLS_DIR}/god-eye' && go build -o '${TOOLS_DIR}/god-eye/god-eye' ./cmd/god-eye" || true
+            [[ -x "${TOOLS_DIR}/god-eye/god-eye" ]] && link_into_venv "${TOOLS_DIR}/god-eye/god-eye" "god-eye"
+        else
+            log_warn "god-eye source layout unexpected; skipping build"
+        fi
+    else
+        log_warn "go not found; skipping god-eye"
+    fi
 
     # Kiterunner - only try GitHub release (go install path is broken upstream)
     install_github_release_and_link "assetnote/kiterunner" "kr" || \
@@ -859,4 +875,3 @@ echo ""
 echo "To customize retry behavior:"
 echo "  MAX_RETRIES=5 RETRY_DELAY=10 ./setup.sh"
 echo ""
-

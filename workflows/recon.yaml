@@ -19,6 +19,13 @@ steps:
     parameters:
       recon: true
 
+  - name: godeye_recon
+    type: tool
+    tool: godeye
+    objective: "Comprehensive subdomain reconnaissance with AI analysis"
+    parameters:
+      enable_ai: true
+
   - name: port_scan_main_domain
     type: tool
     tool: nmap

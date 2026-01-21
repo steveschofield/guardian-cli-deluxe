@@ -1232,6 +1232,7 @@ class WorkflowEngine:
                     {"tool": "dnsrecon", "parameters": {"type": "std"}},
                 ]},
                 {"name": "dns_enumeration", "type": "tool", "tool": "dnsrecon", "parameters": {"type": "std,axfr,zonewalk,brt"}},
+                {"name": "godeye_recon", "type": "tool", "tool": "godeye", "parameters": {"enable_ai": True}},
                 {"name": "ip_enrichment", "type": "action", "action": "ip_enrichment"},
                 {"name": "port_scanning", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
                 {"name": "service_fingerprinting", "type": "tool", "tool": "nmap", "parameters": {"args": "-sV --version-all -sC", "ports_from_context": True}},

@@ -40,7 +40,7 @@ class ToolAgent(BaseAgent):
             AsnmapTool, WaybackurlsTool, SubjsTool, DirsearchTool,
             LinkfinderTool, XnlinkfinderTool, ParamspiderTool,
             SchemathesisTool, TrufflehogTool, MetasploitTool, ZapTool,
-            DalfoxTool, CommixTool, FeroxbusterTool
+            DalfoxTool, CommixTool, FeroxbusterTool, GodEyeTool
         )
 
         import platform
@@ -96,6 +96,7 @@ class ToolAgent(BaseAgent):
             "dalfox": DalfoxTool(config),
             "commix": CommixTool(config),
             "feroxbuster": FeroxbusterTool(config),
+            "godeye": GodEyeTool(config),
         }
         
         # Add OS-specific tools
