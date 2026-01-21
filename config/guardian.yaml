@@ -346,6 +346,42 @@ tools:
     enabled: true
     sources: ["crtsh", "hackertarget"]
 
+  godeye:
+    enabled: true
+    # Concurrency settings (default: 500 workers)
+    concurrency: 500
+    # Connection timeout in seconds
+    timeout: 10
+    # Ports to scan (optional, leave empty for default common ports)
+    ports: "80,443,8080,8443,8000,8888"
+    # Custom DNS resolvers (optional)
+    # resolvers: ["8.8.8.8", "1.1.1.1"]
+    # Custom wordlist for DNS brute-forcing (optional)
+    # wordlist: "/usr/share/seclists/Discovery/DNS/subdomains-top1million-20000.txt"
+
+    # Scan control flags
+    no_brute: false        # Set true to disable DNS brute-force
+    no_probe: false        # Set true to disable HTTP probing
+    no_ports: false        # Set true to disable port scanning
+    no_takeover: false     # Set true to disable takeover detection
+    active_only: false     # Set true to show only HTTP 2xx/3xx responses
+
+    # AI integration (requires Ollama)
+    enable_ai: false       # Set true to enable AI-powered analysis
+    ai_url: "http://localhost:11434"  # Ollama API endpoint
+    # AI models for analysis
+    fast_model: "deepseek-r1:1.5b"      # Fast triage model
+    deep_model: "qwen2.5-coder:7b"      # Deep analysis model
+    ai_cascade: true       # Use cascade approach (fast -> deep)
+    ai_deep: false         # Enable deep AI analysis on all findings
+    multi_agent: false     # Enable 8 specialized AI agents (slower but thorough)
+
+    # Verbose output
+    verbose: false
+
+    # Longer timeout for comprehensive scans
+    tool_timeout: 900
+
   dnsx:
     enabled: true
     # Query multiple DNS record types; in safe_mode we avoid AXFR attempts.
