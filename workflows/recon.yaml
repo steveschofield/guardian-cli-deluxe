@@ -34,6 +34,17 @@ steps:
     parameters:
       tech_detect: true
 
+  - name: security_assessment
+    type: tool
+    tool: godeye
+    objective: "Deep security assessment: subdomain takeover, exposed configs, secrets scanning"
+    parameters:
+      no_brute: true
+      active_only: true
+      enable_ai: false
+    dependencies:
+      - http_probing
+
   - name: web_vuln_scan_nikto
     type: tool
     tool: nikto

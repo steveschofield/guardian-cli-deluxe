@@ -377,6 +377,9 @@ install_go_tools() {
     # REPLACED: wappalyzer (npm, deprecated) -> webanalyze
     go_install_and_link "github.com/rverton/webanalyze/cmd/webanalyze@latest" "webanalyze"
 
+    # God-eye - comprehensive recon and security assessment
+    go_install_and_link "github.com/Vyntral/god-eye@latest" "god-eye"
+
     # Kiterunner - only try GitHub release (go install path is broken upstream)
     install_github_release_and_link "assetnote/kiterunner" "kr" || \
         log_warn "kr (kiterunner) installation failed - GitHub release not available for this OS/arch"
@@ -739,6 +742,7 @@ verify_installation() {
         "webanalyze"
         "sstimap"
         "dnsgen"
+        "god-eye"
     )
 
     echo ""
