@@ -1235,6 +1235,8 @@ class WorkflowEngine:
                 {"name": "ip_enrichment", "type": "action", "action": "ip_enrichment"},
                 {"name": "port_scanning", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
                 {"name": "service_fingerprinting", "type": "tool", "tool": "nmap", "parameters": {"args": "-sV --version-all -sC", "ports_from_context": True}},
+                {"name": "nmap_vuln_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "vuln", "ports_from_context": True, "tool_timeout": 900}},
+                {"name": "nmap_vulners_scan", "type": "tool", "tool": "nmap", "parameters": {"args": "-sV --script vulners", "ports_from_context": True, "tool_timeout": 900}},
                 {"name": "ssl_tls_analysis", "type": "tool", "tool": "testssl", "parameters": {"fast": True, "severity": "HIGH"}},
                 {"name": "technology_detection", "type": "multi_tool", "tools": [
                     {"tool": "whatweb"},
