@@ -128,7 +128,7 @@ tools:
 
 ### Workflow-Specific Tool Configuration
 
-Some built-in workflow steps only run when required arguments or tokens are present:
+Some workflow steps only run when required arguments or tokens are present:
 
 - **Web workflow:** `tools.hydra` (userlist/passlist/service or `args`), `tools.jwt_tool` (`token` or `args`),
   `tools.graphql_cop.args`, `tools.kiterunner.wordlist` (or `args`),
@@ -137,7 +137,8 @@ Some built-in workflow steps only run when required arguments or tokens are pres
 - **Recon workflow:** `tools.whatweb` / `tools.retire` affect technology detection.
 - **Network workflow:** `tools.enum4linux` (null session defaults), `tools.onesixtyone.community` (passed to `snmpwalk`).
 
-If a tool isn't installed or the required config is missing, the step is skipped and logged.
+If a tool isn't installed or the required config is missing, the step is skipped and logged. See
+`workflows/*.yaml` for exact step definitions and conditions.
 
 ### `output`
 

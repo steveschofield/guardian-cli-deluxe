@@ -10,10 +10,10 @@
 
 ### Prerequisites
 
-- **Kali Linux** (preferred) or **macOS** (secondary support)
+- **Kali Linux**
 - **Python 3.11+**
 - **Git**
-- **Container Runtime**: Docker (Kali Linux) or Podman (macOS) for ZAP scans
+- **Container Runtime**: Docker for ZAP scans
 
 ### Installation# 1. Clone and setup
 
@@ -21,16 +21,16 @@
 git clone <internal-repo-url>
 cd guardian-cli-deluxe
 python3 -m venv venv
-source venv/bin/activate  # Windows: .\venv\Scripts\activate
-pip install -e .
+source venv/bin/activate
 
-# 1. Install security tools (Debian based and MacOS)
+# 1. (Optional) Install security tools (Kali Linux).
+#    This also installs Guardian into the active venv.
 ./setup.sh 2>&1 | tee setup.log
 
-# 4. Initialize Guardian
+# 2. Initialize Guardian
 python -m cli.main init
 
-# 5. Test installation
+# 3. Test installation
 source venv/bin/activate (always need this before)
 python -m cli.main workflow run --name recon --target <approved-test-target>
 ```
@@ -88,6 +88,9 @@ python -m cli.main workflow run --name web --target https://<target-domain>
 
 ```bash
 python -m cli.main workflow run --name recon --target <target>
+python -m cli.main workflow run --name recon_quick --target <target>
+python -m cli.main workflow run --name quick_vuln_scan --target https://<target-domain>
+python -m cli.main workflow run --name wordpress_audit --target https://<target-domain>
 ```
 
 ### AI-Driven Autonomous Testing
@@ -112,6 +115,8 @@ Each scan generates:
 
 ## 🛠️ Tool Arsenal
 
+For the full list of tools and how they are used, see the workflow files in `workflows/`.
+
 **Core Tools (Always Available):**
 
 - **[nmap](https://nmap.org/)** - Port scanning and service detection
@@ -123,6 +128,7 @@ Each scan generates:
 - **[arjun](https://github.com/s0md3v/Arjun)** - Parameter discovery
 - **[xsstrike](https://github.com/s0md3v/XSStrike)** - XSS testing
 - **[dnsrecon](https://github.com/darkoperator/dnsrecon)** - DNS enumeration
+- **[godeye](https://github.com/Vyntral/god-eye)** - Subdomain reconnaissance with AI analysis
 
 **Additional Tools** (installed via setup.sh):
 
@@ -133,6 +139,8 @@ Each scan generates:
 - **[wpscan](https://github.com/wpscanteam/wpscan)** - WordPress security scanner
 - **[sslyze](https://github.com/nabla-c0d3/sslyze)** - SSL/TLS configuration analysis
 - **[dnsx](https://github.com/projectdiscovery/dnsx)** - Fast DNS toolkit
+- **[shuffledns](https://github.com/projectdiscovery/shuffledns)** - DNS permutation enumeration
+- **[puredns](https://github.com/d3mondev/puredns)** - High-confidence DNS resolver
 - **[wafw00f](https://github.com/EnableSecurity/wafw00f)** - WAF detection
 - **[whatweb](https://github.com/urbanadventurer/WhatWeb)** - Web technology identification
 - **[metasploit](https://github.com/rapid7/metasploit-framework)** - Exploitation framework
@@ -143,6 +151,7 @@ Each scan generates:
 - **[dalfox](https://github.com/hahwul/dalfox)** - Advanced XSS scanner and parameter analysis
 - **[commix](https://github.com/commixproject/commix)** - Command injection testing framework
 - **[feroxbuster](https://github.com/epi052/feroxbuster)** - Fast API endpoint and content discovery
+- **[trufflehog](https://github.com/trufflesecurity/trufflehog)** - Secret scanning
 
 **Platform Notes:**
 
@@ -172,9 +181,9 @@ python -m cli.main workflow list
 ./setup.sh
 ```
 
-**macOS Compatibility**
+**Kali Linux Compatibility**
 
-- Ensure httpx/katana are installed on PATH before running workflows that use them.
+- Ensure required tools are installed via `./setup.sh` before running workflows.
 
 ---
 

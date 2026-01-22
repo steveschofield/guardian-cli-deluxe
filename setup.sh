@@ -39,9 +39,7 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Detect OS
-if [[ "$(uname)" == "Darwin" ]]; then
-    OS="macos"
-elif [[ -f /etc/debian_version ]]; then
+if [[ -f /etc/debian_version ]]; then
     OS="debian"
 else
     OS="linux"
@@ -186,7 +184,6 @@ WRAPPER
 install_system_binary() {
     local bin="$1"
     local apt_pkg="$2"
-    local brew_pkg="${3:-$apt_pkg}"
 
     if command -v "${bin}" >/dev/null 2>&1; then
         link_into_venv "$(command -v "${bin}")" "${bin}"
@@ -197,12 +194,6 @@ install_system_binary() {
         if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
             log_info "Installing ${bin} via apt..."
             sudo apt-get update -qq && sudo apt-get install -y "${apt_pkg}" 2>/dev/null || true
-            command -v "${bin}" >/dev/null 2>&1 && link_into_venv "$(command -v "${bin}")" "${bin}"
-        fi
-    elif [[ "${OS}" == "macos" ]]; then
-        if command -v brew >/dev/null 2>&1; then
-            log_info "Installing ${bin} via brew..."
-            brew install "${brew_pkg}" 2>/dev/null || true
             command -v "${bin}" >/dev/null 2>&1 && link_into_venv "$(command -v "${bin}")" "${bin}"
         fi
     fi
@@ -233,13 +224,7 @@ install_github_release_and_link() {
 # ============================================================================
 
 install_libpcap_dev() {
-    if [[ "${OS}" == "macos" ]]; then
-        if command -v brew >/dev/null 2>&1; then
-            brew install libpcap 2>/dev/null || true
-            export CPATH="/opt/homebrew/include:${CPATH:-}"
-            export LIBRARY_PATH="/opt/homebrew/lib:${LIBRARY_PATH:-}"
-        fi
-    elif [[ "${OS}" == "debian" ]]; then
+    if [[ "${OS}" == "debian" ]]; then
         if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
             sudo apt-get update -qq && sudo apt-get install -y libpcap-dev 2>/dev/null || true
         fi
@@ -250,16 +235,12 @@ ensure_go() {
     command -v go >/dev/null 2>&1 && return
     if [[ "${OS}" == "debian" ]] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
         sudo apt-get update -qq && sudo apt-get install -y golang-go
-    elif [[ "${OS}" == "macos" ]] && command -v brew >/dev/null 2>&1; then
-        brew install go
     fi
 }
 
 ensure_node_and_npm() {
     command -v npm >/dev/null 2>&1 && return
-    if [[ "${OS}" == "macos" ]] && command -v brew >/dev/null 2>&1; then
-        brew install node
-    elif [[ "${OS}" == "debian" ]] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+    if [[ "${OS}" == "debian" ]] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
         sudo apt-get update -qq && sudo apt-get install -y nodejs npm
     fi
 }

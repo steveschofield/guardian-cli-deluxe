@@ -1,6 +1,6 @@
 # Guardian CLI Usage
 
-This is a short reference for the built-in commands. For Windows, prefer `python -m cli.main ...` (or `.\guardian.bat ...`) when `guardian` is not on PATH.
+This is a short reference for the built-in commands. Use `python -m cli.main ...` when `guardian` is not on PATH.
 
 ## Help
 
@@ -36,7 +36,10 @@ python -m cli.main recon --domain example.com --dry-run
 ```bash
 python -m cli.main workflow list
 python -m cli.main workflow run --name recon --target example.com
+python -m cli.main workflow run --name recon_quick --target example.com
 python -m cli.main workflow run --name web --target https://example.com
+python -m cli.main workflow run --name quick_vuln_scan --target https://example.com
+python -m cli.main workflow run --name wordpress_audit --target https://example.com
 python -m cli.main workflow run --name autonomous --target example.com
 ```
 
@@ -61,4 +64,3 @@ Every command accepts `--config`:
 ```bash
 python -m cli.main recon --domain example.com --config ~/.guardian/guardian.yaml
 ```
-

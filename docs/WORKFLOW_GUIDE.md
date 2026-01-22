@@ -385,59 +385,26 @@ settings:
 
 ---
 
-## Built-In Workflows (Recon/Web/Network)
+## Default Workflows (YAML)
 
-Guardian ships built-in workflows in code. These steps run in order, with some steps skipped when
-configuration or target type does not apply (for example, IP targets skip domain-only DNS tools).
+Guardian loads workflows from `workflows/*.yaml`. YAML definitions are the source of truth and
+take precedence over any built-in fallback logic.
 
-### Recon Workflow (built-in)
+Keyword aliases:
 
-1. `passive_osint` - amass, whois, dnsrecon (std)
-2. `dns_enumeration` - dnsrecon (std,axfr,zonewalk,brt)
-3. `ip_enrichment` - reverse DNS + TLS SAN/CN enrichment
-4. `port_scanning` - nmap recon profile
-5. `service_fingerprinting` - nmap `-sV --version-all -sC`
-6. `ssl_tls_analysis` - testssl (fast/high)
-7. `technology_detection` - whatweb, retire
-8. `metadata_extraction` - robots.txt, sitemap.xml, HTML comments
-9. `analysis`
-10. `report`
+- `recon` -> `workflows/recon.yaml`
+- `web` -> `workflows/web_pentest.yaml`
+- `network` -> `workflows/network_pentest.yaml`
+- `autonomous` -> `workflows/autonomous.yaml`
 
-### Web Workflow (built-in)
+Additional defaults:
 
-1. `web_discovery` - httpx
-2. `technology_detection` - whatweb
-3. `metadata_extraction`
-4. `crawl` - katana
-5. `vhost_enumeration` - ffuf Host header fuzz
-6. `api_route_discovery` - kiterunner (requires wordlist)
-7. `vulnerability_scan` - nuclei
-8. `api_testing` - schemathesis + graphql-cop (requires config)
-9. `authentication_testing` - hydra (requires config)
-10. `session_management_testing` - jwt_tool (requires token/args)
-11. `authorization_testing` - nuclei auth/idor tags
-13. `xss_scan` - dalfox
-14. `file_upload_testing` - upload-scanner (requires args)
-15. `csrf_testing` - csrf-tester (requires args)
-16. `ssl_tls_analysis` - testssl
-17. `client_side_testing` - linkfinder (or xnlinkfinder) + retire
-18. `zap_scan` - optional (config + availability)
-19. `analysis`
-20. `report`
+- `workflows/recon_quick.yaml`
+- `workflows/quick_vuln_scan.yaml`
+- `workflows/wordpress_audit.yaml`
 
-### Network Workflow (built-in)
-
-1. `network_discovery` - masscan (CIDR/range only)
-2. `port_scan` - nmap recon profile
-3. `ip_enrichment`
-4. `service_enumeration` - nmap recon profile
-5. `network_topology` - nmap `-sn --traceroute`
-6. `share_enumeration` - enum4linux, smbclient, showmount
-7. `snmp_enumeration` - onesixtyone then snmpwalk
-8. `nmap_vuln_scan` - nmap vuln profile
-9. `ssl_tls_analysis` - testssl
-10. `analysis`
-11. `report`
+Open the YAML files to see the exact step order and tool parameters. Steps can include
+conditions (for example, domain-only DNS tools) and dependencies that control execution order.
 
 ---
 
