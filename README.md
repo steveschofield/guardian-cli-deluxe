@@ -18,20 +18,20 @@
 ### Installation# 1. Clone and setup
 
 ```bash
-git clone <internal-repo-url>
+git clone https://github.com/steveschofield/guardian-cli-deluxe
 cd guardian-cli-deluxe
 python3 -m venv venv
 source venv/bin/activate
 
-# 1. (Optional) Install security tools (Kali Linux).
-#    This also installs Guardian into the active venv.
+# 1. Install security tools (Kali Linux).
+#    + installs Guardian into the active venv.
 ./setup.sh 2>&1 | tee setup.log
 
 # 2. Initialize Guardian
 python -m cli.main init
 
 # 3. Test installation
-source venv/bin/activate (always need this before)
+source venv/bin/activate (need this before)
 python -m cli.main workflow run --name recon --target <approved-test-target>
 ```
 
