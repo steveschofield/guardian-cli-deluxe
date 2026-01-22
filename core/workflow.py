@@ -6,6 +6,9 @@ Coordinates agents and manages pentest execution flow
 import asyncio
 import re
 import os
+import ipaddress
+from urllib.parse import urlparse
+import yaml
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 from datetime import datetime
@@ -356,9 +359,10 @@ class WorkflowEngine:
     async def _execute_step(self, step: Dict[str, Any], workflow_name: Optional[str] = None):
         """Execute a workflow step"""
         step_type = step.get("type", "tool")
+        condition = step.get("condition")
         
         # Check conditional steps
-        if step.get("condition") == "zap_available":
+        if condition == "zap_available":
             zap_config = self.config.get("tools", {}).get("zap", {})
             if not zap_config.get("run_additional_scan", True):
                 self.logger.info(f"Skipping {step['name']}: ZAP additional scan disabled in config")
@@ -366,6 +370,8 @@ class WorkflowEngine:
             if "zap" not in self.tool_agent.available_tools:
                 self.logger.info(f"Skipping {step['name']}: ZAP not available")
                 return
+        elif self._should_skip_for_condition(condition, step.get("name", "step")):
+            return
         
         if step_type == "tool":
             # Use Tool Agent to select and execute tool
@@ -393,11 +399,15 @@ class WorkflowEngine:
                 if isinstance(entry, dict):
                     tool_name = entry.get("tool")
                     tool_kwargs = entry.get("parameters", {}) or {}
+                    entry_condition = entry.get("condition")
                 else:
                     tool_name = str(entry)
                     tool_kwargs = {}
+                    entry_condition = None
 
                 if not tool_name:
+                    continue
+                if self._should_skip_for_condition(entry_condition, f"{step.get('name', 'multi_tool')}:{tool_name}"):
                     continue
 
                 if tool_name == "snmpwalk" and snmp_community and "community" not in tool_kwargs:
@@ -735,7 +745,7 @@ class WorkflowEngine:
 
         # If we have discovered URLs, run URL-first scanners using the URL list.
         # NOTE: only enable for tools that accept a `from_file` input in our wrappers.
-        if tool_name in {"katana", "nuclei", "dalfox"}:
+        if tool_name in {"katana", "nuclei", "dalfox", "subjs", "xnlinkfinder"}:
             urls = self._get_discovered_urls()
             if urls and "from_file" not in tool_kwargs:
                 url_file = self._write_urls_file(urls, name=f"{tool_name}_{self.memory.session_id}.txt")
@@ -1227,14 +1237,15 @@ class WorkflowEngine:
         workflows = {
             "recon": [
                 {"name": "passive_osint", "type": "multi_tool", "tools": [
-                    {"tool": "amass"},
+                    {"tool": "amass", "condition": "target_is_domain"},
                     {"tool": "whois"},
-                    {"tool": "dnsrecon", "parameters": {"type": "std"}},
+                    {"tool": "dnsrecon", "parameters": {"type": "std"}, "condition": "target_is_domain"},
                 ]},
-                {"name": "dns_enumeration", "type": "tool", "tool": "dnsrecon", "parameters": {"type": "std,axfr,zonewalk,brt"}},
-                {"name": "godeye_recon", "type": "tool", "tool": "godeye", "parameters": {"enable_ai": True}},
+                {"name": "dns_enumeration", "type": "tool", "tool": "dnsrecon", "condition": "target_is_domain", "parameters": {"type": "std,axfr,zonewalk,brt"}},
+                {"name": "masscan_discovery", "type": "tool", "tool": "masscan", "condition": "target_is_ip"},
+                {"name": "godeye_recon", "type": "tool", "tool": "godeye", "condition": "target_is_domain", "parameters": {"enable_ai": True}},
                 {"name": "ip_enrichment", "type": "action", "action": "ip_enrichment"},
-                {"name": "port_scanning", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon"}},
+                {"name": "port_scanning", "type": "tool", "tool": "nmap", "condition": "target_is_domain", "parameters": {"profile": "recon"}},
                 {"name": "service_fingerprinting", "type": "tool", "tool": "nmap", "parameters": {"args": "-sV --version-all -sC", "ports_from_context": True}},
                 {"name": "nmap_vuln_scan", "type": "tool", "tool": "nmap", "parameters": {"profile": "vuln", "ports_from_context": True, "tool_timeout": 900}},
                 {"name": "nmap_vulners_scan", "type": "tool", "tool": "nmap", "parameters": {"args": "-sV --script vulners", "ports_from_context": True, "tool_timeout": 900}},
@@ -1301,7 +1312,14 @@ class WorkflowEngine:
             ]
         }
         
-        return workflows.get(workflow_name, workflows["recon"])
+        yaml_steps = self._load_yaml_workflow(workflow_name)
+        if yaml_steps:
+            return yaml_steps
+
+        if workflow_name in workflows:
+            return workflows[workflow_name]
+
+        return workflows["recon"]
     
     def _maybe_advance_phase(self):
         """Advance to next phase based on progress"""
@@ -1314,6 +1332,94 @@ class WorkflowEngine:
             self.logger.info(f"Advancing to phase: {new_phase}")
             self.memory.update_phase(new_phase)
 
+    def _target_is_ip(self) -> bool:
+        """Return True if the target looks like an IP address or CIDR."""
+        target = (self.target or "").strip()
+        if not target:
+            return False
+
+        host = target
+        if "://" in target:
+            try:
+                parsed = urlparse(target)
+                if parsed.hostname:
+                    host = parsed.hostname
+            except Exception:
+                pass
+        elif "/" not in target:
+            # Handle host:port without scheme
+            try:
+                parsed = urlparse(f"//{target}")
+                if parsed.hostname:
+                    host = parsed.hostname
+            except Exception:
+                pass
+
+        try:
+            if "/" in host:
+                ipaddress.ip_network(host, strict=False)
+            else:
+                ipaddress.ip_address(host)
+            return True
+        except ValueError:
+            return False
+
+    def _target_is_url(self) -> bool:
+        target = (self.target or "").strip()
+        if not target:
+            return False
+        try:
+            parsed = urlparse(target)
+            return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+        except Exception:
+            return False
+
+    def _target_is_path(self) -> bool:
+        target = (self.target or "").strip()
+        if not target:
+            return False
+        if self._target_is_url():
+            return False
+        return Path(target).expanduser().exists()
+
+    def _should_skip_for_condition(self, condition: Optional[str], name: str) -> bool:
+        """Return True if a step should be skipped based on its condition."""
+        if not condition:
+            return False
+        if condition == "target_is_domain":
+            if self._target_is_ip():
+                self.logger.info(f"Skipping {name}: target is IP")
+                return True
+        elif condition == "target_is_ip":
+            if not self._target_is_ip():
+                self.logger.info(f"Skipping {name}: target is not IP")
+                return True
+        elif condition == "target_is_url":
+            if not self._target_is_url():
+                self.logger.info(f"Skipping {name}: target is not a URL")
+                return True
+        elif condition == "target_is_path":
+            if not self._target_is_path():
+                self.logger.info(f"Skipping {name}: target is not a local path")
+                return True
+        elif condition == "target_is_url_or_path":
+            if not (self._target_is_url() or self._target_is_path()):
+                self.logger.info(f"Skipping {name}: target is not a URL or local path")
+                return True
+        elif isinstance(condition, str) and condition.startswith("config_has:"):
+            keys = [k.strip() for k in condition[len("config_has:"):].split(",") if k.strip()]
+            for key in keys:
+                cursor = self.config
+                for part in key.split("."):
+                    if not isinstance(cursor, dict) or part not in cursor:
+                        self.logger.info(f"Skipping {name}: missing config {key}")
+                        return True
+                    cursor = cursor[part]
+                if cursor in (None, "", [], {}):
+                    self.logger.info(f"Skipping {name}: empty config {key}")
+                    return True
+        return False
+
     def _planner_config(self) -> tuple[bool, set[str]]:
         workflows_cfg = (self.config or {}).get("workflows", {}) or {}
         enabled = bool(workflows_cfg.get("use_planner", False))
@@ -1322,6 +1428,78 @@ class WorkflowEngine:
             checkpoints = [c.strip() for c in checkpoints.split(",") if c.strip()]
         checkpoints_set = {str(c).strip() for c in checkpoints if str(c).strip()}
         return enabled, checkpoints_set
+
+    def _normalize_workflow_steps(self, steps: list[dict]) -> list[dict]:
+        normalized: list[dict] = []
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            step_type = step.get("type")
+            if not step_type:
+                if "tools" in step:
+                    step_type = "multi_tool"
+                elif "tool" in step:
+                    step_type = "tool"
+            if not step_type:
+                continue
+
+            parameters = step.get("parameters")
+            if parameters is None and "args" in step:
+                parameters = step.get("args")
+
+            normalized_step: dict = {
+                "name": step.get("name") or step.get("tool") or step_type,
+                "type": step_type,
+            }
+            if "tool" in step:
+                normalized_step["tool"] = step.get("tool")
+            if "tools" in step:
+                normalized_step["tools"] = step.get("tools")
+            if parameters:
+                normalized_step["parameters"] = parameters
+            if "condition" in step:
+                normalized_step["condition"] = step.get("condition")
+            if "action" in step:
+                normalized_step["action"] = step.get("action")
+            if "agent" in step:
+                normalized_step["agent"] = step.get("agent")
+            objective = step.get("objective") or step.get("description")
+            if objective:
+                normalized_step["objective"] = objective
+            normalized.append(normalized_step)
+        return normalized
+
+    def _load_yaml_workflow(self, workflow_name: str) -> list[dict]:
+        name = (workflow_name or "").strip()
+        if not name:
+            return []
+
+        aliases = {
+            "wordpress": "wordpress_audit",
+            "web": "web_pentest",
+            "network": "network_pentest",
+            "reconnaissance": "recon",
+        }
+        name = aliases.get(name, name)
+
+        repo_root = Path(__file__).resolve().parent.parent
+        workflows_dir = repo_root / "workflows"
+        if not workflows_dir.exists():
+            return []
+
+        for candidate in {name, name.replace("-", "_")}:
+            path = workflows_dir / f"{candidate}.yaml"
+            if not path.exists():
+                continue
+            try:
+                data = yaml.safe_load(path.read_text()) or {}
+            except Exception as exc:
+                self.logger.warning(f"Failed to load workflow YAML {path}: {exc}")
+                return []
+            steps = data.get("steps") or []
+            if isinstance(steps, list):
+                return self._normalize_workflow_steps(steps)
+        return []
 
     def _should_run_planner(self, step: Dict[str, Any]) -> bool:
         enabled, checkpoints = self._planner_config()

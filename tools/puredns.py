@@ -11,14 +11,19 @@ class PurednsTool(BaseTool):
     """puredns wrapper"""
 
     def get_command(self, target: str, **kwargs) -> List[str]:
+        config = self.config.get("tools", {}).get("puredns", {})
+
         # Usually used as resolver for shuffledns; here simple resolve mode
         command = ["puredns", "resolve", target]
 
-        if "resolvers" in kwargs:
-            resolvers = os.path.expandvars(os.path.expanduser(kwargs["resolvers"]))
+        resolvers = kwargs.get("resolvers") or config.get("resolvers")
+        if resolvers:
+            resolvers = os.path.expandvars(os.path.expanduser(str(resolvers)))
             command.extend(["-r", resolvers])
-        if "wordlist" in kwargs:
-            wordlist = os.path.expandvars(os.path.expanduser(kwargs["wordlist"]))
+
+        wordlist = kwargs.get("wordlist") or config.get("wordlist")
+        if wordlist:
+            wordlist = os.path.expandvars(os.path.expanduser(str(wordlist)))
             command.extend(["-w", wordlist])
         return command
 

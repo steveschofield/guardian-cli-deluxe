@@ -5,12 +5,45 @@ name: reconnaissance
 description: Complete reconnaissance workflow including subdomain enumeration, port scanning, and technology detection
 
 steps:
+  - name: passive_osint_amass
+    type: tool
+    tool: amass
+    objective: "Passive ASN and subdomain discovery"
+    parameters:
+      args: "-passive"
+    condition: target_is_domain
+
+  - name: whois_lookup
+    type: tool
+    tool: whois
+    objective: "Collect WHOIS registration details"
+    condition: target_is_domain
+
+  - name: asn_lookup
+    type: tool
+    tool: asnmap
+    objective: "Map target to ASN and CIDR ranges"
+    condition: target_is_domain
+
   - name: subdomain_discovery
     type: tool
     tool: subfinder
     objective: "Enumerate all subdomains of the target domain"
     parameters:
       all_sources: true
+    condition: target_is_domain
+
+  - name: shuffledns_permutations
+    type: tool
+    tool: shuffledns
+    objective: "Permutation-based DNS enumeration"
+    condition: target_is_domain
+
+  - name: puredns_resolution
+    type: tool
+    tool: puredns
+    objective: "Resolve discovered candidates with trusted resolvers"
+    condition: target_is_domain
 
   - name: dns_enumeration
     type: tool
@@ -18,6 +51,15 @@ steps:
     objective: "Perform DNS resolution and record enumeration for domain/IP hosts"
     parameters:
       recon: true
+    condition: target_is_domain
+
+  - name: dnsrecon_enum
+    type: tool
+    tool: dnsrecon
+    objective: "DNS record enumeration and zone checks"
+    parameters:
+      type: "std,axfr,zonewalk,brt"
+    condition: target_is_domain
 
   - name: godeye_recon
     type: tool
@@ -25,6 +67,13 @@ steps:
     objective: "Comprehensive subdomain reconnaissance with AI analysis"
     parameters:
       enable_ai: true
+    condition: target_is_domain
+
+  - name: masscan_discovery
+    type: tool
+    tool: masscan
+    objective: "Fast port discovery for IP targets"
+    condition: target_is_ip
 
   - name: port_scan_main_domain
     type: tool
@@ -33,6 +82,7 @@ steps:
     parameters:
       ports: "top-1000"
       scan_type: "-sV"
+    condition: target_is_domain
 
   - name: nmap_vuln_scan
     type: tool
@@ -69,6 +119,7 @@ steps:
       enable_ai: false
     dependencies:
       - http_probing
+    condition: target_is_domain
 
   - name: web_vuln_scan_nikto
     type: tool

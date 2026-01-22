@@ -1,7 +1,7 @@
 # Full Vulnerability Assessment Workflow
 # Comprehensive scan using SQLMap, SSLyze, Nuclei, and others
 
-name: full_vuln_scan
+name: quick_vuln_scan
 description: Comprehensive vulnerability assessment including SQLi and SSL/TLS checks
 version: 1.0.0
 author: Guardian AI
@@ -53,3 +53,15 @@ steps:
       batch: true
     dependencies:
       - fuzzing_paths
+
+  - name: secrets_scan_trufflehog
+    tool: trufflehog
+    description: Scan URLs or local paths for exposed secrets
+    args:
+      only_verified: true
+    condition: target_is_url_or_path
+
+  - name: secrets_scan_gitleaks
+    tool: gitleaks
+    description: Scan local source trees for leaked secrets
+    condition: target_is_path

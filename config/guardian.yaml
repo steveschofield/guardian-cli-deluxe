@@ -428,6 +428,26 @@ tools:
     enabled: true
     include_org: true
 
+  shuffledns:
+    enabled: true
+    # Requires a resolvers list file (one IP per line)
+    resolvers: "wordlists/SecLists/Discovery/DNS/resolvers.txt"
+    # Common subdomain wordlist for permutation bruteforce
+    wordlist: "wordlists/SecLists/Discovery/DNS/subdomains-top1million-20000.txt"
+
+  puredns:
+    enabled: true
+    # Uses the same resolver list as shuffledns
+    resolvers: "wordlists/SecLists/Discovery/DNS/resolvers.txt"
+    # Optional wordlist support
+    # wordlist: "wordlists/SecLists/Discovery/DNS/subdomains-top1million-20000.txt"
+
+  metasploit:
+    enabled: false
+    # module: "exploit/windows/smb/ms17_010_eternalblue"
+    # rhosts: "{target}"
+    # extra_commands: "set RPORT 445"
+
   waybackurls:
     enabled: true
 

@@ -1,7 +1,7 @@
 # Advanced Reconnaissance Workflow
 # Uses Subfinder for subdomain enumeration and Masscan for rapid port discovery
 
-name: advanced_recon
+name: recon_quick
 description: Deep reconnaissance using Subfinder and Masscan
 version: 1.0.0
 author: Guardian AI

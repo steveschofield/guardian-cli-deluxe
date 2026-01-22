@@ -11,16 +11,22 @@ class ShufflednsTool(BaseTool):
     """shuffledns wrapper"""
 
     def get_command(self, target: str, **kwargs) -> List[str]:
+        config = self.config.get("tools", {}).get("shuffledns", {})
         command = ["shuffledns", "-d", target]
 
-        if "wordlist" in kwargs:
-            wordlist = os.path.expandvars(os.path.expanduser(kwargs["wordlist"]))
+        wordlist = kwargs.get("wordlist") or config.get("wordlist")
+        if wordlist:
+            wordlist = os.path.expandvars(os.path.expanduser(str(wordlist)))
             command.extend(["-w", wordlist])
-        if "resolvers" in kwargs:
-            resolvers = os.path.expandvars(os.path.expanduser(kwargs["resolvers"]))
+
+        resolvers = kwargs.get("resolvers") or config.get("resolvers")
+        if resolvers:
+            resolvers = os.path.expandvars(os.path.expanduser(str(resolvers)))
             command.extend(["-r", resolvers])
-        if "massdns" in kwargs:
-            massdns = os.path.expandvars(os.path.expanduser(kwargs["massdns"]))
+
+        massdns = kwargs.get("massdns") or config.get("massdns")
+        if massdns:
+            massdns = os.path.expandvars(os.path.expanduser(str(massdns)))
             command.extend(["-m", massdns])
 
         return command

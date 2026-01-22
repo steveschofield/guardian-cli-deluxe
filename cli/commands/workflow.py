@@ -4,6 +4,7 @@ guardian workflow - Run predefined workflows
 
 import typer
 import asyncio
+import yaml
 from rich.console import Console
 from rich.table import Table
 from pathlib import Path
@@ -61,12 +62,47 @@ def _list_workflows():
     table = Table(title="Available Workflows")
     table.add_column("Name", style="cyan")
     table.add_column("Description", style="white")
-    
-    table.add_row("recon", "Reconnaissance: subdomain enum, port scan, tech detection")
-    table.add_row("web", "Web Application: HTTP probing, vulnerability scanning")
-    table.add_row("network", "Network Infrastructure: port scanning, service detection")
-    table.add_row("autonomous", "AI-Driven: fully autonomous testing with AI decisions")
-    
+
+    workflows_dir = Path(__file__).resolve().parent.parent.parent / "workflows"
+
+    aliases = {
+        "recon": "recon",
+        "web": "web_pentest",
+        "network": "network_pentest",
+        "autonomous": "autonomous",
+    }
+
+    workflows: dict[str, str] = {}
+    for name, target in aliases.items():
+        description = "Workflow"
+        if workflows_dir.exists():
+            path = workflows_dir / f"{target}.yaml"
+            if path.exists():
+                try:
+                    data = yaml.safe_load(path.read_text()) or {}
+                    description = data.get("description") or description
+                except Exception:
+                    pass
+        if target != name:
+            description = f"{description} (workflow: {target})"
+        workflows[name] = description
+
+    if workflows_dir.exists():
+        for path in sorted(workflows_dir.glob("*.yaml")):
+            name = path.stem
+            if name in workflows or name in aliases.values():
+                continue
+            description = "Custom workflow"
+            try:
+                data = yaml.safe_load(path.read_text()) or {}
+                description = data.get("description") or description
+            except Exception:
+                pass
+            workflows[name] = description
+
+    for name, description in workflows.items():
+        table.add_row(name, description)
+
     console.print(table)
 
 
