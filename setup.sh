@@ -525,6 +525,18 @@ install_paramspider() {
     "${VENV_BIN}/pip" install "paramspider @ git+https://github.com/devanshbatham/ParamSpider.git" --quiet 2>/dev/null || true
 }
 
+install_enum4linux_ng() {
+    log_info "Installing enum4linux-ng (modern Python rewrite)..."
+    "${VENV_BIN}/pip" install --upgrade enum4linux-ng --quiet 2>/dev/null || {
+        safe_git_clone "https://github.com/cddmp/enum4linux-ng.git" "${TOOLS_DIR}/enum4linux-ng"
+        if [[ -f "${TOOLS_DIR}/enum4linux-ng/requirements.txt" ]]; then
+            "${VENV_BIN}/pip" install -r "${TOOLS_DIR}/enum4linux-ng/requirements.txt" --quiet 2>/dev/null || true
+        fi
+        [[ -f "${TOOLS_DIR}/enum4linux-ng/enum4linux-ng.py" ]] && write_python_wrapper_into_venv "${TOOLS_DIR}/enum4linux-ng/enum4linux-ng.py" "enum4linux-ng"
+    }
+    log_success "enum4linux-ng installed"
+}
+
 # REMOVED: install_udp_proto_scanner - ancient Perl (2017), use nmap -sU instead
 
 # ============================================================================
@@ -558,7 +570,6 @@ install_python_tools() {
 install_system_tools() {
     log_info "Installing system tools..."
 
-    install_system_binary "enum4linux" "enum4linux" "enum4linux"
     install_system_binary "smbclient" "smbclient" "samba"
     install_system_binary "showmount" "nfs-common" "nfs-utils"
     install_system_binary "snmpwalk" "snmp" "net-snmp"
@@ -810,6 +821,7 @@ install_wpscan
 install_corscanner
 install_linkfinder
 install_paramspider
+install_enum4linux_ng
 
 # Python tools
 install_python_tools
