@@ -35,7 +35,7 @@ Available Tools (pick only those appropriate for the target type and objective):
 - showmount: NFS export enumeration
 - onesixtyone: SNMP community brute force
 - snmpwalk: SNMP enumeration
-- dirsearch: Content discovery and brute forcing
+- feroxbuster: Fast content discovery and brute forcing (Rust-based, JSON output)
 - ffuf: Fast web fuzzing (paths/params)
 - kiterunner: Schema-less API route discovery
 - sqlmap: SQL injection testing (use carefully)
@@ -109,7 +109,7 @@ AVAILABLE TOOLS (avoid DNS/subdomain tools on IP-only targets; schemathesis requ
 - showmount: NFS export enumeration
 - onesixtyone: SNMP community brute force
 - snmpwalk: SNMP enumeration
-- dirsearch: Content discovery
+- feroxbuster: Fast content discovery (Rust-based)
 - ffuf: Web fuzzing
 - kiterunner: API route discovery without OpenAPI
 - sqlmap: SQL injection testing

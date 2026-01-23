@@ -42,7 +42,6 @@ from .katana import KatanaTool
 from .asnmap import AsnmapTool
 from .waybackurls import WaybackurlsTool
 from .subjs import SubjsTool
-from .dirsearch import DirsearchTool
 from .linkfinder import LinkfinderTool
 from .xnlinkfinder import XnlinkfinderTool
 from .paramspider import ParamspiderTool
@@ -98,7 +97,6 @@ __all__ = [
     "AsnmapTool",
     "WaybackurlsTool",
     "SubjsTool",
-    "DirsearchTool",
     "LinkfinderTool",
     "XnlinkfinderTool",
     "ParamspiderTool",
