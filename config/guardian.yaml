@@ -203,32 +203,6 @@ osint:
       # Threshold for high-risk classification (0-1)
       high_risk_threshold: 0.7
 
-    # AttackerKB
-    # Community-driven exploitation assessments from Rapid7
-    # Cost: FREE tier available | PAID for higher limits
-    attackerkb:
-      enabled: true
-      # AttackerKB API Key (required)
-      # Get from: https://attackerkb.com/account
-      # Sign up for free tier
-      # Set via environment variable: ATTACKERKB_API_KEY
-      api_key: "${ATTACKERKB_API_KEY:-}"  # Add your AttackerKB API key here or set env var
-      # Request timeout (seconds)
-      timeout: 10
-      # Minimum Rapid7 analysis score to flag (1-5)
-      min_rapid7_score: 3
-
-    # PacketStorm Security
-    # One of the oldest exploit archives
-    # Cost: FREE | Rate Limit: None (web scraping)
-    # Note: Uses web scraping, may be fragile to site changes
-    packetstorm:
-      enabled: true
-      # Request timeout (seconds)
-      timeout: 15
-      # Maximum number of exploits to return per CVE
-      max_results: 5
-
     # OSV (Open Source Vulnerabilities)
     # Distributed vulnerability database for open source packages
     # Cost: FREE | Rate Limit: None

@@ -28,7 +28,7 @@ Guardian CLI integrates multiple OSINT (Open Source Intelligence) sources to enr
 - **Config**: `osint.sources.vulners`
 - **Requires**: API key (free tier available)
 
-### 4. EPSS (Exploit Prediction Scoring System) ✨ NEW
+### 4. EPSS (Exploit Prediction Scoring System)
 - **Status**: Active
 - **Cost**: FREE
 - **Rate Limit**: None
@@ -40,34 +40,7 @@ Guardian CLI integrates multiple OSINT (Open Source Intelligence) sources to enr
   - Percentile rankings
   - Automatic risk level classification (critical/high/medium/low)
 
-### 5. AttackerKB ✨ NEW
-- **Status**: Active
-- **Cost**: FREE tier available, PAID for higher limits
-- **Purpose**: Community-driven exploitation assessments from Rapid7
-- **Source**: https://attackerkb.com
-- **Config**: `osint.sources.attackerkb`
-- **Requires**: API key (free tier available)
-- **Features**:
-  - Rapid7 researcher analysis
-  - Community exploitation ratings
-  - Real-world attack observations
-  - Exploit maturity assessments
-
-### 6. PacketStorm Security ✨ NEW
-- **Status**: Active
-- **Cost**: FREE
-- **Rate Limit**: None (web scraping)
-- **Purpose**: One of the oldest exploit archives
-- **Source**: https://packetstormsecurity.com
-- **Config**: `osint.sources.packetstorm`
-- **Features**:
-  - Exploit code and PoCs
-  - Security advisories
-  - Whitepapers and tools
-  - Shellcode and payloads
-- **Note**: Uses web scraping, may be fragile to site changes
-
-### 7. OSV (Open Source Vulnerabilities) ✨ NEW
+### 5. OSV (Open Source Vulnerabilities)
 - **Status**: Active
 - **Cost**: FREE
 - **Rate Limit**: None
@@ -110,15 +83,6 @@ osint:
     epss:
       enabled: true
       high_risk_threshold: 0.7
-
-    attackerkb:
-      enabled: true
-      api_key: ""  # Required
-      min_rapid7_score: 3
-
-    packetstorm:
-      enabled: true
-      max_results: 5
 
     osv:
       enabled: true
@@ -168,24 +132,6 @@ The OSINT enricher returns enrichment data keyed by finding ID with the followin
                 "percentile_rank": "95.0th"
             }
         },
-        "attackerkb_assessments": {
-            "CVE-YYYY-XXXXX": {
-                "rapid7_analysis": "...",
-                "rapid7_score": 4,
-                "exploitability_score": 8,
-                "attacker_value": 9,
-                "risk_level": "critical"
-            }
-        },
-        "packetstorm_exploits": [
-            {
-                "title": "...",
-                "url": "https://packetstormsecurity.com/...",
-                "date": "YYYY-MM-DD",
-                "type": "exploit",
-                "tags": ["exploit", "poc"]
-            }
-        ],
         "osv_data": {
             "CVE-YYYY-XXXXX": {
                 "id": "CVE-YYYY-XXXXX",
@@ -231,10 +177,6 @@ summary = enricher.get_summary()
    - Free tier: 100 requests/day
    - No credit card required
 
-2. **AttackerKB**: Sign up at https://attackerkb.com/account
-   - Free tier available
-   - No credit card required
-
 ### Optional API Keys
 
 1. **GitHub**: Create at https://github.com/settings/tokens
@@ -245,20 +187,17 @@ summary = enricher.get_summary()
 
 The new OSINT sources require the following Python packages (automatically installed):
 
-- `beautifulsoup4>=4.12.0` - For PacketStorm web scraping
 - `requests>=2.31.0` - For HTTP requests to OSINT APIs
 
 ## Performance Considerations
 
 - **EPSS**: Very fast, single API call for multiple CVEs
-- **AttackerKB**: One API call per CVE, may be slower for many CVEs
-- **PacketStorm**: Web scraping-based, slower and less reliable
 - **OSV**: Fast, supports batch queries
 
 ## Recommendations
 
 1. **Enable all sources** for maximum coverage
-2. **Set up API keys** for Vulners and AttackerKB (both have free tiers)
+2. **Set up API keys** for Vulners (free tier available)
 3. **Add GitHub token** if scanning frequently (rate limit improvement)
 4. **Monitor rate limits** when scanning large numbers of CVEs
 5. **Use caching** (default 24 hours) to reduce API calls

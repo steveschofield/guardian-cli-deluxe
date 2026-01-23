@@ -201,7 +201,7 @@ GitHub PoCs (12 repositories):
 - ✅ Aggregates 100+ exploit sources
 - ✅ AI-based risk scoring (0-10)
 - ✅ Total exploit count across all sources
-- ✅ Additional references (PacketStorm, etc.)
+- ✅ Additional references (Exploit-DB, etc.)
 
 **Example Vulners Entry:**
 ```

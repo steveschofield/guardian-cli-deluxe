@@ -1,0 +1,3 @@
+[
+{"target":"https://juiceshop.ss.hackme","http_status":200,"request_config":{"headers":{"User-Agent":"Guardian-Pentest-Tool"}},"plugins":{"Country":{"string":["RESERVED"],"module":["ZZ"]},"HTML5":{},"HTTPServer":{"string":["nginx/1.29.4"]},"IP":{"string":["192.168.1.130"]},"JQuery":{"version":["2.2.4"]},"nginx":{"version":["1.29.4"]},"Script":{"string":["module"]},"Title":{"string":["OWASP Juice Shop"]},"UncommonHeaders":{"string":["access-control-allow-origin,x-content-type-options,feature-policy,x-recruiting"]},"X-Frame-Options":{"string":["SAMEORIGIN"]}}}
+]

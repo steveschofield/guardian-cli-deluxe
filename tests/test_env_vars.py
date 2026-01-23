@@ -167,7 +167,6 @@ def test_osint_api_keys_expansion():
     # Set test API keys
     os.environ["GITHUB_TOKEN"] = "ghp_test123"
     os.environ["VULNERS_API_KEY"] = "vulners_test123"
-    os.environ["ATTACKERKB_API_KEY"] = "akb_test123"
 
     # Create temporary config matching guardian.yaml structure
     config_content = """
@@ -180,9 +179,6 @@ def test_osint_api_keys_expansion():
         vulners:
           enabled: true
           api_key: "${VULNERS_API_KEY:-}"
-        attackerkb:
-          enabled: true
-          api_key: "${ATTACKERKB_API_KEY:-}"
     """
 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
@@ -196,13 +192,11 @@ def test_osint_api_keys_expansion():
         # Verify API keys are expanded
         assert config["osint"]["sources"]["github"]["token"] == "ghp_test123"
         assert config["osint"]["sources"]["vulners"]["api_key"] == "vulners_test123"
-        assert config["osint"]["sources"]["attackerkb"]["api_key"] == "akb_test123"
     finally:
         # Cleanup
         Path(config_path).unlink()
         del os.environ["GITHUB_TOKEN"]
         del os.environ["VULNERS_API_KEY"]
-        del os.environ["ATTACKERKB_API_KEY"]
 
 
 if __name__ == "__main__":

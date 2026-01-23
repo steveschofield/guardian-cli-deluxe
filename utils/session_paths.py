@@ -2,6 +2,7 @@
 Helpers for locating per-session report and log paths.
 """
 
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -37,6 +38,19 @@ def apply_session_paths(config: Optional[Dict[str, Any]], session_id: str) -> Pa
     logging_cfg["path"] = str(session_dir / "guardian.log")
     logging_cfg["console_log_path"] = str(session_dir / f"console_{session_id}.log")
     cfg["logging"] = logging_cfg
+
+    # Keep nuclei's consolidated log in the session folder when the default path is used.
+    tools_cfg = dict((cfg.get("tools") or {})) if isinstance(cfg, dict) else {}
+    nuclei_cfg = dict((tools_cfg.get("nuclei") or {})) if isinstance(tools_cfg, dict) else {}
+    log_file = nuclei_cfg.get("log_file")
+    if log_file:
+        expanded = Path(os.path.expandvars(os.path.expanduser(str(log_file))))
+        if expanded == base_dir / "nuclei.log":
+            nuclei_cfg["log_file"] = str(session_dir / "nuclei.log")
+    else:
+        nuclei_cfg["log_file"] = str(session_dir / "nuclei.log")
+    tools_cfg["nuclei"] = nuclei_cfg
+    cfg["tools"] = tools_cfg
 
     return session_dir
 

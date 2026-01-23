@@ -235,7 +235,6 @@ language:python OR language:ruby OR language:go
       - **EPSS Score:** 97.5% probability of exploitation in next 30 days
       - **EPSS Percentile:** 99.9th percentile (higher risk than 99.9% of all CVEs)
       - **Vulners AI Score:** 9.5/10 (extremely high risk)
-      - **AttackerKB Value:** HIGH - Commonly exploited for ransomware deployment
 
 * **Impact Analysis:**
     - Remote, unauthenticated code execution
@@ -333,9 +332,6 @@ osint:
       enabled: false  # Optional paid service
       api_key: ""
 
-    attackerkb:
-      enabled: false  # Optional manual research
-
   rate_limiting:
     enabled: true
     retry_on_limit: true
@@ -390,7 +386,6 @@ reporting:
 | EPSS | Unlimited | N/A | Always use |
 | GitHub | 60/hour | 5000/hour ($0) | Use with token (free) |
 | Vulners | 100/day | 10k/day ($99/mo) | Optional |
-| AttackerKB | Manual | Manual | Optional |
 
 **Recommended Setup:** All free tiers provide excellent coverage
 

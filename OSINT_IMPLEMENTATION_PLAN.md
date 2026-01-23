@@ -133,7 +133,7 @@ query = 'CVE-2017-0143 (exploit OR poc OR vulnerability) language:python OR lang
 
 **Why this is powerful:**
 - Aggregates 100+ vulnerability sources
-- Unified exploit references (Metasploit, Exploit-DB, PacketStorm, etc.)
+- Unified exploit references (Metasploit, Exploit-DB, GitHub, etc.)
 - AI-based risk scoring
 - Comprehensive CVE metadata
 
@@ -185,7 +185,6 @@ POST https://vulners.com/api/v3/burp/software/
         "sourceData": {
           "exploitdb": ["42315", "42031", "41987"],
           "metasploit": ["exploit/windows/smb/ms17_010_eternalblue"],
-          "packetstorm": ["141952", "142052"],
           "githubexploit": ["worawit/MS17-010"]
         },
         "ai_score": 9.5,
@@ -209,7 +208,6 @@ POST https://vulners.com/api/v3/burp/software/
   + **Sources:**
     * Metasploit: 3 modules
     * Exploit-DB: 7 exploits (EDB-42315, EDB-42031, EDB-41987, ...)
-    * PacketStorm: 5 advisories
     * GitHub: 12 repositories
   + **Vendor Advisory:** [Microsoft Security Bulletin](https://portal.msrc.microsoft.com/...)
 ```

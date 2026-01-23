@@ -30,7 +30,6 @@ You can use `python-dotenv` syntax in `.env` files:
 # .env file
 GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 VULNERS_API_KEY=xxxxxxxxxxxxxxxxxx
-ATTACKERKB_API_KEY=xxxxxxxxxxxxxxxxxx
 ```
 
 ## OSINT API Keys
@@ -70,24 +69,6 @@ osint:
   sources:
     vulners:
       api_key: "${VULNERS_API_KEY:-}"
-```
-
-### AttackerKB API Key
-
-**Required for AttackerKB OSINT source** - Free tier available.
-
-```bash
-# Get from: https://attackerkb.com/account
-export ATTACKERKB_API_KEY=xxxxxxxxxxxx
-```
-
-In `guardian.yaml`:
-
-```yaml
-osint:
-  sources:
-    attackerkb:
-      api_key: "${ATTACKERKB_API_KEY:-}"
 ```
 
 ## AI Provider API Keys
@@ -160,7 +141,6 @@ osint:
    # OSINT API Keys
    GITHUB_TOKEN=ghp_xxxxxxxxxxxx
    VULNERS_API_KEY=xxxxxxxxxxxx
-   ATTACKERKB_API_KEY=xxxxxxxxxxxx
    ```
 
 3. Run Guardian (it will automatically load `.env`):
@@ -175,7 +155,6 @@ Export variables in your shell:
 ```bash
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 export VULNERS_API_KEY=xxxxxxxxxxxx
-export ATTACKERKB_API_KEY=xxxxxxxxxxxx
 
 guardian scan example.com
 ```
@@ -310,7 +289,6 @@ If you hit API rate limits:
 
 1. **GitHub**: Add `GITHUB_TOKEN` to increase limit from 60/hour to 5000/hour
 2. **Vulners**: Upgrade to paid tier or wait for daily reset
-3. **AttackerKB**: Check your API key quota at attackerkb.com/account
 
 ## Examples
 
@@ -320,7 +298,6 @@ If you hit API rate limits:
 # OSINT API Keys
 GITHUB_TOKEN=ghp_1234567890abcdef1234567890abcdef12345678
 VULNERS_API_KEY=ABCDEF1234567890ABCDEF1234567890ABCDEF12
-ATTACKERKB_API_KEY=akb_1234567890abcdef1234567890abcdef
 
 # AI Providers
 GOOGLE_API_KEY=AIzaSy1234567890abcdef1234567890abcd
@@ -354,12 +331,6 @@ else
     echo "✅ VULNERS_API_KEY set"
 fi
 
-if [ -z "$ATTACKERKB_API_KEY" ]; then
-    echo "⚠️  ATTACKERKB_API_KEY not set (AttackerKB will be disabled)"
-else
-    echo "✅ ATTACKERKB_API_KEY set"
-fi
-
 # Run Guardian with loaded variables
 guardian scan --help
 ```
@@ -383,7 +354,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VULNERS_API_KEY: ${{ secrets.VULNERS_API_KEY }}
-          ATTACKERKB_API_KEY: ${{ secrets.ATTACKERKB_API_KEY }}
         run: |
           guardian scan target.com
 ```

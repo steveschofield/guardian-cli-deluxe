@@ -2,7 +2,7 @@
 Vulners API Client
 
 Aggregates exploit intelligence from 100+ sources including
-Metasploit, Exploit-DB, PacketStorm, and more.
+Metasploit, Exploit-DB, and more.
 """
 
 import requests
@@ -80,7 +80,6 @@ class VulnersClient(OSINTClient):
             exploits = {
                 "metasploit": source_data.get("metasploit", []),
                 "exploitdb": source_data.get("exploitdb", []),
-                "packetstorm": source_data.get("packetstorm", []),
                 "githubexploit": source_data.get("githubexploit", []),
             }
 
