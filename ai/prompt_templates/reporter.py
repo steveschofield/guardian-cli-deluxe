@@ -70,9 +70,16 @@ For each finding, provide:
 4. Evidence and proof of concept
 5. Impact analysis
 6. **Exploitation Information** - IMPORTANT: If CVE IDs, known exploits, or exploitation attempts are mentioned in the finding data:
+   - **PRIORITY: CISA KEV Status** - If finding mentions "CISA KEV: ACTIVELY EXPLOITED IN THE WILD", prominently display:
+     * ⚠️ **CRITICAL WARNING: This vulnerability is actively exploited in the wild (CISA KEV)**
+     * Ransomware association if mentioned
+     * Government-mandated remediation deadline
+     * Required action
    - List all CVE identifiers
    - Specify available Metasploit modules by name
    - Specify available Exploit-DB references (EDB-XXXXX)
+   - Include GitHub PoC repositories if mentioned (with star counts)
+   - Include Vulners AI risk scores if available
    - If exploitation was attempted, clearly state the outcome (successful/failed) and which module was used
    - If Exploit-DB exploits are available for manual use, note this
 7. Detailed remediation steps
@@ -80,8 +87,10 @@ For each finding, provide:
 9. OWASP Top 10 (2021) and CWE mapping if provided
 
 **CRITICAL**: For each finding, include a dedicated "Exploitation Information" subsection that summarizes:
+- **CISA KEV status (if applicable)** - Highest priority indicator
 - CVE identifiers
-- Known public exploits (Metasploit modules, Exploit-DB IDs)
+- Known public exploits (Metasploit modules, Exploit-DB IDs, GitHub PoCs)
+- Vulners AI risk scoring (if available)
 - Exploitation attempt status if auto-exploit was used
 - Whether successful exploitation was achieved
 
