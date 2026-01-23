@@ -5,6 +5,7 @@ Common utility functions for Guardian
 import re
 import json
 import yaml
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional, List
 from datetime import datetime
@@ -14,7 +15,7 @@ from dotenv import load_dotenv
 
 
 def load_config(config_path: str = "config/guardian.yaml") -> Dict[str, Any]:
-    """Load configuration from YAML file"""
+    """Load configuration from YAML file with environment variable expansion"""
     try:
         # Load environment variables from:
         # - current working directory `.env` (default python-dotenv behavior)
@@ -50,9 +51,30 @@ def load_config(config_path: str = "config/guardian.yaml") -> Dict[str, Any]:
         except Exception:
             pass
 
+        def _expand_env_vars(value: Any) -> Any:
+            """Recursively expand environment variables in config values"""
+            if isinstance(value, str):
+                # Match ${VAR_NAME:-default_value} or ${VAR_NAME}
+                pattern = r'\$\{([^:}]+)(?::-(.*?))?\}'
+
+                def replacer(match):
+                    var_name = match.group(1)
+                    default_value = match.group(2) if match.group(2) is not None else ""
+                    return os.getenv(var_name, default_value)
+
+                return re.sub(pattern, replacer, value)
+            elif isinstance(value, dict):
+                return {k: _expand_env_vars(v) for k, v in value.items()}
+            elif isinstance(value, list):
+                return [_expand_env_vars(item) for item in value]
+            else:
+                return value
+
         def _load(path: str) -> Dict[str, Any]:
             with open(path, "r") as f:
-                return yaml.safe_load(f) or {}
+                config = yaml.safe_load(f) or {}
+                # Expand environment variables in the loaded config
+                return _expand_env_vars(config)
 
         def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
             merged = dict(base)

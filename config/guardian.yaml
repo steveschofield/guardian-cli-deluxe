@@ -171,7 +171,8 @@ osint:
       # GitHub Personal Access Token (optional but recommended)
       # Get from: https://github.com/settings/tokens
       # Required scopes: public_repo (read-only)
-      token: ""  # Leave empty to use unauthenticated (60 requests/hour)
+      # Set via environment variable: GITHUB_TOKEN
+      token: "${GITHUB_TOKEN:-}"  # Leave empty to use unauthenticated (60 requests/hour)
       # Minimum stars for a repository to be included
       min_stars: 10
       # Maximum number of PoC repositories to show per CVE
@@ -187,7 +188,8 @@ osint:
       # Vulners API Key (required)
       # Get from: https://vulners.com/userinfo
       # Sign up for free tier: 100 requests/day
-      api_key: ""  # REQUIRED - Add your Vulners API key here
+      # Set via environment variable: VULNERS_API_KEY
+      api_key: "${VULNERS_API_KEY:-}"  # REQUIRED - Add your Vulners API key here or set env var
       # Request timeout (seconds)
       timeout: 10
 
@@ -209,7 +211,8 @@ osint:
       # AttackerKB API Key (required)
       # Get from: https://attackerkb.com/account
       # Sign up for free tier
-      api_key: ""  # Add your AttackerKB API key here
+      # Set via environment variable: ATTACKERKB_API_KEY
+      api_key: "${ATTACKERKB_API_KEY:-}"  # Add your AttackerKB API key here or set env var
       # Request timeout (seconds)
       timeout: 10
       # Minimum Rapid7 analysis score to flag (1-5)
