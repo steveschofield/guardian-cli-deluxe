@@ -1,0 +1,6 @@
+/usr/bin/masscan -p 22,53,80,135,139,443,445,3389 --rate 10000 -oJ - 192.168.1.232
+/usr/bin/nmap -sV --script vuln -T4 -oX - -p 139,53,135,3389,445 192.168.1.232
+/usr/bin/nmap -sV --script vulners -T4 -oX - -p 139,53,135,3389,445,53,135,139,445 192.168.1.232
+/home/kali/code/guardian-cli-deluxe/tools/.bin/httpx -json -silent -threads 50 -timeout 10 -tech-detect -status-code -title -u 192.168.1.232
+/usr/bin/nikto -h 192.168.1.232 -Tuning x -timeout 10 -nointeractive
+/home/kali/code/guardian-cli-deluxe/tools/.bin/nuclei -l reports/20260122_202311/nuclei_targets_20260122_202944.txt -jsonl -o reports/20260122_202311/nuclei_20260122_202944.jsonl -severity critical,high -tags cve,rce,sqli,xss,default,default-login -t /home/kali/nuclei-templates -silent -rate-limit 50

@@ -119,7 +119,7 @@ Execute a pentesting tool:
 
 **Available Tools (partial list; see `tools/README.md` for the full set):**
 - `nmap` - Port scanning
-- `masscan` - Fast port discovery (CIDR/range)
+- `masscan` - Fast port discovery (CIDR/range; requires raw socket access, setup.sh attempts setcap)
 - `httpx` - HTTP probing
 - `amass` - Passive OSINT
 - `dnsrecon` - DNS enumeration

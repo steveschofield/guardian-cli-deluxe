@@ -50,6 +50,7 @@ reports/*.md
 reports/session_*.json
 logs/
 *.log
+wordlists/SecLists/
 
 # Test coverage
 .coverage

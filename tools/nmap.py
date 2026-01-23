@@ -34,9 +34,18 @@ class NmapTool(BaseTool):
         profile = (kwargs.get("profile") or "recon").strip().lower()
         recon_args = config.get("default_args", "-sV -sC")
         vuln_args = config.get("vuln_args", "-sV --script vuln")
-        args = vuln_args if profile in {"vuln", "vulnerability"} else recon_args
-        override_args = kwargs.get("args") or kwargs.get("override_args")
-        if override_args:
+        scan_type = kwargs.get("scan_type") or ""
+        skip_default_args = bool(kwargs.get("skip_default_args"))
+        if isinstance(scan_type, str) and "-sn" in scan_type.split():
+            skip_default_args = True
+        if skip_default_args:
+            args = ""
+        else:
+            args = vuln_args if profile in {"vuln", "vulnerability"} else recon_args
+        override_args = kwargs.get("override_args")
+        if "args" in kwargs:
+            override_args = kwargs.get("args")
+        if override_args is not None:
             args = override_args
         if args:
             command.extend(str(args).split())
@@ -55,7 +64,13 @@ class NmapTool(BaseTool):
             command.extend(["-p", str(target_port)])
 
         if "scan_type" in kwargs:
-            command.append(kwargs["scan_type"])
+            scan_type = kwargs["scan_type"]
+            if isinstance(scan_type, list):
+                command.extend([str(arg) for arg in scan_type if str(arg).strip()])
+            elif isinstance(scan_type, str):
+                command.extend(scan_type.split())
+            else:
+                command.append(str(scan_type))
 
         extra_args = kwargs.get("extra_args")
         if extra_args:

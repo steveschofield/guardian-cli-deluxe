@@ -19,6 +19,8 @@ class NucleiTool(BaseTool):
     
     def __init__(self, config):
         self._executable: str | None = None
+        self._last_output_file: str | None = None
+        self._last_targets_file: str | None = None
         super().__init__(config)
         self.tool_name = "nuclei"
 
@@ -123,6 +125,7 @@ class NucleiTool(BaseTool):
         if kwargs.get("from_file"):
             from_file = os.path.expandvars(os.path.expanduser(kwargs["from_file"]))
             command.extend(["-l", from_file])
+            self._last_targets_file = from_file
             if http_only is None:
                 http_only = True
         else:
@@ -140,6 +143,7 @@ class NucleiTool(BaseTool):
                 with open(targets_file, "w", encoding="utf-8") as f:
                     f.write(f"http://{target_str}\nhttps://{target_str}\n")
                 command.extend(["-l", str(targets_file)])
+                self._last_targets_file = str(targets_file)
                 if http_only is None:
                     http_only = False
         
@@ -151,6 +155,7 @@ class NucleiTool(BaseTool):
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_file = out_dir / f"nuclei_{ts}.jsonl"
         command.extend(["-o", str(output_file)])
+        self._last_output_file = str(output_file)
 
         # Concurrency (reduce memory/pressure in constrained environments)
         concurrency = config.get("concurrency")
@@ -222,6 +227,51 @@ class NucleiTool(BaseTool):
         command.extend(["-rate-limit", str(rate)])
         
         return command
+
+    async def execute(self, target: str, **kwargs) -> Dict[str, Any]:
+        result = await super().execute(target, **kwargs)
+        try:
+            self._append_consolidated_log(result)
+        except Exception as exc:
+            self.logger.warning(f"Failed to write nuclei consolidated log: {exc}")
+        return result
+
+    def _resolve_log_path(self) -> Path:
+        cfg = (self.config or {}).get("tools", {}).get("nuclei", {}) or {}
+        log_path = cfg.get("log_file")
+        if log_path:
+            log_path = os.path.expandvars(os.path.expanduser(str(log_path)))
+            return Path(log_path)
+        out_dir = Path((self.config or {}).get("output", {}).get("save_path", "./reports"))
+        return out_dir / "nuclei.log"
+
+    def _append_consolidated_log(self, result: Dict[str, Any]) -> None:
+        log_path = self._resolve_log_path()
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        parsed = result.get("parsed") if isinstance(result.get("parsed"), dict) else {}
+        count = parsed.get("count")
+        target = result.get("target") or ""
+        timestamp = result.get("timestamp") or datetime.utcnow().isoformat()
+        exit_code = result.get("exit_code")
+        duration = result.get("duration")
+        command = result.get("command") or ""
+        output = result.get("raw_output") or ""
+
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"[{timestamp}] target={target} exit={exit_code} duration={duration}s findings={count}\n")
+            if command:
+                handle.write(f"command: {command}\n")
+            if self._last_targets_file:
+                handle.write(f"targets: {self._last_targets_file}\n")
+            if self._last_output_file:
+                handle.write(f"jsonl: {self._last_output_file}\n")
+            if output.strip():
+                handle.write("output:\n")
+                handle.write(output.rstrip() + "\n")
+            else:
+                handle.write("output: <empty>\n")
+            handle.write("\n")
     
     def parse_output(self, output: str) -> Dict[str, Any]:
         """Parse nuclei JSON output"""

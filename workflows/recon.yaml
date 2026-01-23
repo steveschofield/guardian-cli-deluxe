@@ -74,6 +74,8 @@ steps:
     tool: masscan
     objective: "Fast port discovery for IP targets"
     condition: target_is_ip
+    parameters:
+      ports: "1-65535"
 
   - name: port_scan_main_domain
     type: tool
@@ -101,6 +103,16 @@ steps:
       args: "-sV --script vulners"
       ports_from_context: true
       tool_timeout: 900
+
+  - name: nmap_common_udp_scan
+    type: tool
+    tool: nmap
+    objective: "Common UDP ports scan for IP targets"
+    parameters:
+      ports: "53,67,68,69,88,111,123,135,137,138,161,162,389,445,500,514,520,623,1194,1701,1812,1813,1900,2049,3478,4500,4789,5004,5005,5060,5061,5353,11211,1434,3389"
+      scan_type: "-sU"
+      timing: "T3"
+    condition: target_is_ip
 
   - name: http_probing
     type: tool

@@ -588,6 +588,39 @@ install_system_tools() {
     log_success "System tools installed"
 }
 
+configure_masscan_caps() {
+    local masscan_bin
+    masscan_bin="$(command -v masscan 2>/dev/null || true)"
+    if [[ -z "${masscan_bin}" || ! -x "${masscan_bin}" ]]; then
+        log_warn "masscan not found; skipping capability setup"
+        return 0
+    fi
+
+    if command -v getcap >/dev/null 2>&1; then
+        if getcap "${masscan_bin}" 2>/dev/null | grep -q "cap_net_raw"; then
+            log_info "masscan already has network capabilities"
+            return 0
+        fi
+    fi
+
+    if [[ "${EUID}" -eq 0 ]]; then
+        setcap cap_net_raw,cap_net_admin+eip "${masscan_bin}" 2>/dev/null || true
+    elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+        sudo setcap cap_net_raw,cap_net_admin+eip "${masscan_bin}" 2>/dev/null || true
+    else
+        log_warn "masscan needs sudo or setcap for non-root use"
+        return 0
+    fi
+
+    if command -v getcap >/dev/null 2>&1; then
+        if getcap "${masscan_bin}" 2>/dev/null | grep -q "cap_net_raw"; then
+            log_success "Configured masscan capabilities for non-root use"
+        else
+            log_warn "Failed to set masscan capabilities (requires sudo)"
+        fi
+    fi
+}
+
 # ============================================================================
 # NPM TOOLS
 # ============================================================================
@@ -828,6 +861,7 @@ install_python_tools
 
 # System tools
 install_system_tools
+configure_masscan_caps
 
 # npm tools
 install_npm_tools

@@ -226,7 +226,7 @@ tools:
 
   masscan:
     enabled: true
-    ports: "22,53,80,135,139,443,445,3389"
+    ports: "1-65535"
     rate: 10000
 
   #enum4linux:
@@ -394,6 +394,8 @@ tools:
     severity: ["critical", "high"]
     # Nuclei can take longer than the default workflow timeout depending on template set/target size.
     tool_timeout: 900
+    # Consolidated log (all runs append here)
+    log_file: "./reports/nuclei.log"
     templates_paths:
       - ~/nuclei-templates
     # Nuclei tags are template-defined (run `nuclei -tgl` to see what's available in your template set).

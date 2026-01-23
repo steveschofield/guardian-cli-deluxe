@@ -181,6 +181,14 @@ python -m cli.main workflow list
 ./setup.sh
 ```
 
+**masscan permission denied**
+
+`masscan` needs raw socket access. `./setup.sh` attempts to set capabilities; if it still fails, run:
+
+```bash
+sudo setcap cap_net_raw,cap_net_admin+eip "$(command -v masscan)"
+```
+
 **Kali Linux Compatibility**
 
 - Ensure required tools are installed via `./setup.sh` before running workflows.

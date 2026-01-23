@@ -85,6 +85,10 @@ python -m cli.main <command> --help
 - Reinstall dependencies: run `./setup.sh`
 - Check Python version: `python --version` (requires 3.11+)
 
+### masscan permission denied
+- `./setup.sh` attempts to set capabilities for non-root use
+- If it still fails: `sudo setcap cap_net_raw,cap_net_admin+eip "$(command -v masscan)"`
+
 ### API errors
 - Verify your Gemini API key in `.env` (project root) or `~/.guardian/.env`
 - If using OpenRouter, verify `OPENROUTER_API_KEY` in `.env` (project root) or `~/.guardian/.env`
