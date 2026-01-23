@@ -10,11 +10,22 @@ class SubjsTool(BaseTool):
     """subjs wrapper"""
 
     def get_command(self, target: str, **kwargs) -> List[str]:
+        """
+        Build subjs command.
+
+        subjs expects input file with -i flag (not -iL).
+        Usage: subjs -i urls.txt
+        """
         command = ["subjs"]
+
+        # subjs requires an input file with -i flag
         if kwargs.get("from_file"):
-            command.extend(["-iL", kwargs["from_file"]])
+            command.extend(["-i", kwargs["from_file"]])
         else:
+            # If no file provided, we need to create a temp file or pipe stdin
+            # For now, pass target as input file path if it exists
             command.extend(["-i", target])
+
         return command
 
     def parse_output(self, output: str) -> Dict[str, Any]:
