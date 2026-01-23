@@ -447,12 +447,51 @@ class ReporterAgent(BaseAgent):
         """Format findings for AI consumption"""
         formatted = []
         findings = self._get_report_findings()
+        exploit_lookup = self._get_exploit_lookup()
+        matches = exploit_lookup.get("matches", {}) if isinstance(exploit_lookup, dict) else {}
 
         for f in findings:
             cvss = self._format_cvss_display(f)
             cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
             owasp = ", ".join(f.owasp_categories) if f.owasp_categories else "Unmapped"
             confidence = getattr(f, "confidence", None) or "unknown"
+
+            # Build exploit information section
+            exploit_info = []
+
+            # Add CVE IDs if present
+            if f.cve_ids:
+                exploit_info.append(f"CVE IDs: {', '.join(f.cve_ids)}")
+
+            # Add known exploits from database lookup
+            entry = matches.get(f.id)
+            if entry:
+                metasploit = entry.get("metasploit", [])
+                exploitdb = entry.get("exploitdb", [])
+
+                if metasploit:
+                    msf_names = [m.get("name") or m.get("module", "") for m in metasploit[:3]]
+                    exploit_info.append(f"Known Metasploit Modules: {', '.join(msf_names)}")
+
+                if exploitdb:
+                    edb_ids = [f"EDB-{e.get('id')}" for e in exploitdb[:3] if e.get('id')]
+                    exploit_info.append(f"Known Exploit-DB: {', '.join(edb_ids)}")
+
+            # Add exploitation attempt status if auto-exploit was used
+            if f.metadata.get("exploitation_attempted"):
+                if f.metadata.get("exploitation_successful"):
+                    exploit_module = f.metadata.get("exploit_module", "Unknown")
+                    exploit_info.append(f"⚠️ EXPLOITATION SUCCESSFUL using {exploit_module}")
+                elif f.metadata.get("exploitation_error"):
+                    exploit_info.append(f"Exploitation attempted but failed: {f.metadata.get('exploitation_error')}")
+                else:
+                    exploit_info.append("Exploitation attempted but unsuccessful")
+            elif f.metadata.get("exploitdb_available"):
+                edb_count = len(f.metadata.get("exploitdb_ids", []))
+                exploit_info.append(f"{edb_count} Exploit-DB exploit(s) available for manual use")
+
+            exploit_section = "\n".join(exploit_info) if exploit_info else "No public exploits found"
+
             formatted.append(f"""
 [{f.severity.upper()}] {f.title}
 Tool: {f.tool}
@@ -463,8 +502,10 @@ OWASP: {owasp}
 Confidence: {confidence}
 Description: {f.description[:200]}
 Evidence: {f.evidence[:200]}
+Exploitation Information:
+{exploit_section}
 """)
-        
+
         return "\n---\n".join(formatted) if formatted else "No findings"
     
     def _format_tool_executions(self) -> str:
@@ -577,16 +618,33 @@ Evidence: {f.evidence[:200]}
         if not findings:
             return "No findings to map"
 
+        exploit_lookup = self._get_exploit_lookup()
+        matches = exploit_lookup.get("matches", {}) if isinstance(exploit_lookup, dict) else {}
+
         lines = [
-            "| Severity | Finding | CVSS | OWASP | CWE |",
-            "|----------|---------|------|-------|-----|",
+            "| Severity | Finding | CVSS | OWASP | CWE | Exploit Status |",
+            "|----------|---------|------|-------|-----|----------------|",
         ]
         for f in findings:
             cvss = self._format_cvss_display(f)
             owasp = ", ".join(f.owasp_categories) if f.owasp_categories else "Unmapped"
             cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
+
+            # Determine exploit status
+            exploit_status = "N/A"
+            if f.metadata.get("exploitation_successful"):
+                exploit_status = "🔥 EXPLOITED"
+            elif f.metadata.get("exploitation_attempted"):
+                exploit_status = "⚠️ Attempted"
+            elif matches.get(f.id):
+                entry = matches[f.id]
+                msf_count = len(entry.get("metasploit", []))
+                edb_count = len(entry.get("exploitdb", []))
+                if msf_count > 0 or edb_count > 0:
+                    exploit_status = f"💣 Available (MSF:{msf_count}, EDB:{edb_count})"
+
             lines.append(
-                f"| {f.severity.upper()} | {f.title} | {cvss} | {owasp} | {cwe} |"
+                f"| {f.severity.upper()} | {f.title} | {cvss} | {owasp} | {cwe} | {exploit_status} |"
             )
         return "\n".join(lines)
 
@@ -597,11 +655,28 @@ Evidence: {f.evidence[:200]}
 
         import html as _html
 
+        exploit_lookup = self._get_exploit_lookup()
+        matches = exploit_lookup.get("matches", {}) if isinstance(exploit_lookup, dict) else {}
+
         rows = []
         for f in findings:
             cvss = self._format_cvss_display(f)
             owasp = ", ".join(f.owasp_categories) if f.owasp_categories else "Unmapped"
             cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
+
+            # Determine exploit status
+            exploit_status = "N/A"
+            if f.metadata.get("exploitation_successful"):
+                exploit_status = "🔥 EXPLOITED"
+            elif f.metadata.get("exploitation_attempted"):
+                exploit_status = "⚠️ Attempted"
+            elif matches.get(f.id):
+                entry = matches[f.id]
+                msf_count = len(entry.get("metasploit", []))
+                edb_count = len(entry.get("exploitdb", []))
+                if msf_count > 0 or edb_count > 0:
+                    exploit_status = f"💣 Available (MSF:{msf_count}, EDB:{edb_count})"
+
             rows.append(
                 "<tr>"
                 f"<td>{_html.escape(f.severity.upper())}</td>"
@@ -609,12 +684,13 @@ Evidence: {f.evidence[:200]}
                 f"<td>{_html.escape(cvss)}</td>"
                 f"<td>{_html.escape(owasp)}</td>"
                 f"<td>{_html.escape(cwe)}</td>"
+                f"<td>{_html.escape(exploit_status)}</td>"
                 "</tr>"
             )
 
         return (
             "<table>"
-            "<tr><th>Severity</th><th>Finding</th><th>CVSS</th><th>OWASP</th><th>CWE</th></tr>"
+            "<tr><th>Severity</th><th>Finding</th><th>CVSS</th><th>OWASP</th><th>CWE</th><th>Exploit Status</th></tr>"
             + "".join(rows)
             + "</table>"
         )
