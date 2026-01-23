@@ -245,6 +245,37 @@ ensure_node_and_npm() {
     fi
 }
 
+ensure_rust() {
+    # Check if cargo is already available
+    if command -v cargo >/dev/null 2>&1; then
+        log_success "Rust/cargo already installed ($(cargo --version 2>/dev/null || echo 'version unknown'))"
+        return 0
+    fi
+
+    log_info "Installing Rust toolchain via rustup..."
+
+    # Download and run rustup installer (non-interactive)
+    if command -v curl >/dev/null 2>&1; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal 2>/dev/null || {
+            log_warn "Rust installation failed - feroxbuster will use binary download fallback"
+            return 1
+        }
+
+        # Source cargo env for current shell
+        if [[ -f "${HOME}/.cargo/env" ]]; then
+            source "${HOME}/.cargo/env"
+        fi
+
+        if command -v cargo >/dev/null 2>&1; then
+            log_success "Rust installed successfully ($(cargo --version))"
+            return 0
+        fi
+    fi
+
+    log_warn "Could not install Rust - feroxbuster will rely on binary downloads"
+    return 1
+}
+
 # ============================================================================
 # INITIAL SETUP
 # ============================================================================
@@ -268,6 +299,7 @@ VENV_BIN="${VIRTUAL_ENV}/bin"
 
 ensure_go
 ensure_node_and_npm
+# Note: ensure_rust is lazy-loaded - only called by feroxbuster if binary download fails
 
 log_info "Using virtualenv: ${VIRTUAL_ENV}"
 mkdir -p "${TOOLS_DIR}" "${BIN_DIR}"
@@ -468,20 +500,47 @@ install_sstimap() {
 }
 
 install_feroxbuster() {
+    # Strategy: Binary download (fast) → Cargo compile (slow but reliable)
+
+    # 1. Check if already installed
     if command -v feroxbuster >/dev/null 2>&1; then
         ln -sf "$(command -v feroxbuster)" "${VENV_BIN}/feroxbuster" 2>/dev/null || true
-        log_success "Linked feroxbuster"
+        log_success "Linked existing feroxbuster"
         return 0
     fi
 
-    install_github_release_and_link "epi052/feroxbuster" "feroxbuster" && return 0
-
-    # Try cargo as fallback
-    if command -v cargo >/dev/null 2>&1; then
-        log_info "Installing feroxbuster via cargo..."
-        cargo install feroxbuster 2>/dev/null || true
-        command -v feroxbuster >/dev/null 2>&1 && link_into_venv "$(command -v feroxbuster)" "feroxbuster"
+    # 2. Try GitHub pre-built binary (FAST - preferred method)
+    log_info "Attempting feroxbuster binary download from GitHub releases..."
+    if install_github_release_and_link "epi052/feroxbuster" "feroxbuster"; then
+        log_success "Feroxbuster installed via binary download"
+        return 0
     fi
+
+    # 3. Fallback: Compile from source with cargo (SLOW but works when binaries unavailable)
+    log_warn "Binary download failed, attempting cargo build..."
+
+    # Ensure Rust is available for compilation
+    ensure_rust || {
+        log_error "Feroxbuster installation failed - no binary available and Rust not installed"
+        return 1
+    }
+
+    if command -v cargo >/dev/null 2>&1; then
+        log_info "Compiling feroxbuster from source (this may take 2-5 minutes)..."
+        cargo install feroxbuster 2>/dev/null || {
+            log_error "Cargo build failed"
+            return 1
+        }
+
+        if command -v feroxbuster >/dev/null 2>&1; then
+            link_into_venv "$(command -v feroxbuster)" "feroxbuster"
+            log_success "Feroxbuster compiled and installed successfully"
+            return 0
+        fi
+    fi
+
+    log_error "All feroxbuster installation methods failed"
+    return 1
 }
 
 install_nikto() {

@@ -20,11 +20,20 @@ class HeadersTool(BaseTool):
     def _check_installation(self) -> bool:
         return shutil.which("curl") is not None
 
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        curl exit codes:
+        0 = Success
+        60 = SSL certificate verification failure (handle gracefully)
+        """
+        return exit_code in (0, 60)
+
     def get_command(self, target: str, **kwargs) -> List[str]:
         timeout = int(kwargs.get("timeout", 10))
         follow = bool(kwargs.get("follow_redirects", True))
         user_agent = kwargs.get("user_agent", "Guardian-Header-Check/1.0")
-        insecure = bool(kwargs.get("insecure", False))
+        # Default to insecure mode for pentest tools to avoid SSL cert failures
+        insecure = bool(kwargs.get("insecure", True))
 
         command = [
             "curl",

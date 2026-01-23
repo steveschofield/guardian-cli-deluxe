@@ -10,10 +10,18 @@ from tools.base_tool import BaseTool
 
 class NiktoTool(BaseTool):
     """Nikto web vulnerability scanner wrapper"""
-    
+
     def __init__(self, config):
         super().__init__(config)
         self.tool_name = "nikto"
+
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        nikto exit codes:
+        0 = Success
+        1 = No findings or target unreachable (not a failure)
+        """
+        return exit_code in (0, 1)
     
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build nikto command"""

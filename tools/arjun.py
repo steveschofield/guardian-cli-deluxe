@@ -5,7 +5,15 @@ import os
 
 class ArjunTool(BaseTool):
     """Wrapper for Arjun - HTTP Parameter Discovery Tool"""
-    
+
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        arjun exit codes:
+        0 = Success
+        2 = No parameters found or target unreachable (not a failure)
+        """
+        return exit_code in (0, 2)
+
     def get_command(self, target: str, **kwargs) -> List[str]:
         cmd = ["arjun", "-u", target, "--json"]
         

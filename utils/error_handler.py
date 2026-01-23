@@ -112,15 +112,36 @@ class ErrorHandler:
                 "reason": f"Tool {error.tool_name} not installed",
                 "suggestion": f"Install {error.tool_name} and retry"
             }
-        
-        if error.exit_code == 1:  # General error
+
+        if error.exit_code == 124:  # Timeout
             return {
                 "success": True,
-                "reason": "Tool completed with warnings",
+                "reason": "Tool execution timed out",
+                "action": "continue_without_result"
+            }
+
+        if error.exit_code == 1:  # General error - often means "no results"
+            return {
+                "success": True,
+                "reason": "Tool completed with warnings or no findings",
                 "action": "continue_with_partial_results"
             }
-        
-        return {"success": False, "reason": f"Tool {error.tool_name} failed"}
+
+        if error.exit_code == 2:  # No results found (common in scanners)
+            return {
+                "success": True,
+                "reason": "Tool completed with no findings",
+                "action": "continue_with_empty_results"
+            }
+
+        if error.exit_code == 60:  # SSL certificate verification failure (curl)
+            return {
+                "success": True,
+                "reason": "SSL certificate verification failed - treated as acceptable for pentest",
+                "action": "continue_with_partial_results"
+            }
+
+        return {"success": False, "reason": f"Tool {error.tool_name} failed with exit code {error.exit_code}"}
     
     def _recover_ai_error(self, error: AIProviderError, context: Dict[str, Any]) -> Dict[str, Any]:
         """Recover from AI provider errors"""

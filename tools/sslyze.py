@@ -11,10 +11,18 @@ from tools.base_tool import BaseTool
 
 class SSLyzeTool(BaseTool):
     """SSLyze SSL/TLS security testing wrapper"""
-    
+
     def __init__(self, config):
         super().__init__(config)
         self.tool_name = "sslyze"
+
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        SSLyze exit codes:
+        0 = Success
+        2 = Target unreachable or SSL not available (not a tool failure)
+        """
+        return exit_code in (0, 2)
     
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build sslyze command"""

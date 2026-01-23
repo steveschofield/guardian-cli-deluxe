@@ -9,6 +9,14 @@ from tools.base_tool import BaseTool
 class SubjsTool(BaseTool):
     """subjs wrapper"""
 
+    def is_success_exit_code(self, exit_code: int) -> bool:
+        """
+        subjs exit codes:
+        0 = Success
+        2 = No results found or input file empty (not a failure)
+        """
+        return exit_code in (0, 2)
+
     def get_command(self, target: str, **kwargs) -> List[str]:
         command = ["subjs"]
         if kwargs.get("from_file"):
