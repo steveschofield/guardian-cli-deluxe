@@ -99,6 +99,67 @@ python -m cli.main workflow run --name wordpress_audit --target https://<target-
 python -m cli.main workflow run --name autonomous --target <target>
 ```
 
+### Automatic Exploitation
+
+Guardian can automatically attempt exploitation when vulnerabilities are discovered. This feature is **disabled by default** for safety.
+
+**⚠️ WARNING**: Only use auto-exploit in authorized testing environments with explicit permission.
+
+#### Enable via Configuration
+
+Edit `config/guardian.yaml`:
+
+```yaml
+exploits:
+  enabled: true
+  auto_exploit: true  # Enable automatic exploitation
+  auto_exploit_require_confirmation: true  # Prompt before each exploit
+  auto_exploit_min_severity: "critical"  # Only exploit critical findings
+  auto_exploit_max_attempts: 5  # Max exploits per session
+```
+
+#### Enable via CLI Flags
+
+```bash
+# With confirmation prompts (recommended)
+python -m cli.main workflow run --name web --target <target> --auto-exploit
+
+# Without confirmation (dangerous - use with caution)
+python -m cli.main workflow run --name web --target <target> --auto-exploit --auto-exploit-no-confirm
+
+# Works with all workflow commands
+python -m cli.main recon --domain <target> --auto-exploit
+```
+
+#### How It Works
+
+1. **Finding Detection**: When a vulnerability is found (e.g., CVE-2021-12345)
+2. **Severity Filter**: Only findings meeting the minimum severity are considered
+3. **Exploit Matching**: Guardian searches local Metasploit and Exploit-DB for matching exploits
+4. **Confirmation** (if enabled): User is prompted before each exploit attempt
+5. **Execution**: Metasploit module is executed against the target
+6. **Logging**: Exploitation attempts and results are recorded in findings
+
+#### Configuration Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `auto_exploit` | `false` | Enable/disable automatic exploitation |
+| `auto_exploit_require_confirmation` | `true` | Require user approval before each exploit |
+| `auto_exploit_min_severity` | `"critical"` | Minimum severity to exploit (`critical`, `high`, `medium`, `low`) |
+| `auto_exploit_max_attempts` | `5` | Maximum exploitation attempts per session |
+| `exploitdb_path` | `/usr/share/exploitdb` | Path to local Exploit-DB repository |
+| `metasploit_path` | `/usr/share/metasploit-framework` | Path to Metasploit installation |
+
+#### Safety Features
+
+- **Disabled by default**: Must be explicitly enabled
+- **Confirmation prompts**: User must approve each exploit (unless disabled)
+- **Severity filtering**: Only exploit findings above configured severity
+- **Attempt limits**: Maximum number of exploits per session
+- **Full logging**: All exploitation attempts recorded in session logs
+- **Safe mode respect**: Works with existing `pentest.safe_mode` settings
+
 ---
 
 ## 📋 Reports & Outputs
