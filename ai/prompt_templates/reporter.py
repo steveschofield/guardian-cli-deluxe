@@ -69,9 +69,21 @@ For each finding, provide:
 3. Technical description
 4. Evidence and proof of concept
 5. Impact analysis
-6. Detailed remediation steps
-7. CVSS v3.1 score/vector if applicable
-8. OWASP Top 10 (2021) and CWE mapping if provided
+6. **Exploitation Information** - IMPORTANT: If CVE IDs, known exploits, or exploitation attempts are mentioned in the finding data:
+   - List all CVE identifiers
+   - Specify available Metasploit modules by name
+   - Specify available Exploit-DB references (EDB-XXXXX)
+   - If exploitation was attempted, clearly state the outcome (successful/failed) and which module was used
+   - If Exploit-DB exploits are available for manual use, note this
+7. Detailed remediation steps
+8. CVSS v3.1 score/vector if applicable
+9. OWASP Top 10 (2021) and CWE mapping if provided
+
+**CRITICAL**: For each finding, include a dedicated "Exploitation Information" subsection that summarizes:
+- CVE identifiers
+- Known public exploits (Metasploit modules, Exploit-DB IDs)
+- Exploitation attempt status if auto-exploit was used
+- Whether successful exploitation was achieved
 
 Format as a professional technical report section with clear headings and structure.
 """
