@@ -22,10 +22,12 @@ class VulnersClient(OSINTClient):
     BURP_API_URL = "https://vulners.com/api/v3/burp/software/"
 
     def __init__(self, config: Dict, logger=None):
-        super().__init__(config, logger)
+        # Set api_key BEFORE calling super().__init__() because _get_enabled_status() needs it
         vulners_config = config.get("osint", {}).get("sources", {}).get("vulners", {})
         self.api_key = vulners_config.get("api_key", None)
         self.timeout = vulners_config.get("timeout", 10)
+
+        super().__init__(config, logger)
 
         if self.enabled and not self.api_key:
             self.log_warning("Vulners API enabled but no API key configured")
