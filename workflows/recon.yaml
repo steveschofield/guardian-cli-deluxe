@@ -76,6 +76,7 @@ steps:
     condition: target_is_ip
     parameters:
       ports: "1-65535"
+      rate: 5000
 
   - name: port_scan_main_domain
     type: tool
@@ -100,7 +101,7 @@ steps:
     tool: nmap
     objective: "Nmap vulners script scan on discovered ports"
     parameters:
-      args: "-sV --script vulners"
+      scan_type: "-sV --script vulners"
       ports_from_context: true
       tool_timeout: 900
 

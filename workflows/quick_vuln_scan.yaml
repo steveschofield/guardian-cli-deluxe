@@ -10,13 +10,13 @@ steps:
   - name: web_discovery
     tool: httpx
     description: Identify live web endpoints
-    args:
+    parameters:
       tech_detect: true
 
   - name: web_vuln_scan_nikto
     tool: nikto
     description: Baseline web vulnerability scan of discovered endpoints
-    args:
+    parameters:
       format: "json"
     dependencies:
       - web_discovery
@@ -30,7 +30,7 @@ steps:
   - name: fuzzing_paths
     tool: ffuf
     description: Fuzz for hidden directories and files
-    args:
+    parameters:
       wordlist: "common.txt"
       extensions: ".php,.html,.txt,.json"
     dependencies:
@@ -39,15 +39,16 @@ steps:
   - name: vuln_scanning
     tool: nuclei
     description: Template-based vulnerability scanning
-    args:
-      severity: "critical,high,medium"
+    parameters:
+      severity: ["critical", "high"]
+      tool_timeout: 900
     dependencies:
       - web_discovery
 
   - name: sql_injection_check
     tool: sqlmap
     description: Test for SQL injection vulnerabilities (Safe Mode)
-    args:
+    parameters:
       level: 1
       risk: 1
       batch: true
@@ -57,7 +58,7 @@ steps:
   - name: secrets_scan_trufflehog
     tool: trufflehog
     description: Scan URLs or local paths for exposed secrets
-    args:
+    parameters:
       only_verified: true
     condition: target_is_url_or_path
 
