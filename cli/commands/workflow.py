@@ -22,6 +22,8 @@ def workflow_command(
     name: str = typer.Option(None, "--name", "-n", help="Workflow name (recon, web, network, autonomous)"),
     target: str = typer.Option(None, "--target", "-t", help="Target for the workflow"),
     resume: str = typer.Option(None, "--resume", help="Resume from a session id or path (use 'latest' for newest)"),
+    auto_exploit: bool = typer.Option(False, "--auto-exploit", help="Enable automatic exploitation of findings"),
+    auto_exploit_no_confirm: bool = typer.Option(False, "--auto-exploit-no-confirm", help="Skip confirmation prompts for auto-exploit"),
     config_file: Path = typer.Option(
         "config/guardian.yaml",
         "--config",
@@ -51,7 +53,7 @@ def workflow_command(
             console.print("[bold red]Error:[/bold red] --target is required for 'run' action unless --resume is used")
             raise typer.Exit(1)
 
-        _run_workflow(name, target, config_file, resume)
+        _run_workflow(name, target, config_file, resume, auto_exploit, auto_exploit_no_confirm)
     else:
         console.print(f"[bold red]Error:[/bold red] Unknown action: {action}")
         raise typer.Exit(1)
@@ -106,13 +108,27 @@ def _list_workflows():
     console.print(table)
 
 
-def _run_workflow(name: str, target: str, config_file: Path, resume: str = None):
+def _run_workflow(name: str, target: str, config_file: Path, resume: str = None, auto_exploit: bool = False, auto_exploit_no_confirm: bool = False):
     """Run a workflow"""
     try:
         config = load_config(str(config_file))
         if not config:
             console.print("[bold red]Error:[/bold red] Failed to load configuration")
             raise typer.Exit(1)
+
+        # Override config with CLI flags for auto-exploit
+        if auto_exploit:
+            if "exploits" not in config:
+                config["exploits"] = {}
+            config["exploits"]["auto_exploit"] = True
+            console.print("[bold yellow]⚠️  Auto-exploit enabled[/bold yellow]")
+
+            if auto_exploit_no_confirm:
+                config["exploits"]["auto_exploit_require_confirmation"] = False
+                console.print("[bold yellow]⚠️  Auto-exploit confirmation disabled - exploits will run automatically![/bold yellow]")
+            else:
+                # Ensure confirmation is required by default when using CLI flag
+                config["exploits"]["auto_exploit_require_confirmation"] = config.get("exploits", {}).get("auto_exploit_require_confirmation", True)
         
         memory = None
         if resume:

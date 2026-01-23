@@ -32,7 +32,9 @@ def recon_command(
         False,
         "--dry-run",
         help="Show what would be done without executing"
-    )
+    ),
+    auto_exploit: bool = typer.Option(False, "--auto-exploit", help="Enable automatic exploitation of findings"),
+    auto_exploit_no_confirm: bool = typer.Option(False, "--auto-exploit-no-confirm", help="Skip confirmation prompts for auto-exploit")
 ):
     """
     Run reconnaissance workflow on a target domain
@@ -57,7 +59,18 @@ def recon_command(
     
     # Load configuration
     config = load_config(str(config_file))
-    
+
+    # Override config with CLI flags for auto-exploit
+    if auto_exploit:
+        if "exploits" not in config:
+            config["exploits"] = {}
+        config["exploits"]["auto_exploit"] = True
+        console.print("[bold yellow]⚠️  Auto-exploit enabled[/bold yellow]")
+
+        if auto_exploit_no_confirm:
+            config["exploits"]["auto_exploit_require_confirmation"] = False
+            console.print("[bold yellow]⚠️  Auto-exploit confirmation disabled - exploits will run automatically![/bold yellow]")
+
     # Run workflow
     try:
         with Progress(

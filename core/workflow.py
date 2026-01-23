@@ -879,10 +879,187 @@ class WorkflowEngine:
             # Update last tool execution with findings count
             if self.memory.tool_executions:
                 self.memory.tool_executions[-1].findings_count = len(analysis["findings"])
+
+            # Check if auto-exploit is enabled and attempt exploitation
+            if analysis.get("findings"):
+                await self._auto_exploit_findings(analysis["findings"])
         else:
             self.logger.warning(f"Tool execution failed: {result.get('error')}")
 
         return result
+
+    async def _auto_exploit_findings(self, findings: List[Finding]) -> None:
+        """
+        Automatically attempt exploitation of findings when auto_exploit is enabled.
+
+        Args:
+            findings: List of Finding objects to potentially exploit
+        """
+        exploit_config = self.config.get("exploits", {})
+
+        # Check if auto-exploit is enabled
+        if not exploit_config.get("auto_exploit", False):
+            return
+
+        # Check if exploits are enabled at all
+        if not exploit_config.get("enabled", True):
+            self.logger.warning("Auto-exploit requested but exploits are disabled")
+            return
+
+        # Get configuration
+        require_confirmation = exploit_config.get("auto_exploit_require_confirmation", True)
+        min_severity = exploit_config.get("auto_exploit_min_severity", "critical")
+        max_attempts = exploit_config.get("auto_exploit_max_attempts", 5)
+
+        # Track attempts in this session
+        if not hasattr(self, '_auto_exploit_attempts'):
+            self._auto_exploit_attempts = 0
+
+        # Check if we've hit the max attempts limit
+        if self._auto_exploit_attempts >= max_attempts:
+            self.logger.info(f"Auto-exploit max attempts ({max_attempts}) reached for this session")
+            return
+
+        # Filter findings by severity
+        severity_order = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
+        min_severity_value = severity_order.get(min_severity.lower(), 4)
+
+        exploitable_findings = []
+        for finding in findings:
+            finding_severity = severity_order.get(finding.severity.lower(), 0)
+            if finding_severity >= min_severity_value:
+                # Check if finding has CVE or is exploitable
+                if finding.cve_ids or finding.metadata.get("exploitable"):
+                    exploitable_findings.append(finding)
+
+        if not exploitable_findings:
+            self.logger.debug("No exploitable findings meeting severity criteria")
+            return
+
+        self.logger.info(f"Found {len(exploitable_findings)} potentially exploitable findings")
+
+        # Attempt exploitation for each finding
+        for finding in exploitable_findings:
+            if self._auto_exploit_attempts >= max_attempts:
+                self.logger.info(f"Auto-exploit max attempts ({max_attempts}) reached")
+                break
+
+            # Get confirmation if required
+            if require_confirmation:
+                severity_emoji = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(finding.severity.lower(), "⚪")
+
+                print(f"\n{severity_emoji} Auto-Exploit Opportunity Detected:")
+                print(f"  Severity: {finding.severity.upper()}")
+                print(f"  Title: {finding.title}")
+                print(f"  Target: {finding.target}")
+                if finding.cve_ids:
+                    print(f"  CVEs: {', '.join(finding.cve_ids)}")
+
+                response = input("\nAttempt exploitation? [y/N]: ").strip().lower()
+                if response not in ['y', 'yes']:
+                    self.logger.info(f"Skipping exploitation of: {finding.title}")
+                    continue
+
+            self.logger.info(f"Attempting auto-exploit for: {finding.title}")
+            self._auto_exploit_attempts += 1
+
+            try:
+                # Use exploit cache to find matching exploits
+                from utils.exploit_cache import ExploitCache
+                cache = ExploitCache(self.config)
+
+                # Load exploit databases
+                exploitdb_items, _ = cache.load_exploitdb()
+                metasploit_items, _ = cache.load_metasploit()
+
+                # Find matching exploits by CVE
+                msf_exploits = []
+                edb_exploits = []
+
+                for cve_id in finding.cve_ids:
+                    cve_upper = cve_id.upper()
+
+                    # Search Metasploit modules
+                    for msf_item in metasploit_items:
+                        if cve_upper in [c.upper() for c in msf_item.get("cves", [])]:
+                            msf_item["type"] = "metasploit"
+                            msf_exploits.append(msf_item)
+
+                    # Search Exploit-DB
+                    for edb_item in exploitdb_items:
+                        if cve_upper in [c.upper() for c in edb_item.get("cves", [])]:
+                            edb_item["type"] = "exploitdb"
+                            edb_exploits.append(edb_item)
+
+                if not msf_exploits and not edb_exploits:
+                    self.logger.info(f"No exploits found in cache for {finding.title}")
+                    continue
+
+                total_exploits = len(msf_exploits) + len(edb_exploits)
+                self.logger.info(f"Found {total_exploits} potential exploits ({len(msf_exploits)} Metasploit, {len(edb_exploits)} Exploit-DB)")
+
+                # Try Metasploit exploits first (they can be auto-executed)
+                if msf_exploits:
+                    # Use the first Metasploit exploit
+                    exploit = msf_exploits[0]
+                    module_name = exploit.get("module") or exploit.get("name", "")
+
+                    if module_name:
+                        self.logger.info(f"Attempting Metasploit module: {module_name}")
+
+                        # Execute Metasploit exploit
+                        result = await self.tool_agent.execute(
+                            objective=f"Exploit {finding.title} using Metasploit module {module_name}",
+                            target=finding.target,
+                            tool_name="metasploit",
+                            extra_args={"module": module_name}
+                        )
+
+                        if result.get("success"):
+                            self.logger.info(f"✓ Exploitation successful: {finding.title}")
+
+                            # Add exploitation success to finding metadata
+                            finding.metadata["exploitation_attempted"] = True
+                            finding.metadata["exploitation_successful"] = True
+                            finding.metadata["exploit_module"] = module_name
+                            finding.metadata["exploit_type"] = "metasploit"
+                        else:
+                            self.logger.warning(f"Exploitation failed: {result.get('error', 'Unknown error')}")
+                            finding.metadata["exploitation_attempted"] = True
+                            finding.metadata["exploitation_successful"] = False
+                            finding.metadata["exploit_type"] = "metasploit"
+
+                # If no Metasploit exploits available, log Exploit-DB alternatives
+                elif edb_exploits:
+                    self.logger.info(f"Found {len(edb_exploits)} Exploit-DB exploits (manual execution required):")
+                    for i, edb_exploit in enumerate(edb_exploits[:3], 1):  # Show first 3
+                        edb_id = edb_exploit.get("id", "Unknown")
+                        edb_desc = edb_exploit.get("description", "No description")
+                        edb_file = edb_exploit.get("file", "")
+                        edb_path = f"/usr/share/exploitdb/exploits/{edb_file}" if edb_file else ""
+
+                        self.logger.info(f"  {i}. EDB-{edb_id}: {edb_desc}")
+                        if edb_path:
+                            self.logger.info(f"     Path: {edb_path}")
+
+                    # Store Exploit-DB references in metadata for manual use
+                    finding.metadata["exploitation_attempted"] = False
+                    finding.metadata["exploitdb_available"] = True
+                    finding.metadata["exploitdb_ids"] = [e.get("id") for e in edb_exploits]
+                    finding.metadata["exploitdb_exploits"] = [
+                        {
+                            "id": e.get("id"),
+                            "description": e.get("description"),
+                            "file": e.get("file"),
+                            "path": f"/usr/share/exploitdb/exploits/{e.get('file')}" if e.get("file") else None
+                        }
+                        for e in edb_exploits[:5]  # Store first 5
+                    ]
+
+            except Exception as e:
+                self.logger.error(f"Auto-exploit error for {finding.title}: {str(e)}")
+                finding.metadata["exploitation_attempted"] = True
+                finding.metadata["exploitation_error"] = str(e)
 
     def _write_urls_file(self, urls: List[str], name: str) -> Path:
         output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
