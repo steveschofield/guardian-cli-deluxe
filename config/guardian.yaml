@@ -191,6 +191,51 @@ osint:
       # Request timeout (seconds)
       timeout: 10
 
+    # EPSS (Exploit Prediction Scoring System)
+    # Provides exploitation probability predictions from FIRST.org
+    # Cost: FREE | Rate Limit: None (public API)
+    epss:
+      enabled: true
+      # Request timeout (seconds)
+      timeout: 10
+      # Threshold for high-risk classification (0-1)
+      high_risk_threshold: 0.7
+
+    # AttackerKB
+    # Community-driven exploitation assessments from Rapid7
+    # Cost: FREE tier available | PAID for higher limits
+    attackerkb:
+      enabled: true
+      # AttackerKB API Key (required)
+      # Get from: https://attackerkb.com/account
+      # Sign up for free tier
+      api_key: ""  # Add your AttackerKB API key here
+      # Request timeout (seconds)
+      timeout: 10
+      # Minimum Rapid7 analysis score to flag (1-5)
+      min_rapid7_score: 3
+
+    # PacketStorm Security
+    # One of the oldest exploit archives
+    # Cost: FREE | Rate Limit: None (web scraping)
+    # Note: Uses web scraping, may be fragile to site changes
+    packetstorm:
+      enabled: true
+      # Request timeout (seconds)
+      timeout: 15
+      # Maximum number of exploits to return per CVE
+      max_results: 5
+
+    # OSV (Open Source Vulnerabilities)
+    # Distributed vulnerability database for open source packages
+    # Cost: FREE | Rate Limit: None
+    osv:
+      enabled: true
+      # Request timeout (seconds)
+      timeout: 10
+      # Include vulnerability aliases (CVE, GHSA, etc.)
+      include_aliases: true
+
 # Scope Validation
 scope:
   # Blacklisted IP ranges (CIDR notation)

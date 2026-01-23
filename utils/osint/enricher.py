@@ -7,6 +7,10 @@ from core.memory import Finding
 from utils.osint.cisa_kev import CISAKEVClient
 from utils.osint.github_pocs import GitHubPoCSearch
 from utils.osint.vulners import VulnersClient
+from utils.osint.epss import EPSSClient
+from utils.osint.attackerkb import AttackerKBClient
+from utils.osint.packetstorm import PacketStormClient
+from utils.osint.osv import OSVClient
 
 
 class OSINTEnricher:
@@ -17,6 +21,10 @@ class OSINTEnricher:
     - CISA KEV: Known exploited vulnerabilities
     - GitHub: Community exploit PoCs
     - Vulners: Aggregated exploit intelligence
+    - EPSS: Exploitation probability predictions
+    - AttackerKB: Community exploitation assessments
+    - PacketStorm: Additional exploit archives
+    - OSV: Open source package vulnerabilities
     """
 
     def __init__(self, config: Dict[str, Any], logger=None):
@@ -33,6 +41,10 @@ class OSINTEnricher:
         self.cisa_kev = CISAKEVClient(config, logger)
         self.github = GitHubPoCSearch(config, logger)
         self.vulners = VulnersClient(config, logger)
+        self.epss = EPSSClient(config, logger)
+        self.attackerkb = AttackerKBClient(config, logger)
+        self.packetstorm = PacketStormClient(config, logger)
+        self.osv = OSVClient(config, logger)
 
         if logger:
             enabled_sources = []
@@ -42,6 +54,14 @@ class OSINTEnricher:
                 enabled_sources.append("GitHub")
             if self.vulners.enabled:
                 enabled_sources.append("Vulners")
+            if self.epss.enabled:
+                enabled_sources.append("EPSS")
+            if self.attackerkb.enabled:
+                enabled_sources.append("AttackerKB")
+            if self.packetstorm.enabled:
+                enabled_sources.append("PacketStorm")
+            if self.osv.enabled:
+                enabled_sources.append("OSV")
 
             if enabled_sources:
                 logger.info(f"OSINT enrichment enabled: {', '.join(enabled_sources)}")
@@ -87,6 +107,10 @@ class OSINTEnricher:
                 "kev_status": {},
                 "github_pocs": [],
                 "vulners_data": {},
+                "epss_scores": {},
+                "attackerkb_assessments": {},
+                "packetstorm_exploits": [],
+                "osv_data": {},
             }
 
             # Enrich each CVE in the finding
@@ -103,6 +127,18 @@ class OSINTEnricher:
                     if vulners_data:
                         finding_enrichment["vulners_data"][cve_id] = vulners_data
 
+                # AttackerKB assessment
+                if self.attackerkb.enabled:
+                    akb_assessment = self.attackerkb.get_assessment(cve_id)
+                    if akb_assessment:
+                        finding_enrichment["attackerkb_assessments"][cve_id] = akb_assessment
+
+                # OSV lookup
+                if self.osv.enabled:
+                    osv_data = self.osv.query_by_cve(cve_id)
+                    if osv_data:
+                        finding_enrichment["osv_data"][cve_id] = osv_data
+
             # GitHub PoC search (search across all CVEs in finding)
             if self.github.enabled and finding.cve_ids:
                 # Search for the first CVE (most relevant)
@@ -111,11 +147,28 @@ class OSINTEnricher:
                 if pocs:
                     finding_enrichment["github_pocs"] = pocs
 
+            # EPSS scores (batch lookup for all CVEs)
+            if self.epss.enabled and finding.cve_ids:
+                epss_scores = self.epss.get_scores(finding.cve_ids)
+                if epss_scores:
+                    finding_enrichment["epss_scores"] = epss_scores
+
+            # PacketStorm exploits (search for primary CVE)
+            if self.packetstorm.enabled and finding.cve_ids:
+                primary_cve = finding.cve_ids[0]
+                ps_exploits = self.packetstorm.search_exploits(primary_cve)
+                if ps_exploits:
+                    finding_enrichment["packetstorm_exploits"] = ps_exploits
+
             # Only add enrichment if we found something
             if any([
                 finding_enrichment["kev_status"],
                 finding_enrichment["github_pocs"],
-                finding_enrichment["vulners_data"]
+                finding_enrichment["vulners_data"],
+                finding_enrichment["epss_scores"],
+                finding_enrichment["attackerkb_assessments"],
+                finding_enrichment["packetstorm_exploits"],
+                finding_enrichment["osv_data"]
             ]):
                 enrichment_data[finding.id] = finding_enrichment
 
@@ -158,6 +211,31 @@ class OSINTEnricher:
             api_ok = self.vulners.check_api_status()
             summary["sources"]["vulners"] = {
                 "api_status": "OK" if api_ok else "ERROR"
+            }
+
+        # EPSS status
+        if self.epss.enabled:
+            summary["sources"]["epss"] = {
+                "enabled": True
+            }
+
+        # AttackerKB status
+        if self.attackerkb.enabled:
+            summary["sources"]["attackerkb"] = {
+                "enabled": True,
+                "requires_api_key": True
+            }
+
+        # PacketStorm status
+        if self.packetstorm.enabled:
+            summary["sources"]["packetstorm"] = {
+                "enabled": True
+            }
+
+        # OSV status
+        if self.osv.enabled:
+            summary["sources"]["osv"] = {
+                "enabled": True
             }
 
         return summary
