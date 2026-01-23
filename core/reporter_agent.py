@@ -19,13 +19,15 @@ from ai.prompt_templates import (
 from utils.exploit_cache import ExploitLookup
 from utils.finding_deduplicator import FindingDeduplicator
 from utils.confidence_scorer import ConfidenceScorer
+from utils.osint import OSINTEnricher
 
 
 class ReporterAgent(BaseAgent):
     """Agent that generates professional penetration testing reports"""
-    
+
     def __init__(self, config, llm_client, memory):
         super().__init__("Reporter", config, llm_client, memory)
+        self.osint_enricher = OSINTEnricher(config, logger=self.logger)
     
     async def execute(self, format: str = "markdown") -> Dict[str, Any]:
         """
@@ -450,6 +452,9 @@ class ReporterAgent(BaseAgent):
         exploit_lookup = self._get_exploit_lookup()
         matches = exploit_lookup.get("matches", {}) if isinstance(exploit_lookup, dict) else {}
 
+        # Get OSINT enrichment data
+        osint_data = self.osint_enricher.enrich_findings(findings)
+
         for f in findings:
             cvss = self._format_cvss_display(f)
             cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
@@ -462,6 +467,16 @@ class ReporterAgent(BaseAgent):
             # Add CVE IDs if present
             if f.cve_ids:
                 exploit_info.append(f"CVE IDs: {', '.join(f.cve_ids)}")
+
+            # OSINT: Check CISA KEV status (CRITICAL PRIORITY)
+            enrichment = osint_data.get(f.id, {})
+            kev_status = enrichment.get("kev_status", {})
+            for cve_id, kev_entry in kev_status.items():
+                exploit_info.append(f"🔥 CISA KEV: {cve_id} - ACTIVELY EXPLOITED IN THE WILD")
+                if kev_entry.get("ransomware_use"):
+                    exploit_info.append(f"   ⚠️ RANSOMWARE ASSOCIATED")
+                exploit_info.append(f"   Required Action: {kev_entry.get('required_action')}")
+                exploit_info.append(f"   Government Deadline: {kev_entry.get('due_date')}")
 
             # Add known exploits from database lookup
             entry = matches.get(f.id)
@@ -476,6 +491,21 @@ class ReporterAgent(BaseAgent):
                 if exploitdb:
                     edb_ids = [f"EDB-{e.get('id')}" for e in exploitdb[:3] if e.get('id')]
                     exploit_info.append(f"Known Exploit-DB: {', '.join(edb_ids)}")
+
+            # OSINT: Add GitHub PoCs
+            github_pocs = enrichment.get("github_pocs", [])
+            if github_pocs:
+                exploit_info.append(f"GitHub PoCs ({len(github_pocs)} repositories):")
+                for poc in github_pocs[:3]:  # Top 3
+                    exploit_info.append(f"  - {poc['name']} ⭐ {poc['stars']} stars - {poc['url']}")
+
+            # OSINT: Add Vulners data
+            vulners_data = enrichment.get("vulners_data", {})
+            for cve_id, vdata in vulners_data.items():
+                if vdata.get("ai_score"):
+                    exploit_info.append(f"Vulners AI Risk Score: {vdata['ai_score']}/10")
+                if vdata.get("exploit_count"):
+                    exploit_info.append(f"Total Exploits (all sources): {vdata['exploit_count']}")
 
             # Add exploitation attempt status if auto-exploit was used
             if f.metadata.get("exploitation_attempted"):
@@ -621,6 +651,9 @@ Exploitation Information:
         exploit_lookup = self._get_exploit_lookup()
         matches = exploit_lookup.get("matches", {}) if isinstance(exploit_lookup, dict) else {}
 
+        # Get OSINT enrichment data for KEV status
+        osint_data = self.osint_enricher.enrich_findings(findings)
+
         lines = [
             "| Severity | Finding | CVSS | OWASP | CWE | Exploit Status |",
             "|----------|---------|------|-------|-----|----------------|",
@@ -630,9 +663,14 @@ Exploitation Information:
             owasp = ", ".join(f.owasp_categories) if f.owasp_categories else "Unmapped"
             cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
 
-            # Determine exploit status
+            # Determine exploit status (KEV takes highest priority)
             exploit_status = "N/A"
-            if f.metadata.get("exploitation_successful"):
+
+            # Check CISA KEV status first (highest priority)
+            enrichment = osint_data.get(f.id, {})
+            if enrichment.get("kev_status"):
+                exploit_status = "🔥🔥 CISA KEV - IN THE WILD"
+            elif f.metadata.get("exploitation_successful"):
                 exploit_status = "🔥 EXPLOITED"
             elif f.metadata.get("exploitation_attempted"):
                 exploit_status = "⚠️ Attempted"
@@ -658,15 +696,23 @@ Exploitation Information:
         exploit_lookup = self._get_exploit_lookup()
         matches = exploit_lookup.get("matches", {}) if isinstance(exploit_lookup, dict) else {}
 
+        # Get OSINT enrichment data for KEV status
+        osint_data = self.osint_enricher.enrich_findings(findings)
+
         rows = []
         for f in findings:
             cvss = self._format_cvss_display(f)
             owasp = ", ".join(f.owasp_categories) if f.owasp_categories else "Unmapped"
             cwe = ", ".join(f.cwe_ids) if f.cwe_ids else "Unmapped"
 
-            # Determine exploit status
+            # Determine exploit status (KEV takes highest priority)
             exploit_status = "N/A"
-            if f.metadata.get("exploitation_successful"):
+
+            # Check CISA KEV status first
+            enrichment = osint_data.get(f.id, {})
+            if enrichment.get("kev_status"):
+                exploit_status = "🔥🔥 CISA KEV - IN THE WILD"
+            elif f.metadata.get("exploitation_successful"):
                 exploit_status = "🔥 EXPLOITED"
             elif f.metadata.get("exploitation_attempted"):
                 exploit_status = "⚠️ Attempted"

@@ -124,6 +124,15 @@ reporting:
 # Exploit References (Metasploit + Exploit-DB)
 exploits:
   enabled: true
+  # Automatically attempt exploitation when vulnerabilities are found
+  # WARNING: Only enable in authorized testing environments
+  auto_exploit: false
+  # Require confirmation before each auto-exploit attempt
+  auto_exploit_require_confirmation: true
+  # Only auto-exploit findings with these severities
+  auto_exploit_min_severity: "critical"  # Options: critical, high, medium, low
+  # Maximum number of auto-exploit attempts per session
+  auto_exploit_max_attempts: 5
   # Cache directory for local lookup JSON
   cache_dir: ~/.guardian/cache/exploits
   # Refresh cache after N days (0 = rebuild every run)
@@ -134,6 +143,53 @@ exploits:
   metasploit_path: /usr/share/metasploit-framework
   # Match only by CVE (recommended). Set true to enable fuzzy keyword matching.
   enable_fuzzy_match: false
+
+# OSINT (Open Source Intelligence) Enrichment
+osint:
+  # Enable OSINT enrichment for vulnerability findings
+  enabled: true
+  # Cache TTL for all OSINT sources (hours)
+  cache_ttl_hours: 24
+
+  sources:
+    # CISA Known Exploited Vulnerabilities Catalog
+    # Source: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+    # Identifies CVEs actively exploited in the wild
+    # Cost: FREE | Rate Limit: None (static JSON file)
+    cisa_kev:
+      enabled: true
+      # TTL for CISA KEV cache (hours)
+      cache_ttl_hours: 24
+      # Automatically escalate KEV findings to CRITICAL severity
+      priority_flag: true
+
+    # GitHub Exploit PoC Search
+    # Searches GitHub for community exploit proof-of-concepts
+    # Cost: FREE | Rate Limit: 60/hour (no auth), 5000/hour (with token)
+    github:
+      enabled: true
+      # GitHub Personal Access Token (optional but recommended)
+      # Get from: https://github.com/settings/tokens
+      # Required scopes: public_repo (read-only)
+      token: ""  # Leave empty to use unauthenticated (60 requests/hour)
+      # Minimum stars for a repository to be included
+      min_stars: 10
+      # Maximum number of PoC repositories to show per CVE
+      max_results: 5
+      # Request timeout (seconds)
+      timeout: 10
+
+    # Vulners API
+    # Aggregates exploit intelligence from 100+ sources
+    # Cost: FREE (100 req/day) | PAID ($99/mo for 10,000 req/day)
+    vulners:
+      enabled: true  # Recommended even with free tier
+      # Vulners API Key (required)
+      # Get from: https://vulners.com/userinfo
+      # Sign up for free tier: 100 requests/day
+      api_key: ""  # REQUIRED - Add your Vulners API key here
+      # Request timeout (seconds)
+      timeout: 10
 
 # Scope Validation
 scope:
