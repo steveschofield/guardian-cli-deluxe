@@ -1,6 +1,6 @@
 # Guardian CLI Deluxe - Kali Linux Docker Image
-# Full automated build with all pentesting tools and Guardian dependencies
-# Version: 2.0 - Production Ready
+# Full automated build matching setup.sh tool coverage
+# Version: 3.0 - Complete Parity with Native Setup
 
 # Use official Kali Linux Rolling as base
 FROM kalilinux/kali-rolling:latest
@@ -8,7 +8,7 @@ FROM kalilinux/kali-rolling:latest
 # Metadata
 LABEL maintainer="steve@steveschofield.com"
 LABEL description="Guardian CLI Deluxe - AI-Powered Penetration Testing Framework on Kali Linux"
-LABEL version="2.0"
+LABEL version="3.0"
 
 # Prevent interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -37,12 +37,14 @@ RUN apt-get update && apt-get upgrade -y && \
     gzip \
     bzip2 \
     xz-utils \
+    jq \
     # Build tools
     build-essential \
     gcc \
     g++ \
     make \
     cmake \
+    pkg-config \
     # Network tools
     netcat-openbsd \
     net-tools \
@@ -56,7 +58,10 @@ RUN apt-get update && apt-get upgrade -y && \
     tmux \
     screen \
     sudo \
-    # Python and pip
+    lsb-release \
+    gnupg \
+    apt-transport-https \
+    # Python and pip (3.11 or 3.12, NOT 3.13+)
     python3 \
     python3-pip \
     python3-dev \
@@ -70,13 +75,25 @@ RUN apt-get update && apt-get upgrade -y && \
     libxslt1-dev \
     zlib1g-dev \
     libjpeg-dev \
-    libpq-dev && \
+    libpq-dev \
+    libpcap-dev \
+    # Go language
+    golang-go \
+    # Node.js and npm
+    nodejs \
+    npm \
+    # Ruby (for wpscan)
+    ruby \
+    ruby-dev \
+    # Rust (for feroxbuster)
+    rustc \
+    cargo && \
     # Clean up
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # ============================================================================
-# STAGE 2: Kali Linux Pentesting Tools
+# STAGE 2: Kali Linux Pentesting Tools (System-level)
 # ============================================================================
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -101,8 +118,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dirbuster \
     gobuster \
     wfuzz \
-    ffuf \
-    # SMB/NetBIOS enumeration
+    # SMB/NetBIOS/NFS enumeration
     enum4linux \
     enum4linux-ng \
     smbclient \
@@ -110,15 +126,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nbtscan \
     rpcclient \
     samba-common-bin \
+    nfs-common \
     # LDAP enumeration
     ldap-utils \
-    # SNMP enumeration  
+    # SNMP enumeration
     snmp \
     snmpwalk \
     onesixtyone \
     # FTP/SSH/Telnet
     ftp \
-    ssh \
+    openssh-client \
     telnet \
     hydra \
     medusa \
@@ -141,7 +158,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     httpie \
     # Wordlists
-    wordlists \
+    seclists \
     # Other useful tools
     john \
     hashcat \
@@ -150,37 +167,136 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     impacket-scripts \
     responder \
     && \
+    # Configure masscan capabilities
+    setcap cap_net_raw,cap_net_admin+eip /usr/bin/masscan 2>/dev/null || true && \
     # Clean up
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # ============================================================================
-# STAGE 3: Additional Security Tools (via pip and other sources)
+# STAGE 3: Install SAST/Whitebox Analysis Tools (CRITICAL)
+# ============================================================================
+
+# Install Semgrep (SAST - code vulnerability scanner)
+RUN pip3 install --no-cache-dir semgrep && \
+    semgrep --version
+
+# Install Trivy (vulnerability/secret/config scanner)
+RUN wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor -o /usr/share/keyrings/trivy.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/trivy.list && \
+    apt-get update && \
+    apt-get install -y trivy && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    trivy --version
+
+# Install TruffleHog (advanced secret scanner - binary v3)
+RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin && \
+    trufflehog --version
+
+# Install Gitleaks (secret detection - already in Go tools below)
+
+# ============================================================================
+# STAGE 4: Install Go-based Tools
+# ============================================================================
+
+# Set up Go environment
+ENV GOPATH=/root/go
+ENV PATH="${GOPATH}/bin:${PATH}"
+
+# ProjectDiscovery Tools
+RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest && \
+    go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest && \
+    go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
+    go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest && \
+    go install -v github.com/projectdiscovery/katana/cmd/katana@latest && \
+    go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest && \
+    go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest && \
+    go install -v github.com/projectdiscovery/asnmap/cmd/asnmap@latest && \
+    go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest
+
+# Other Go Tools
+RUN go install -v github.com/ffuf/ffuf/v2@latest && \
+    go install -v github.com/tomnomnom/waybackurls@latest && \
+    go install -v github.com/lc/gau/v2/cmd/gau@latest && \
+    go install -v github.com/hahwul/dalfox/v2@latest && \
+    go install -v github.com/zricethezav/gitleaks/v8@latest && \
+    go install -v github.com/d3mondev/puredns/v2@latest && \
+    go install -v github.com/lc/subjs@latest && \
+    go install -v github.com/rverton/webanalyze/cmd/webanalyze@latest
+
+# Install god-eye (comprehensive recon tool)
+RUN git clone --depth 1 https://github.com/Vyntral/god-eye.git /opt/tools/god-eye && \
+    cd /opt/tools/god-eye && \
+    go build -o /usr/local/bin/god-eye ./cmd/god-eye 2>/dev/null || echo "god-eye build failed - skipping"
+
+# Update Nuclei templates
+RUN nuclei -update-templates
+
+# ============================================================================
+# STAGE 5: Install Rust Tools
+# ============================================================================
+
+# Install feroxbuster (fast directory brute-forcer)
+RUN cargo install feroxbuster && \
+    cp ~/.cargo/bin/feroxbuster /usr/local/bin/ && \
+    feroxbuster --version
+
+# ============================================================================
+# STAGE 6: Fix Python Dependencies (CRITICAL - Match setup.sh)
 # ============================================================================
 
 # Upgrade pip first
 RUN python3 -m pip install --upgrade pip setuptools wheel
 
-# Install Python security tools
-RUN pip install --no-cache-dir \
-    # Core Guardian dependencies
+# Uninstall old incompatible packages
+RUN pip3 uninstall -y requests urllib3 chardet charset-normalizer safeurl 2>/dev/null || true
+
+# Install Python 3.12 compatible versions (EXACT versions from setup.sh)
+RUN pip3 install --no-cache-dir \
+    "requests>=2.32.0" \
+    "urllib3>=2.0.0" \
+    "charset-normalizer>=3.0.0" \
+    "attrs>=22.2.0"
+
+# Install LangChain ecosystem (CRITICAL - was missing)
+RUN pip3 install --no-cache-dir \
+    "langchain>=0.2.0" \
+    "langchain-core>=0.2.0" \
+    "langchain-community>=0.2.0" \
+    "langchain-ollama>=0.1.0" \
+    "langsmith>=0.1.0"
+
+# Install Guardian core dependencies
+RUN pip3 install --no-cache-dir \
     anthropic \
-    langchain \
-    langchain-community \
     langchain-anthropic \
-    # AI/LLM dependencies
     openai \
     google-generativeai \
-    # HTTP and API tools
-    requests \
     httpx \
     aiohttp \
-    # Data processing
     pyyaml \
     python-dotenv \
     click \
     rich \
-    colorama \
+    colorama
+
+# ============================================================================
+# STAGE 7: Install Python Security Tools
+# ============================================================================
+
+RUN pip3 install --no-cache-dir \
+    # Web testing tools
+    arjun \
+    dirsearch \
+    schemathesis \
+    wafw00f \
+    sqlmap \
+    sslyze \
+    dnsrecon \
+    xnlinkfinder \
+    dnsgen \
+    sstimap \
     # Security tools
     impacket \
     crackmapexec \
@@ -191,7 +307,7 @@ RUN pip install --no-cache-dir \
     # Network tools
     scapy \
     python-nmap \
-    # Web testing
+    # Web scraping
     beautifulsoup4 \
     lxml \
     selenium \
@@ -206,47 +322,149 @@ RUN pip install --no-cache-dir \
     netmiko
 
 # ============================================================================
-# STAGE 4: Install Additional Tools from GitHub
+# STAGE 8: Install Git-Cloned Tools
 # ============================================================================
 
 # Create tools directory
 RUN mkdir -p /opt/tools
 
-# Install dalfox (XSS scanner)
-RUN wget -q https://github.com/hahwul/dalfox/releases/download/v2.9.2/dalfox_2.9.2_linux_amd64.tar.gz && \
-    tar -xzf dalfox_2.9.2_linux_amd64.tar.gz && \
-    mv dalfox /usr/local/bin/ && \
-    chmod +x /usr/local/bin/dalfox && \
-    rm dalfox_2.9.2_linux_amd64.tar.gz
+# testssl.sh (already in apt, but clone for latest)
+RUN git clone --depth 1 https://github.com/drwetter/testssl.sh.git /opt/tools/testssl.sh && \
+    ln -sf /opt/tools/testssl.sh/testssl.sh /usr/local/bin/testssl
 
-# Install commix (command injection)
+# XSStrike
+RUN git clone --depth 1 https://github.com/s0md3v/XSStrike.git /opt/tools/XSStrike && \
+    pip3 install --no-cache-dir -r /opt/tools/XSStrike/requirements.txt 2>/dev/null || true && \
+    ln -sf /opt/tools/XSStrike/xsstrike.py /usr/local/bin/xsstrike && \
+    chmod +x /usr/local/bin/xsstrike
+
+# CMSeeK
+RUN git clone --depth 1 https://github.com/Tuhinshubhra/CMSeeK.git /opt/tools/CMSeeK && \
+    pip3 install --no-cache-dir -r /opt/tools/CMSeeK/requirements.txt 2>/dev/null || true && \
+    ln -sf /opt/tools/CMSeeK/cmseek.py /usr/local/bin/cmseek && \
+    chmod +x /usr/local/bin/cmseek
+
+# WhatWeb (already in apt, but clone for latest)
+RUN git clone --depth 1 https://github.com/urbanadventurer/WhatWeb.git /opt/tools/WhatWeb && \
+    ln -sf /opt/tools/WhatWeb/whatweb /usr/local/bin/whatweb-git
+
+# commix (command injection)
 RUN git clone --depth 1 https://github.com/commixproject/commix.git /opt/tools/commix && \
-    ln -s /opt/tools/commix/commix.py /usr/local/bin/commix && \
+    ln -sf /opt/tools/commix/commix.py /usr/local/bin/commix && \
     chmod +x /usr/local/bin/commix
 
-# Install xsstrike
-RUN git clone --depth 1 https://github.com/s0md3v/XSStrike.git /opt/tools/xsstrike && \
-    pip install --no-cache-dir -r /opt/tools/xsstrike/requirements.txt
+# graphql-cop
+RUN git clone --depth 1 https://github.com/dolevf/graphql-cop.git /opt/tools/graphql-cop && \
+    # Skip requirements.txt - safeurl has ancient requests pin
+    pip3 install --no-cache-dir simplejson && \
+    ln -sf /opt/tools/graphql-cop/graphql-cop.py /usr/local/bin/graphql-cop && \
+    chmod +x /usr/local/bin/graphql-cop
 
-# Install sublist3r (if not already installed via apt)
-RUN git clone --depth 1 https://github.com/aboul3la/Sublist3r.git /opt/tools/Sublist3r && \
-    pip install --no-cache-dir -r /opt/tools/Sublist3r/requirements.txt
+# JWT Tool
+RUN git clone --depth 1 https://github.com/ticarpi/jwt_tool.git /opt/tools/jwt_tool && \
+    pip3 install --no-cache-dir -r /opt/tools/jwt_tool/requirements.txt 2>/dev/null || true && \
+    ln -sf /opt/tools/jwt_tool/jwt_tool.py /usr/local/bin/jwt_tool && \
+    chmod +x /usr/local/bin/jwt_tool
+
+# SSTImap (replaces tplmap)
+RUN git clone --depth 1 https://github.com/vladko312/SSTImap.git /opt/tools/SSTImap && \
+    ln -sf /opt/tools/SSTImap/sstimap.py /usr/local/bin/sstimap-git && \
+    chmod +x /usr/local/bin/sstimap-git
+
+# CORScanner
+RUN git clone --depth 1 https://github.com/chenjj/CORScanner.git /opt/tools/CORScanner && \
+    pip3 install --no-cache-dir -r /opt/tools/CORScanner/requirements.txt 2>/dev/null || true && \
+    ln -sf /opt/tools/CORScanner/cors_scan.py /usr/local/bin/corscanner && \
+    chmod +x /usr/local/bin/corscanner
+
+# LinkFinder
+RUN git clone --depth 1 https://github.com/GerbenJavado/LinkFinder.git /opt/tools/LinkFinder && \
+    pip3 install --no-cache-dir -r /opt/tools/LinkFinder/requirements.txt 2>/dev/null || true && \
+    ln -sf /opt/tools/LinkFinder/linkfinder.py /usr/local/bin/linkfinder && \
+    chmod +x /usr/local/bin/linkfinder
+
+# ParamSpider
+RUN git clone --depth 1 https://github.com/devanshbatham/ParamSpider.git /opt/tools/ParamSpider && \
+    pip3 install --no-cache-dir -r /opt/tools/ParamSpider/requirements.txt 2>/dev/null || true && \
+    pip3 install --no-cache-dir "paramspider @ git+https://github.com/devanshbatham/ParamSpider.git" 2>/dev/null || true
 
 # ============================================================================
-# STAGE 5: Setup Guardian CLI Deluxe
+# STAGE 9: Install npm Tools
+# ============================================================================
+
+# retire.js (JavaScript library vulnerability scanner)
+RUN npm install -g retire && \
+    ln -sf /usr/local/lib/node_modules/retire/bin/retire /usr/local/bin/retire 2>/dev/null || true
+
+# ============================================================================
+# STAGE 10: Install Wordlists
+# ============================================================================
+
+# SecLists (comprehensive wordlist collection)
+RUN git clone --depth 1 https://github.com/danielmiessler/SecLists.git /opt/wordlists/SecLists
+
+# Kiterunner wordlists
+RUN mkdir -p /opt/wordlists/kiterunner && \
+    curl -sL https://wordlists-cdn.assetnote.io/rawdata/kiterunner/routes-small.json.tar.gz | \
+    tar -xz -C /opt/wordlists/kiterunner 2>/dev/null || true
+
+# ============================================================================
+# STAGE 11: ZAP Hybrid Mode Setup
+# ============================================================================
+
+# Pull ZAP Docker image (if Docker-in-Docker is available)
+# Note: This requires Docker socket mounting at runtime
+RUN echo '#!/bin/bash' > /usr/local/bin/guardian-zap && \
+    echo 'if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then' >> /usr/local/bin/guardian-zap && \
+    echo '    docker images ghcr.io/zaproxy/zaproxy:stable -q | grep -q . && echo "docker" && exit 0' >> /usr/local/bin/guardian-zap && \
+    echo 'fi' >> /usr/local/bin/guardian-zap && \
+    echo 'command -v zap.sh >/dev/null 2>&1 && echo "native" && exit 0' >> /usr/local/bin/guardian-zap && \
+    echo 'echo "none" >&2 && exit 1' >> /usr/local/bin/guardian-zap && \
+    chmod +x /usr/local/bin/guardian-zap
+
+# ZAP Docker wrapper
+RUN echo '#!/bin/bash' > /usr/local/bin/zap-docker && \
+    echo 'docker run --rm -u zap -p 8080:8080 -i ghcr.io/zaproxy/zaproxy:stable "$@"' >> /usr/local/bin/zap-docker && \
+    chmod +x /usr/local/bin/zap-docker
+
+# ============================================================================
+# STAGE 12: Smart Port Scanner Wrapper
+# ============================================================================
+
+RUN echo '#!/bin/bash' > /usr/local/bin/guardian-portscan && \
+    echo 'TARGET="$1"' >> /usr/local/bin/guardian-portscan && \
+    echo 'OUT="${2:-.}"' >> /usr/local/bin/guardian-portscan && \
+    echo 'if command -v masscan >/dev/null 2>&1; then' >> /usr/local/bin/guardian-portscan && \
+    echo '    masscan "$TARGET" -p1-65535 --rate=10000 -oL "$OUT/masscan.txt" 2>/dev/null' >> /usr/local/bin/guardian-portscan && \
+    echo '    PORTS=$(awk '\''/open/{print $3}'\'' "$OUT/masscan.txt" | cut -d'\''/'\'\ -f1 | paste -sd, || echo "1-65535")' >> /usr/local/bin/guardian-portscan && \
+    echo 'else' >> /usr/local/bin/guardian-portscan && \
+    echo '    PORTS="1-65535"' >> /usr/local/bin/guardian-portscan && \
+    echo 'fi' >> /usr/local/bin/guardian-portscan && \
+    echo 'nmap -sV -sC -p "$PORTS" "$TARGET" -oX "$OUT/nmap.xml" --open' >> /usr/local/bin/guardian-portscan && \
+    chmod +x /usr/local/bin/guardian-portscan
+
+# ============================================================================
+# STAGE 13: Setup Guardian CLI Deluxe
 # ============================================================================
 
 # Copy Guardian CLI Deluxe files
 COPY . /guardian/
 
+# Fix dependency conflicts (force-reinstall correct versions)
+RUN pip3 install --force-reinstall --no-cache-dir \
+    "requests>=2.32.0" \
+    "urllib3>=2.0.0" \
+    "attrs>=22.2.0" \
+    "charset-normalizer>=3.0.0"
+
 # Install Guardian Python dependencies
 RUN if [ -f requirements.txt ]; then \
-        pip install --no-cache-dir -r requirements.txt; \
+        pip3 install --no-cache-dir -r requirements.txt; \
     fi
 
 # Install Guardian Python package (if setup.py exists)
 RUN if [ -f setup.py ]; then \
-        pip install --no-cache-dir -e .; \
+        pip3 install --no-cache-dir -e .; \
     fi
 
 # Make scripts executable
@@ -263,11 +481,11 @@ RUN mkdir -p /guardian/reports && \
     mkdir -p /root/.guardian
 
 # ============================================================================
-# STAGE 6: Configuration and Environment Setup
+# STAGE 14: Configuration and Environment Setup
 # ============================================================================
 
 # Set up environment variables
-ENV PATH="/guardian:/guardian/tools:/opt/tools:${PATH}"
+ENV PATH="/guardian:/guardian/tools:/opt/tools:${GOPATH}/bin:/usr/local/bin:${PATH}"
 ENV PYTHONPATH="/guardian:${PYTHONPATH}"
 ENV GUARDIAN_HOME="/guardian"
 ENV GUARDIAN_CONFIG="/guardian/config/guardian.yaml"
@@ -282,30 +500,80 @@ RUN chown -R guardian:guardian /guardian && \
     chmod -R 755 /guardian
 
 # ============================================================================
-# STAGE 7: Verification and Testing
+# STAGE 15: Comprehensive Verification (Match setup.sh)
 # ============================================================================
 
 # Verify critical tools are installed
 RUN echo "=== Verifying Tool Installation ===" && \
+    # SAST Tools
+    echo "SAST Tools:" && \
+    which semgrep && semgrep --version && \
+    which trivy && trivy --version && \
+    which trufflehog && trufflehog --version && \
+    which gitleaks && gitleaks version && \
+    # ProjectDiscovery
+    echo "ProjectDiscovery Tools:" && \
+    which httpx && httpx -version && \
+    which nuclei && nuclei -version && \
+    which subfinder && subfinder -version && \
+    which dnsx && dnsx -version && \
+    which katana && katana -version && \
+    which naabu && naabu -version && \
+    # Go Tools
+    echo "Go Tools:" && \
+    which ffuf && ffuf -version && \
+    which dalfox && dalfox version && \
+    which waybackurls && echo "waybackurls: OK" && \
+    which gau && echo "gau: OK" && \
+    which subjs && echo "subjs: OK" && \
+    which webanalyze && echo "webanalyze: OK" && \
+    # Rust Tools
+    echo "Rust Tools:" && \
+    which feroxbuster && feroxbuster --version && \
+    # System Tools
+    echo "System Tools:" && \
     which nmap && nmap --version && \
-    which enum4linux && echo "enum4linux: OK" && \
-    which enum4linux-ng && echo "enum4linux-ng: OK" && \
+    which masscan && echo "masscan: OK" && \
     which sqlmap && echo "sqlmap: OK" && \
     which nikto && echo "nikto: OK" && \
-    which nuclei && nuclei -version && \
-    which python3 && python3 --version && \
-    which pip && pip --version && \
+    which enum4linux-ng && echo "enum4linux-ng: OK" && \
+    # Python Tools
+    echo "Python Tools:" && \
+    which arjun && echo "arjun: OK" && \
+    which dirsearch && echo "dirsearch: OK" && \
+    which wafw00f && echo "wafw00f: OK" && \
+    which sstimap && echo "sstimap: OK" && \
+    which dnsgen && echo "dnsgen: OK" && \
+    which xnlinkfinder && echo "xnlinkfinder: OK" && \
+    # Git-cloned Tools
+    echo "Git-cloned Tools:" && \
+    which xsstrike && echo "xsstrike: OK" && \
+    which cmseek && echo "cmseek: OK" && \
+    which commix && echo "commix: OK" && \
+    which graphql-cop && echo "graphql-cop: OK" && \
+    which jwt_tool && echo "jwt_tool: OK" && \
+    which corscanner && echo "corscanner: OK" && \
+    which linkfinder && echo "linkfinder: OK" && \
+    # npm Tools
+    echo "npm Tools:" && \
+    which retire && retire --version && \
+    # Wrappers
+    echo "Guardian Wrappers:" && \
+    which guardian-portscan && echo "guardian-portscan: OK" && \
+    which guardian-zap && echo "guardian-zap: OK" && \
     echo "=== All Critical Tools Verified ==="
 
 # Verify Python packages
-RUN python3 -c "import anthropic; print('anthropic: OK')" && \
-    python3 -c "import langchain; print('langchain: OK')" && \
-    python3 -c "import yaml; print('pyyaml: OK')" && \
-    python3 -c "import requests; print('requests: OK')" && \
+RUN python3 -c "import anthropic; print('✓ anthropic')" && \
+    python3 -c "import langchain; print('✓ langchain')" && \
+    python3 -c "from langchain_ollama import ChatOllama; print('✓ langchain_ollama')" && \
+    python3 -c "import langsmith; print('✓ langsmith')" && \
+    python3 -c "import requests; assert requests.__version__ >= '2.32.0'; print('✓ requests >= 2.32.0')" && \
+    python3 -c "import yaml; print('✓ pyyaml')" && \
     echo "=== All Python Packages Verified ==="
 
 # ============================================================================
-# STAGE 8: Entrypoint and Startup
+# STAGE 16: Entrypoint and Startup
 # ============================================================================
 
 # Create entrypoint script
@@ -315,17 +583,30 @@ RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo '# Display welcome banner' >> /entrypoint.sh && \
     echo 'cat << "EOF"' >> /entrypoint.sh && \
     echo '╔══════════════════════════════════════════════════════════╗' >> /entrypoint.sh && \
-    echo '║     Guardian CLI Deluxe - Kali Linux Container          ║' >> /entrypoint.sh && \
-    echo '║     AI-Powered Penetration Testing Framework            ║' >> /entrypoint.sh && \
+    echo '║   Guardian CLI Deluxe - Kali Linux Container v3.0       ║' >> /entrypoint.sh && \
+    echo '║   AI-Powered Penetration Testing Framework              ║' >> /entrypoint.sh && \
+    echo '║   Full Parity with Native setup.sh                      ║' >> /entrypoint.sh && \
     echo '╚══════════════════════════════════════════════════════════╝' >> /entrypoint.sh && \
     echo 'EOF' >> /entrypoint.sh && \
     echo '' >> /entrypoint.sh && \
+    echo 'echo ""' >> /entrypoint.sh && \
     echo 'echo "Container started at $(date)"' >> /entrypoint.sh && \
     echo 'echo "Working directory: $(pwd)"' >> /entrypoint.sh && \
+    echo 'echo ""' >> /entrypoint.sh && \
+    echo 'echo "Installed Tools:"' >> /entrypoint.sh && \
+    echo 'echo "  SAST: semgrep, trivy, trufflehog, gitleaks"' >> /entrypoint.sh && \
+    echo 'echo "  Recon: httpx, nuclei, subfinder, dnsx, katana, naabu, amass"' >> /entrypoint.sh && \
+    echo 'echo "  Web: ffuf, feroxbuster, dalfox, sqlmap, nikto, wpscan"' >> /entrypoint.sh && \
+    echo 'echo "  Network: nmap, masscan, enum4linux-ng, hydra"' >> /entrypoint.sh && \
+    echo 'echo "  Secrets: trufflehog, gitleaks"' >> /entrypoint.sh && \
     echo 'echo ""' >> /entrypoint.sh && \
     echo 'echo "Quick Start:"' >> /entrypoint.sh && \
     echo 'echo "  python -m cli.main --help"' >> /entrypoint.sh && \
     echo 'echo "  python -m cli.main workflow list"' >> /entrypoint.sh && \
+    echo 'echo "  python -m cli.main workflow run --name web --target https://example.com"' >> /entrypoint.sh && \
+    echo 'echo ""' >> /entrypoint.sh && \
+    echo 'echo "Whitebox Analysis (SAST + DAST):"' >> /entrypoint.sh && \
+    echo 'echo "  python -m cli.main workflow run --name web --target https://example.com --source /path/to/code"' >> /entrypoint.sh && \
     echo 'echo ""' >> /entrypoint.sh && \
     echo '' >> /entrypoint.sh && \
     echo '# Execute command or start bash' >> /entrypoint.sh && \
@@ -350,4 +631,21 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python3 -c "import sys; sys.exit(0)" || exit 1
 
 # Final message
-RUN echo "=== Guardian CLI Deluxe Kali Docker Image Built Successfully ==="
+RUN echo "" && \
+    echo "╔════════════════════════════════════════════════════════════════╗" && \
+    echo "║  Guardian CLI Deluxe v3.0 Docker Image Build Complete         ║" && \
+    echo "║                                                                ║" && \
+    echo "║  ✓ SAST Tools (Semgrep, Trivy, TruffleHog, Gitleaks)         ║" && \
+    echo "║  ✓ ProjectDiscovery Suite (httpx, nuclei, subfinder, etc.)   ║" && \
+    echo "║  ✓ Go Tools (ffuf, dalfox, gau, waybackurls, etc.)           ║" && \
+    echo "║  ✓ Rust Tools (feroxbuster)                                  ║" && \
+    echo "║  ✓ Python Tools (arjun, dirsearch, sqlmap, etc.)             ║" && \
+    echo "║  ✓ Git-cloned Tools (xsstrike, cmseek, jwt_tool, etc.)       ║" && \
+    echo "║  ✓ Wordlists (SecLists, Kiterunner)                          ║" && \
+    echo "║  ✓ LangChain Ecosystem (langchain-ollama, langsmith)         ║" && \
+    echo "║  ✓ Fixed Dependencies (requests>=2.32.0, urllib3>=2.0.0)     ║" && \
+    echo "║  ✓ Smart Wrappers (guardian-portscan, guardian-zap)          ║" && \
+    echo "║                                                                ║" && \
+    echo "║  Full parity with native Kali setup.sh achieved!              ║" && \
+    echo "╚════════════════════════════════════════════════════════════════╝" && \
+    echo ""
