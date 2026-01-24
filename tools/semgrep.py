@@ -27,16 +27,18 @@ class SemgrepTool(BaseTool):
         severity = kwargs.get("severity")
         if severity:
             if isinstance(severity, list):
-                severity_str = ",".join(severity)
+                for level in severity:
+                    if level:
+                        cmd.extend(["--severity", str(level)])
             else:
-                severity_str = severity
-            cmd.extend(["--severity", severity_str])
+                cmd.extend(["--severity", str(severity)])
 
         # Output format
         cmd.append("--json")
 
-        # Disable metrics collection for privacy
-        cmd.append("--metrics=off")
+        # Disable metrics collection for privacy unless using auto config (requires metrics)
+        if "auto" not in rulesets:
+            cmd.append("--metrics=off")
 
         # Target directory
         cmd.append(target)

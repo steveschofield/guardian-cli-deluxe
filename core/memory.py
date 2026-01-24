@@ -64,6 +64,8 @@ class PentestMemory:
         self.findings: List[Finding] = []
         self.tool_executions: List[ToolExecution] = []
         self.ai_decisions: List[Dict[str, str]] = []
+        # General metadata for workflow/reporting (whitebox, correlations, etc.)
+        self.metadata: Dict[str, Any] = {}
         
         # Context for AI agents
         self.context: Dict[str, Any] = {
@@ -172,7 +174,8 @@ Technologies:
             "findings": [asdict(f) for f in self.findings],
             "tool_executions": [asdict(t) for t in self.tool_executions],
             "ai_decisions": self.ai_decisions,
-            "context": self.context
+            "context": self.context,
+            "metadata": self.metadata
         }
         
         filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -194,6 +197,7 @@ Technologies:
             self.tool_executions = [ToolExecution(**t) for t in state["tool_executions"]]
             self.ai_decisions = state["ai_decisions"]
             self.context = state["context"]
+            self.metadata = state.get("metadata", {})
             
             return True
         except Exception as e:

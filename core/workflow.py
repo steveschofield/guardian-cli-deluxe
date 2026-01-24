@@ -226,6 +226,8 @@ class WorkflowEngine:
                 "endpoints_found": len(self.whitebox_findings.get("attack_surface", {}).get("endpoints", [])),
                 "secrets_found": len(self.whitebox_findings.get("attack_surface", {}).get("secrets", []))
             }
+            # Persist extracted endpoints for downstream tooling.
+            self._persist_whitebox_endpoints()
 
             # Initialize correlation engine
             self.correlation_engine = CorrelationEngine(
@@ -727,6 +729,11 @@ class WorkflowEngine:
                 "output_file",
                 str(output_dir / f"ffuf_{step_name}_{self.memory.session_id}.json"),
             )
+        elif tool_name == "ffuf":
+            whitebox_wordlist = (self.memory.metadata or {}).get("whitebox_endpoints_wordlist")
+            if whitebox_wordlist and "wordlist" not in (tool_kwargs or {}):
+                tool_kwargs = dict(tool_kwargs or {})
+                tool_kwargs["wordlist"] = whitebox_wordlist
 
         config_key = tool_name.replace("-", "_")
         tool_cfg = (self.config or {}).get("tools", {}).get(config_key, {}) or {}
@@ -846,7 +853,7 @@ class WorkflowEngine:
 
         # If we have discovered URLs, run URL-first scanners using the URL list.
         # NOTE: only enable for tools that accept a `from_file` input in our wrappers.
-        if tool_name in {"katana", "nuclei", "dalfox", "subjs", "xnlinkfinder"}:
+        if tool_name in {"katana", "nuclei", "dalfox", "subjs", "xnlinkfinder", "httpx"}:
             urls = self._get_discovered_urls()
             if urls and "from_file" not in tool_kwargs:
                 url_file = self._write_urls_file(urls, name=f"{tool_name}_{self.memory.session_id}.txt")
@@ -1169,6 +1176,107 @@ class WorkflowEngine:
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(urls) + "\n")
         return path
+
+    def _get_target_base_url(self) -> str:
+        target = (self.target or "").strip()
+        if not target:
+            return ""
+        if "://" not in target:
+            target = f"https://{target}"
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(target)
+        except Exception:
+            return ""
+        if not parsed.scheme or not parsed.netloc:
+            return ""
+        return f"{parsed.scheme}://{parsed.netloc}"
+
+    def _persist_whitebox_endpoints(self) -> None:
+        if not self.whitebox_findings:
+            return
+        endpoints = self.whitebox_findings.get("attack_surface", {}).get("endpoints", [])
+        if not endpoints:
+            return
+        base_url = self._get_target_base_url()
+        urls: list[str] = []
+        for entry in endpoints:
+            endpoint = None
+            if isinstance(entry, dict):
+                endpoint = entry.get("endpoint") or entry.get("url")
+            elif isinstance(entry, str):
+                endpoint = entry
+            if not endpoint or not isinstance(endpoint, str):
+                continue
+            endpoint = endpoint.strip()
+            if not endpoint:
+                continue
+            if endpoint.startswith("http://") or endpoint.startswith("https://"):
+                url = endpoint
+            else:
+                if not base_url:
+                    continue
+                from urllib.parse import urljoin
+                url = urljoin(base_url, endpoint)
+            urls.append(url)
+
+        if not urls:
+            return
+
+        # De-dupe and scope-filter
+        seen = set()
+        deduped: list[str] = []
+        for url in urls:
+            if url in seen:
+                continue
+            seen.add(url)
+            deduped.append(url)
+        deduped = self._filter_urls_in_scope(deduped)
+        if not deduped:
+            return
+
+        # Add to context so downstream tools can reuse the URLs
+        self.memory.update_context("urls", deduped)
+        self.memory.update_context("discovered_assets", deduped)
+
+        endpoints_file = self._write_urls_file(
+            deduped,
+            name=f"whitebox_endpoints_{self.memory.session_id}.txt",
+        )
+        self.memory.metadata["whitebox_endpoints_file"] = str(endpoints_file)
+        self.logger.info(f"Saved whitebox endpoints to: {endpoints_file}")
+
+        # Prepare a path-only wordlist for fuzzers (ffuf)
+        fuzz_entries: list[str] = []
+        from urllib.parse import urlparse
+        for url in deduped:
+            try:
+                parsed = urlparse(url)
+            except Exception:
+                continue
+            path = parsed.path or "/"
+            if parsed.query:
+                path = f"{path}?{parsed.query}"
+            if path.startswith("/"):
+                path = path[1:]
+            path = path.strip()
+            if path:
+                fuzz_entries.append(path)
+
+        if fuzz_entries:
+            seen = set()
+            deduped_paths: list[str] = []
+            for entry in fuzz_entries:
+                if entry in seen:
+                    continue
+                seen.add(entry)
+                deduped_paths.append(entry)
+            wordlist_file = self._write_urls_file(
+                deduped_paths,
+                name=f"whitebox_endpoints_paths_{self.memory.session_id}.txt",
+            )
+            self.memory.metadata["whitebox_endpoints_wordlist"] = str(wordlist_file)
+            self.logger.info(f"Saved whitebox endpoint wordlist to: {wordlist_file}")
 
     def _run_ip_enrichment(self, target_ip: str) -> None:
         """Perform lightweight enrichment for IP targets (PTR + TLS cert name harvesting)."""
@@ -1501,13 +1609,39 @@ class WorkflowEngine:
             self.logger.error(f"Failed to execute AI decision: {e}")
         
         self.memory.mark_action_complete(action)
+
+    def _normalize_workflow_name(self, workflow_name: str) -> str:
+        """Normalize user-provided workflow name to YAML canonical name."""
+        name = (workflow_name or "").strip()
+        if not name:
+            return ""
+        aliases = {
+            "wordpress": "wordpress_audit",
+            "web": "web_pentest",
+            "network": "network_pentest",
+            "reconnaissance": "recon",
+        }
+        return aliases.get(name, name)
+
+    def _normalize_workflow_key(self, workflow_name: str) -> str:
+        """Normalize workflow name to a built-in workflow key."""
+        name = self._normalize_workflow_name(workflow_name)
+        reverse_aliases = {
+            "web_pentest": "web",
+            "network_pentest": "network",
+        }
+        return reverse_aliases.get(name, name)
     
     def _load_workflow_config(self, workflow_name: str) -> Dict[str, Any]:
         """Load full workflow configuration from YAML file"""
+        name = self._normalize_workflow_name(workflow_name)
+        if not name:
+            return {}
+
         repo_root = Path(__file__).resolve().parent.parent
         workflows_dir = repo_root / "workflows"
 
-        for candidate in {workflow_name, workflow_name.replace("-", "_")}:
+        for candidate in {name, name.replace("-", "_")}:
             path = workflows_dir / f"{candidate}.yaml"
             if path.exists():
                 try:
@@ -1610,8 +1744,9 @@ class WorkflowEngine:
         if yaml_steps:
             return yaml_steps
 
-        if workflow_name in workflows:
-            return workflows[workflow_name]
+        workflow_key = self._normalize_workflow_key(workflow_name)
+        if workflow_key in workflows:
+            return workflows[workflow_key]
 
         return workflows["recon"]
     
@@ -1764,17 +1899,9 @@ class WorkflowEngine:
         return normalized
 
     def _load_yaml_workflow(self, workflow_name: str) -> list[dict]:
-        name = (workflow_name or "").strip()
+        name = self._normalize_workflow_name(workflow_name)
         if not name:
             return []
-
-        aliases = {
-            "wordpress": "wordpress_audit",
-            "web": "web_pentest",
-            "network": "network_pentest",
-            "reconnaissance": "recon",
-        }
-        name = aliases.get(name, name)
 
         repo_root = Path(__file__).resolve().parent.parent
         workflows_dir = repo_root / "workflows"
