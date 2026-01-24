@@ -26,9 +26,10 @@ from utils.circuit_breaker import EnhancedErrorHandler
 
 class WorkflowEngine:
     """Orchestrates the penetration testing workflow"""
-    
-    def __init__(self, config: Dict[str, Any], target: Optional[str] = None, memory: Optional[PentestMemory] = None):
+
+    def __init__(self, config: Dict[str, Any], target: Optional[str] = None, memory: Optional[PentestMemory] = None, source: Optional[str] = None):
         self.config = config or {}
+        self.source_path = source  # Optional path to source code for whitebox analysis
 
         # Initialize session memory early so output paths can use session id.
         if memory is None:
@@ -42,6 +43,10 @@ class WorkflowEngine:
         self._configure_session_outputs()
 
         self.logger = get_logger(self.config)
+
+        # Whitebox analysis results (populated if source code provided)
+        self.whitebox_findings = None
+        self.correlation_engine = None
 
         # Initialize LLM logging
         from utils.llm_logger import init_llm_logger
@@ -180,24 +185,102 @@ class WorkflowEngine:
             )
             raise ValueError("Missing ADC credentials for Gemini Vertex AI.")
     
+    async def _run_whitebox_analysis(self, workflow_config: Dict[str, Any]) -> None:
+        """
+        Run whitebox source code analysis phase
+
+        Args:
+            workflow_config: Workflow configuration containing whitebox settings
+        """
+        if not self.source_path:
+            return
+
+        whitebox_config = workflow_config.get("whitebox", {})
+        if not whitebox_config.get("enabled_if_source", True):
+            return
+
+        self.logger.info("="*60)
+        self.logger.info("WHITEBOX ANALYSIS PHASE")
+        self.logger.info("="*60)
+
+        try:
+            from core.source_analyzer import SourceCodeAnalyzer
+            from core.correlation_engine import CorrelationEngine
+
+            # Run source code analysis
+            analyzer = SourceCodeAnalyzer(
+                self.source_path,
+                self.config,
+                self.logger,
+                self.llm_client
+            )
+
+            self.whitebox_findings = await analyzer.analyze()
+
+            # Store whitebox findings in memory
+            self.memory.metadata["whitebox_analysis"] = {
+                "source_path": self.source_path,
+                "timestamp": datetime.now().isoformat(),
+                "findings_count": analyzer._get_findings_count(),
+                "frameworks": self.whitebox_findings.get("attack_surface", {}).get("frameworks", []),
+                "endpoints_found": len(self.whitebox_findings.get("attack_surface", {}).get("endpoints", [])),
+                "secrets_found": len(self.whitebox_findings.get("attack_surface", {}).get("secrets", []))
+            }
+
+            # Initialize correlation engine
+            self.correlation_engine = CorrelationEngine(
+                self.whitebox_findings,
+                self.config,
+                self.logger,
+                self.llm_client
+            )
+
+            # Log summary
+            self.logger.info(f"\nWhitebox Analysis Summary:")
+            self.logger.info(f"  Source Path: {self.source_path}")
+            self.logger.info(f"  Frameworks Detected: {', '.join(self.whitebox_findings.get('attack_surface', {}).get('frameworks', [])) or 'None'}")
+            self.logger.info(f"  API Endpoints Found: {len(self.whitebox_findings.get('attack_surface', {}).get('endpoints', []))}")
+            self.logger.info(f"  Secrets Found: {len(self.whitebox_findings.get('attack_surface', {}).get('secrets', []))}")
+
+            # Log SAST findings
+            semgrep_summary = self.whitebox_findings.get("sast_results", {}).get("semgrep", {}).get("summary", {})
+            if semgrep_summary.get("total", 0) > 0:
+                self.logger.info(f"  Semgrep Issues: {semgrep_summary['total']}")
+                for severity, count in semgrep_summary.get("by_severity", {}).items():
+                    self.logger.info(f"    {severity}: {count}")
+
+            trivy_summary = self.whitebox_findings.get("sast_results", {}).get("trivy", {}).get("summary", {})
+            if trivy_summary.get("total_vulns", 0) > 0:
+                self.logger.info(f"  Trivy Vulnerabilities: {trivy_summary['total_vulns']}")
+                critical_count = len(trivy_summary.get("critical_cves", []))
+                if critical_count > 0:
+                    self.logger.info(f"    CRITICAL CVEs: {critical_count}")
+
+            self.logger.info("="*60)
+            self.logger.info("")
+
+        except Exception as e:
+            self.logger.error(f"Whitebox analysis failed: {e}")
+            self.logger.warning("Continuing with blackbox testing only")
+
     async def run_workflow(self, workflow_name: str) -> Dict[str, Any]:
         """
         Run a predefined workflow
-        
+
         Args:
             workflow_name: Name of workflow (recon, web_pentest, network_pentest)
-        
+
         Returns:
             Workflow results and findings
         """
         self.logger.info(f"Starting workflow: {workflow_name} for target: {self.target}")
-        
+
         # Validate target
         is_valid, reason = self.scope_validator.validate_target_resolved(self.target)
         if not is_valid:
             self.logger.error(f"Target validation failed: {reason}")
             raise ValueError(f"Invalid target: {reason}")
-        
+
         self.is_running = True
         if self.memory.completed_actions:
             self.logger.info(
@@ -207,11 +290,18 @@ class WorkflowEngine:
             self.memory.update_phase(f"{workflow_name}_workflow")
         
         try:
-            # Load workflow steps
+            # Load workflow steps and configuration
             steps = self._load_workflow(workflow_name)
             if not steps:
                 raise ValueError(f"No workflow found for '{workflow_name}'")
-            
+
+            # Load full workflow config for whitebox settings
+            workflow_config = self._load_workflow_config(workflow_name)
+
+            # Run whitebox analysis phase if source code provided
+            if self.source_path and workflow_config:
+                await self._run_whitebox_analysis(workflow_config)
+
             # Execute workflow steps
             for step in steps:
                 if not self.is_running:
@@ -270,17 +360,17 @@ class WorkflowEngine:
     async def run_autonomous(self) -> Dict[str, Any]:
         """
         Run autonomous pentest where AI decides each step
-        
+
         Returns:
             Final results
         """
         self.logger.info(f"Starting autonomous pentest for target: {self.target}")
-        
+
         # Validate target
         is_valid, reason = self.scope_validator.validate_target_resolved(self.target)
         if not is_valid:
             raise ValueError(f"Invalid target: {reason}")
-        
+
         self.is_running = True
         if self.memory.completed_actions:
             self.logger.info(
@@ -288,8 +378,19 @@ class WorkflowEngine:
             )
         else:
             self.memory.update_phase("reconnaissance")
-        
+
         try:
+            # Run whitebox analysis if source code provided
+            if self.source_path:
+                workflow_config = self._load_workflow_config("autonomous")
+                if workflow_config:
+                    await self._run_whitebox_analysis(workflow_config)
+
+                    # Inject whitebox findings into AI context
+                    if self.whitebox_findings:
+                        self.logger.info("Feeding whitebox findings to autonomous AI agent...")
+                        self.memory.metadata["whitebox_context_injected"] = True
+
             while self.is_running and self.current_step < self.max_steps:
                 # Ask planner for next action
                 decision = await self.planner.decide_next_action()
@@ -1401,6 +1502,22 @@ class WorkflowEngine:
         
         self.memory.mark_action_complete(action)
     
+    def _load_workflow_config(self, workflow_name: str) -> Dict[str, Any]:
+        """Load full workflow configuration from YAML file"""
+        repo_root = Path(__file__).resolve().parent.parent
+        workflows_dir = repo_root / "workflows"
+
+        for candidate in {workflow_name, workflow_name.replace("-", "_")}:
+            path = workflows_dir / f"{candidate}.yaml"
+            if path.exists():
+                try:
+                    data = yaml.safe_load(path.read_text()) or {}
+                    return data
+                except Exception as exc:
+                    self.logger.warning(f"Failed to load workflow config from {path}: {exc}")
+
+        return {}
+
     def _load_workflow(self, workflow_name: str) -> List[Dict[str, Any]]:
         """Load workflow definition with OS-specific tool selection"""
         import platform

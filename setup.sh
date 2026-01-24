@@ -599,6 +599,108 @@ install_enum4linux_ng() {
 # REMOVED: install_udp_proto_scanner - ancient Perl (2017), use nmap -sU instead
 
 # ============================================================================
+# SAST TOOLS (Whitebox Analysis)
+# ============================================================================
+
+install_semgrep() {
+    log_info "Installing Semgrep (SAST - code vulnerability scanner)..."
+
+    # Check if already installed
+    if command -v semgrep >/dev/null 2>&1; then
+        log_success "Semgrep already installed: $(semgrep --version 2>/dev/null | head -n1)"
+        return 0
+    fi
+
+    # Install via pip (recommended method)
+    "${VENV_BIN}/pip" install --upgrade semgrep --quiet || {
+        log_error "Failed to install Semgrep via pip"
+        return 1
+    }
+
+    log_success "Semgrep installed successfully"
+
+    # Verify installation
+    if "${VENV_BIN}/semgrep" --version >/dev/null 2>&1; then
+        log_success "Semgrep verified: $("${VENV_BIN}/semgrep" --version | head -n1)"
+    else
+        log_warn "Semgrep installed but verification failed"
+    fi
+}
+
+install_trivy() {
+    log_info "Installing Trivy (vulnerability/secret/config scanner)..."
+
+    # Check if already installed
+    if command -v trivy >/dev/null 2>&1; then
+        log_success "Trivy already installed: $(trivy --version 2>/dev/null | head -n1)"
+        return 0
+    fi
+
+    # Detect architecture
+    ARCH=$(uname -m)
+    case "${ARCH}" in
+        x86_64) TRIVY_ARCH="64bit" ;;
+        aarch64|arm64) TRIVY_ARCH="ARM64" ;;
+        *) log_error "Unsupported architecture: ${ARCH}"; return 1 ;;
+    esac
+
+    # Install on Debian/Ubuntu
+    if [[ "${OS}" == "debian" ]]; then
+        log_info "Installing Trivy via apt..."
+
+        # Add Trivy repository
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq wget apt-transport-https gnupg lsb-release >/dev/null 2>&1 || true
+
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg 2>/dev/null || true
+        echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list >/dev/null
+
+        sudo apt-get update -qq
+        sudo apt-get install -y trivy >/dev/null 2>&1 || {
+            log_warn "apt installation failed, trying binary download..."
+            install_trivy_binary
+        }
+    else
+        # Fallback to binary installation
+        install_trivy_binary
+    fi
+
+    # Verify installation
+    if command -v trivy >/dev/null 2>&1; then
+        log_success "Trivy installed successfully: $(trivy --version | head -n1)"
+    else
+        log_warn "Trivy installation completed but command not found in PATH"
+    fi
+}
+
+install_trivy_binary() {
+    log_info "Installing Trivy from binary release..."
+
+    # Download latest release
+    TRIVY_VERSION=$(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+
+    if [[ -z "${TRIVY_VERSION}" ]]; then
+        TRIVY_VERSION="0.48.3"  # Fallback version
+        log_warn "Could not detect latest version, using ${TRIVY_VERSION}"
+    fi
+
+    TRIVY_URL="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz"
+
+    log_info "Downloading Trivy ${TRIVY_VERSION}..."
+    curl -sL "${TRIVY_URL}" -o /tmp/trivy.tar.gz || {
+        log_error "Failed to download Trivy"
+        return 1
+    }
+
+    tar -xzf /tmp/trivy.tar.gz -C /tmp/
+    sudo mv /tmp/trivy /usr/local/bin/trivy
+    sudo chmod +x /usr/local/bin/trivy
+    rm -f /tmp/trivy.tar.gz
+
+    log_success "Trivy binary installed to /usr/local/bin/trivy"
+}
+
+# ============================================================================
 # PYTHON TOOLS
 # ============================================================================
 
@@ -898,6 +1000,10 @@ install_projectdiscovery_tools
 install_go_tools
 install_trufflehog
 
+# SAST Tools (Whitebox Analysis)
+install_semgrep
+install_trivy
+
 # Git-cloned tools
 install_testssl
 install_xsstrike
@@ -947,6 +1053,12 @@ echo ""
 verify_installation
 
 echo ""
+echo "New SAST tools for whitebox analysis:"
+echo "  ✓ Semgrep - Code vulnerability detection (SQLi, XSS, etc.)"
+echo "  ✓ Trivy - Dependency CVE scanning + IaC misconfigurations"
+echo "  ✓ Gitleaks - Secret detection (already installed)"
+echo "  ✓ TruffleHog - Advanced secret scanning (already installed)"
+echo ""
 echo "Tools removed (ancient/deprecated):"
 echo "  - tplmap (Python 2) -> sstimap"
 echo "  - JSParser (2018) -> LinkFinder/xnLinkFinder"
@@ -957,6 +1069,9 @@ echo "  - udp-proto-scanner (2017) -> nmap -sU"
 echo ""
 echo "To activate the environment:"
 echo "  source ${VENV_BIN}/activate"
+echo ""
+echo "Whitebox analysis usage:"
+echo "  python -m cli.main workflow run --name web --target https://example.com --source /path/to/code"
 echo ""
 echo "To customize retry behavior:"
 echo "  MAX_RETRIES=5 RETRY_DELAY=10 ./setup.sh"

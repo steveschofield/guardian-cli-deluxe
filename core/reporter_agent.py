@@ -236,6 +236,59 @@ class ReporterAgent(BaseAgent):
             self.logger.warning(f"Failed to load ZAP summary: {e}")
             return ""
 
+    def _format_whitebox_analysis_markdown(self) -> str:
+        """Format whitebox analysis section for markdown report"""
+        whitebox_metadata = self.memory.metadata.get("whitebox_analysis")
+        if not whitebox_metadata:
+            return ""
+
+        section = f"""## Whitebox Analysis (Source Code Security)
+
+**Source Path**: `{whitebox_metadata.get('source_path', 'N/A')}`
+**Frameworks Detected**: {', '.join(whitebox_metadata.get('frameworks', [])) or 'None'}
+**API Endpoints Found**: {whitebox_metadata.get('endpoints_found', 0)}
+**Secrets Found**: {whitebox_metadata.get('secrets_found', 0)}
+
+### SAST Findings Summary
+
+The following static analysis tools were executed on the source code:
+"""
+
+        # Add Semgrep findings if available
+        semgrep_summary = self.memory.metadata.get("sast_results", {}).get("semgrep", {}).get("summary", {})
+        if semgrep_summary.get("total", 0) > 0:
+            section += f"\n**Semgrep** ({semgrep_summary['total']} issues):\n"
+            for severity, count in semgrep_summary.get("by_severity", {}).items():
+                section += f"- {severity}: {count}\n"
+
+        # Add Trivy findings if available
+        trivy_summary = self.memory.metadata.get("sast_results", {}).get("trivy", {}).get("summary", {})
+        if trivy_summary.get("total_vulns", 0) > 0:
+            section += f"\n**Trivy** ({trivy_summary['total_vulns']} vulnerabilities):\n"
+            critical_cves = trivy_summary.get("critical_cves", [])
+            if critical_cves:
+                section += f"- CRITICAL CVEs: {', '.join(critical_cves[:5])}\n"
+
+        # Add Gitleaks findings if available
+        gitleaks_count = self.memory.metadata.get("sast_results", {}).get("gitleaks", {}).get("count", 0)
+        if gitleaks_count > 0:
+            section += f"\n**Gitleaks**: {gitleaks_count} secrets detected\n"
+
+        # Add correlation summary if available
+        correlation_summary = self.memory.metadata.get("correlation_summary", {})
+        if correlation_summary:
+            section += f"""
+### SAST/DAST Correlation
+
+**Confirmed Vulnerabilities**: {correlation_summary.get('confirmed_vulnerabilities', 0)}
+(Findings validated by both static analysis and dynamic exploitation)
+
+**High Confidence Correlations**: {correlation_summary.get('high_confidence', 0)}
+**Total Correlations**: {correlation_summary.get('total_correlations', 0)}
+"""
+
+        return section
+
     async def _assemble_markdown_report(
         self,
         exec_summary: str,
@@ -251,6 +304,9 @@ class ReporterAgent(BaseAgent):
 
         # Build ZAP section if present
         zap_section = f"\n\n{zap_summary}\n" if zap_summary else ""
+
+        # Build whitebox analysis section if present
+        whitebox_section = self._format_whitebox_analysis_markdown()
 
         # Build SAN section if certificate info available
         cert_info = self.memory.context.get("certificate_info", {})
@@ -284,6 +340,8 @@ class ReporterAgent(BaseAgent):
 | Info     | {summary['info']} |
 | **Total** | **{len(findings)}** |
 {zap_section}
+{whitebox_section if whitebox_section else ""}
+
 ## Technical Findings
 
 {technical}

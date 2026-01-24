@@ -543,6 +543,62 @@ tools:
     # Run additional ZAP scan when available
     run_additional_scan: true
 
+# Whitebox Analysis Settings (Source Code Security Testing)
+# Enable SAST tools to analyze source code and correlate findings with dynamic testing
+whitebox:
+  # Global enable/disable for whitebox analysis
+  enabled: true
+
+  # SAST Tools Configuration
+  tools:
+    # Semgrep - Static Application Security Testing
+    # Detects: SQLi, XSS, auth bypass, crypto issues, injection flaws
+    # Cost: FREE
+    semgrep:
+      enabled: true
+      # Rulesets to use (more = slower but comprehensive)
+      # Options: "auto" (curated), "p/owasp-top-ten", "p/security-audit", "p/ci"
+      rulesets:
+        - "auto"
+        - "p/owasp-top-ten"
+      # Filter by severity: ERROR, WARNING, INFO
+      severity: ["ERROR", "WARNING"]
+
+    # Trivy - Comprehensive Vulnerability Scanner
+    # Detects: CVEs in dependencies, IaC misconfigs, container issues
+    # Cost: FREE
+    trivy:
+      enabled: true
+      # Scanners to run: vuln, config, secret
+      scanners: ["vuln", "config", "secret"]
+      # Severity filter
+      severity: ["CRITICAL", "HIGH", "MEDIUM"]
+
+    # Gitleaks - Secret Detection
+    # Detects: API keys, passwords, tokens in code/git history
+    # Cost: FREE
+    gitleaks:
+      enabled: true
+
+    # TruffleHog - Advanced Secret Scanning
+    # Detects: High-entropy secrets, verified credentials
+    # Cost: FREE
+    trufflehog:
+      enabled: true
+
+  # Correlation Settings
+  # Maps SAST findings to dynamic testing targets
+  correlation:
+    enabled: true
+    # Prioritize URLs that match SAST-identified vulnerable endpoints
+    prioritize_sast_findings: true
+    # Automatically extract API endpoints from source code
+    auto_extract_endpoints: true
+    # Use discovered secrets for authenticated testing
+    use_found_credentials: true
+    # Minimum confidence for SAST/DAST correlation (0.0-1.0)
+    confidence_threshold: 0.7
+
 # Workflow Settings
 workflows:
   # Default workflow timeout (seconds)

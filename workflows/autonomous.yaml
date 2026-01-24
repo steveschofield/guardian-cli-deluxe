@@ -1,10 +1,23 @@
 # Autonomous AI-Driven Penetration Testing
 # Let the AI decide each step dynamically
+# Supports optional whitebox analysis when --source is provided
 
 name: autonomous
-description: Fully autonomous AI-driven penetration test
+description: Fully autonomous AI-driven penetration test with optional source code analysis
 
 mode: autonomous  # Special mode - AI makes all decisions
+
+# Whitebox phase - runs first if --source parameter is provided
+whitebox:
+  enabled_if_source: true
+  tools:
+    - semgrep
+    - trivy
+    - gitleaks
+    - trufflehog
+  extract_attack_surface: true
+  ai_analysis: true
+  feed_to_autonomous: true  # SAST findings inform AI decision-making
 
 initial_phase: reconnaissance
 

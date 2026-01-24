@@ -21,6 +21,7 @@ def workflow_command(
     action: str = typer.Argument(..., help="Action: 'run' or 'list'"),
     name: str = typer.Option(None, "--name", "-n", help="Workflow name (recon, web, network, autonomous)"),
     target: str = typer.Option(None, "--target", "-t", help="Target for the workflow"),
+    source: str = typer.Option(None, "--source", "-s", help="Path to source code for whitebox analysis (web and autonomous workflows)"),
     resume: str = typer.Option(None, "--resume", help="Resume from a session id or path (use 'latest' for newest)"),
     auto_exploit: bool = typer.Option(False, "--auto-exploit", help="Enable automatic exploitation of findings"),
     auto_exploit_no_confirm: bool = typer.Option(False, "--auto-exploit-no-confirm", help="Skip confirmation prompts for auto-exploit"),
@@ -53,7 +54,7 @@ def workflow_command(
             console.print("[bold red]Error:[/bold red] --target is required for 'run' action unless --resume is used")
             raise typer.Exit(1)
 
-        _run_workflow(name, target, config_file, resume, auto_exploit, auto_exploit_no_confirm)
+        _run_workflow(name, target, config_file, resume, auto_exploit, auto_exploit_no_confirm, source)
     else:
         console.print(f"[bold red]Error:[/bold red] Unknown action: {action}")
         raise typer.Exit(1)
@@ -108,13 +109,30 @@ def _list_workflows():
     console.print(table)
 
 
-def _run_workflow(name: str, target: str, config_file: Path, resume: str = None, auto_exploit: bool = False, auto_exploit_no_confirm: bool = False):
+def _run_workflow(name: str, target: str, config_file: Path, resume: str = None, auto_exploit: bool = False, auto_exploit_no_confirm: bool = False, source: str = None):
     """Run a workflow"""
     try:
         config = load_config(str(config_file))
         if not config:
             console.print("[bold red]Error:[/bold red] Failed to load configuration")
             raise typer.Exit(1)
+
+        # Validate source path if provided
+        if source:
+            source_path = Path(source)
+            if not source_path.exists():
+                console.print(f"[bold red]Error:[/bold red] Source path does not exist: {source}")
+                raise typer.Exit(1)
+            if not source_path.is_dir():
+                console.print(f"[bold red]Error:[/bold red] Source path must be a directory: {source}")
+                raise typer.Exit(1)
+
+            # Check if workflow supports whitebox analysis
+            if name not in ["web", "autonomous", "web_pentest"]:
+                console.print(f"[bold yellow]⚠️  Warning:[/bold yellow] Workflow '{name}' may not fully support whitebox analysis")
+                console.print("[yellow]Whitebox analysis is optimized for 'web' and 'autonomous' workflows[/yellow]")
+
+            console.print(f"[bold cyan]🔍 Whitebox analysis enabled for source: {source}[/bold cyan]")
 
         # Override config with CLI flags for auto-exploit
         if auto_exploit:
@@ -160,7 +178,7 @@ def _run_workflow(name: str, target: str, config_file: Path, resume: str = None,
         else:
             console.print(f"[bold cyan]🚀 Running {name} workflow on {target}[/bold cyan]\n")
 
-        engine = WorkflowEngine(config, target, memory=memory)
+        engine = WorkflowEngine(config, target, memory=memory, source=source)
         
         if name == "autonomous":
             results = asyncio.run(engine.run_autonomous())
