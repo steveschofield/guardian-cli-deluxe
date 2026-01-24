@@ -189,7 +189,8 @@ osint:
       # Get from: https://vulners.com/userinfo
       # Sign up for free tier: 100 requests/day
       # Set via environment variable: VULNERS_API_KEY
-      api_key: "${VULNERS_API_KEY:-}"  # REQUIRED - Add your Vulners API key here or set env var
+      #api_key: "${VULNERS_API_KEY:-}"  # REQUIRED - Add your Vulners API key here or set env var
+    
       # Request timeout (seconds)
       timeout: 10
 

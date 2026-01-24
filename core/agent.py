@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from core.memory import PentestMemory
 from utils.logger import get_logger
+from utils.prompt_loader import log_prompt_template_paths
 
 
 class BaseAgent(ABC):
@@ -32,6 +33,7 @@ class BaseAgent(ABC):
         self.llm = llm_client
         self.memory = memory
         self.logger = get_logger(config)
+        log_prompt_template_paths(config, self.logger)
     
     @abstractmethod
     async def execute(self, **kwargs) -> Dict[str, Any]:

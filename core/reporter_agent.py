@@ -65,7 +65,8 @@ class ReporterAgent(BaseAgent):
                 executive_summary,
                 technical_findings,
                 remediation,
-                ai_trace
+                ai_trace,
+                zap_summary
             )
         elif format == "json":
             report_content = self._assemble_json_report(
@@ -381,12 +382,23 @@ The following static analysis tools were executed on the source code:
         exec_summary: str,
         technical: str,
         remediation: str,
-        ai_trace: str
+        ai_trace: str,
+        zap_summary: str = ""
     ) -> str:
         """Assemble HTML report"""
         findings = self._get_report_findings()
         summary = self._summarize_findings(findings)
         evidence_section = self._format_evidence_html()
+        import html as _html
+
+        # Build SAN section if certificate info available
+        cert_info = self.memory.context.get("certificate_info", {})
+        san_list = cert_info.get("san", [])
+        if san_list and isinstance(san_list, list):
+            san_items = "".join(f"<li>{_html.escape(str(san))}</li>" for san in san_list)
+            san_section = f"<p><strong>Subject Alternative Names (SAN):</strong></p><ul>{san_items}</ul>"
+        else:
+            san_section = "<p><strong>Subject Alternative Names (SAN):</strong> No additional SAN attributes listed</p>"
         
         # Convert markdown-style content to HTML
         html = f"""<!DOCTYPE html>
@@ -417,6 +429,7 @@ The following static analysis tools were executed on the source code:
         <p><strong>Session ID:</strong> {self.memory.session_id}</p>
         <p><strong>Date:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
         <p><strong>Duration:</strong> {self._calculate_duration()}</p>
+        {san_section}
     </div>
     
     <h2>Executive Summary</h2>
@@ -432,6 +445,8 @@ The following static analysis tools were executed on the source code:
         <tr><td class="info">Info</td><td>{summary['info']}</td></tr>
         <tr><th>Total</th><th>{len(findings)}</th></tr>
     </table>
+
+    {"<h2>ZAP Scan Summary</h2><div>" + self._markdown_to_html(zap_summary) + "</div>" if zap_summary else ""}
     
     <h2>Technical Findings</h2>
     <div>{self._markdown_to_html(technical)}</div>
@@ -451,6 +466,9 @@ The following static analysis tools were executed on the source code:
 
     <h2>Tool Summary</h2>
     {self._format_tool_summary_html()}
+
+    <h2>Tools Executed</h2>
+    <div>{self._markdown_to_html(self._format_tool_executions())}</div>
     
     <footer>
         <hr>

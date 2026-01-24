@@ -5,7 +5,9 @@ Loads appropriate prompts based on configuration
 """
 
 import importlib
-from typing import Dict, Any
+from typing import Dict, Any, Iterable
+
+from utils.logger import get_logger
 
 
 class PromptLoader:
@@ -132,6 +134,71 @@ class PromptLoader:
         """
         prompts = self.load_prompts()
         return prompts[prompt_name]
+
+
+_prompt_paths_logged = False
+
+
+def _dedupe(items: Iterable[str]) -> list[str]:
+    seen = set()
+    ordered: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        ordered.append(item)
+    return ordered
+
+
+def log_prompt_template_paths(config: Dict[str, Any], logger=None) -> None:
+    """Log which prompt template module paths are used for this run."""
+    global _prompt_paths_logged
+    if _prompt_paths_logged:
+        return
+    _prompt_paths_logged = True
+
+    log = logger or get_logger(config)
+    loader = PromptLoader(config)
+    prompt_set = loader.get_prompt_set()
+    module_name = "ai.prompt_templates" if prompt_set == "default" else f"ai.prompt_templates.{prompt_set}"
+
+    paths: list[str] = []
+    module = None
+    try:
+        module = importlib.import_module(module_name)
+    except Exception as exc:
+        if prompt_set != "default":
+            log.warning(f"Prompt templates: failed to import {module_name}: {exc}. Falling back to default.")
+            prompt_set = "default"
+            module_name = "ai.prompt_templates"
+            try:
+                module = importlib.import_module(module_name)
+            except Exception as fallback_exc:
+                log.warning(f"Prompt templates: failed to import {module_name}: {fallback_exc}")
+                return
+        else:
+            log.warning(f"Prompt templates: failed to import {module_name}: {exc}")
+            return
+
+    module_file = getattr(module, "__file__", None)
+    if module_file:
+        paths.append(module_file)
+
+    # Attempt to resolve prompt submodules when present (analyst/planner/reporter/tool_selector)
+    for sub in ("analyst", "planner", "reporter", "tool_selector"):
+        try:
+            sub_module = importlib.import_module(f"{module_name}.{sub}")
+        except Exception:
+            continue
+        sub_file = getattr(sub_module, "__file__", None)
+        if sub_file:
+            paths.append(sub_file)
+
+    paths = _dedupe(paths)
+    if paths:
+        log.info(f"Prompt templates: set={prompt_set} paths=" + ", ".join(paths))
+    else:
+        log.info(f"Prompt templates: set={prompt_set} module={module_name}")
 
 
 def get_prompts(config: Dict[str, Any]) -> Dict[str, str]:
