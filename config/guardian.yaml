@@ -584,6 +584,9 @@ whitebox:
       rulesets:
         - "auto"
         - "p/owasp-top-ten"
+        - "p/security-audit"
+        - "https://github.com/elttam/semgrep-rules"
+        - "https://github.com/apiiro/malicious-code-ruleset"
       # Filter by severity: ERROR, WARNING, INFO
       severity: ["ERROR", "WARNING"]
 

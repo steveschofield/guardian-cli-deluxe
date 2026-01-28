@@ -26,6 +26,9 @@ import subprocess
 import sys
 import time
 import yaml
+import ssl
+import urllib.request
+import urllib.error
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -38,6 +41,7 @@ from rich.panel import Panel
 from rich import print as rprint
 
 console = Console()
+DEFAULT_HOST = "localhost"
 
 
 @dataclass
@@ -320,15 +324,15 @@ class HomelabOrchestrator:
         if target.deployment == "docker":
             # Map container ports to URLs
             port_map = {
-                "dvwa": "http://localhost:8081",
-                "webgoat": "http://localhost:8082",
-                "juice-shop": "http://localhost:8083",
-                "nodegoat": "http://localhost:8084",
-                "metasploitable3": "http://localhost:8085"
+                "dvwa": f"http://{DEFAULT_HOST}:8081",
+                "webgoat": f"http://{DEFAULT_HOST}:8082",
+                "juice-shop": f"http://{DEFAULT_HOST}:8083",
+                "nodegoat": f"http://{DEFAULT_HOST}:8084",
+                "metasploitable3": f"http://{DEFAULT_HOST}:8085"
             }
-            target_url = port_map.get(target.name, "http://localhost")
+            target_url = port_map.get(target.name, f"http://{DEFAULT_HOST}")
         else:
-            target_url = target.url or "localhost"
+            target_url = target.url or DEFAULT_HOST
 
         # Create result object
         result = TestResult(
@@ -339,6 +343,17 @@ class HomelabOrchestrator:
             findings_count={},
             errors=[]
         )
+
+        # Ensure target is reachable before running workflows
+        if target_url.startswith(("http://", "https://")):
+            if not self._wait_for_http_target(target_url):
+                result.end_time = datetime.now()
+                result.duration_seconds = (result.end_time - result.start_time).total_seconds()
+                result.success = False
+                result.errors.append(f"Target not reachable: {target_url}")
+                console.print(f"[bold red]✗[/bold red] Target not reachable: {target_url}")
+                self.results.append(result)
+                return result
 
         # Build Guardian command
         cmd = [
@@ -374,6 +389,25 @@ class HomelabOrchestrator:
 
         self.results.append(result)
         return result
+
+    def _wait_for_http_target(self, target_url: str, timeout_seconds: int = 60, interval_seconds: int = 5) -> bool:
+        """Wait for an HTTP(S) target to be reachable."""
+        console.print(f"[cyan]Checking target availability:[/cyan] {target_url}")
+        deadline = time.monotonic() + timeout_seconds
+        context = None
+        if target_url.startswith("https://"):
+            context = ssl._create_unverified_context()
+
+        while time.monotonic() < deadline:
+            try:
+                req = urllib.request.Request(target_url, method="GET")
+                with urllib.request.urlopen(req, timeout=10, context=context) as resp:
+                    if 200 <= resp.status < 500:
+                        return True
+            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
+                time.sleep(interval_seconds)
+
+        return False
 
     def _parse_workflow_results(self, result: TestResult):
         """Parse Guardian workflow results from session files"""
@@ -727,6 +761,7 @@ def main():
     parser.add_argument("--evaluate-only", action="store_true", help="Only evaluate existing results")
     parser.add_argument("--session", type=str, help="Session ID for evaluation")
     parser.add_argument("--config", type=str, default="config/guardian.yaml", help="Config file path")
+    parser.add_argument("--target-url", type=str, help="Override target URL (for remote deployments)")
 
     args = parser.parse_args()
 
@@ -757,6 +792,18 @@ def main():
         if not target:
             console.print(f"[red]Unknown target: {args.target}[/red]")
             sys.exit(1)
+
+        if args.target_url:
+            target = TestTarget(
+                name=target.name,
+                description=target.description,
+                type=target.type,
+                deployment="url",
+                url=args.target_url,
+                docker_compose=target.docker_compose,
+                expected_findings=target.expected_findings,
+                workflows=target.workflows,
+            )
 
         orchestrator.deploy_target(target)
         result = orchestrator.run_workflow(args.workflow, target)
