@@ -583,10 +583,10 @@ whitebox:
       # Options: "auto" (curated), "p/owasp-top-ten", "p/security-audit", "p/ci"
       rulesets:
         - "auto"
-        - "p/owasp-top-ten"
-        - "p/security-audit"
-        - "https://github.com/elttam/semgrep-rules"
-        - "https://github.com/apiiro/malicious-code-ruleset"
+        # NOTE: Some GitHub repos include non-rule YAML files that break Semgrep validation.
+        # If you want to use these, point to a specific rules YAML or a known-good Semgrep pack.
+        # - "https://github.com/elttam/semgrep-rules"
+        # - "https://github.com/apiiro/malicious-code-ruleset"
       # Filter by severity: ERROR, WARNING, INFO
       severity: ["ERROR", "WARNING"]
 
