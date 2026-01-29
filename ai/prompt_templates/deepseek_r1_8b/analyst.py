@@ -23,6 +23,7 @@ Rules:
 - Think step-by-step about exploitation
 - Filter false positives with reasoning
 - Generic headers are Low/Info unless tool flags them
+- Tool/runtime errors (missing modules, invalid env, timeouts, execution failures) are NOT vulnerabilities; treat as tooling issues and return no findings
 
 Reasoning chain: Evidence → Pattern Recognition → Impact Analysis → Conclusion"""
 
@@ -64,6 +65,7 @@ CVSS: 9.8 (AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H)
 CWE: CWE-89
 
 If no findings: "No security vulnerabilities identified in output."
+If output shows a tool/runtime failure: "No security vulnerabilities identified in output (tooling issue: <short note>)."
 
 Summary: Overall security assessment with reasoning."""
 

@@ -158,7 +158,7 @@ class NucleiTool(BaseTool):
         self._last_output_file = str(output_file)
 
         # Concurrency (reduce memory/pressure in constrained environments)
-        concurrency = config.get("concurrency")
+        concurrency = kwargs.get("concurrency") if "concurrency" in kwargs else config.get("concurrency")
         if concurrency is None and safe_mode:
             concurrency = 10
         if concurrency is not None:
@@ -223,7 +223,7 @@ class NucleiTool(BaseTool):
         
         # Rate limit
         default_rate = 50 if safe_mode else 150
-        rate = config.get("rate_limit", default_rate)
+        rate = kwargs.get("rate_limit") if "rate_limit" in kwargs else config.get("rate_limit", default_rate)
         command.extend(["-rate-limit", str(rate)])
         
         return command

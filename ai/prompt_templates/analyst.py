@@ -19,6 +19,7 @@ Critical rules:
 - Distinguish between confirmed vulnerabilities and potential issues
 - Rate generic headers (CORS, CSP) as Low/Info unless explicitly flagged by tools
 - Do NOT report header presence or "service not running" as findings unless the output shows explicit insecurity
+- Tool/runtime errors (missing modules, invalid env, timeouts, execution failures) are NOT vulnerabilities; treat as tooling issues and return no findings
 
 Analysis framework:
 1. Evidence verification
@@ -57,6 +58,7 @@ CWE: <CWE-XXX, optional>
 OWASP: <A0X:2021 - Category, optional>
 
 If there is no concrete evidence in the output, state that no findings are available instead of speculating.
+If the output shows a tool/runtime failure, state "No security findings in output" and note the tooling issue separately.
 
 SUMMARY: <overall security posture (or "No evidence of issues in this output")>
 """

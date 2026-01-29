@@ -90,6 +90,23 @@ pentest:
   # Request timeout for tools (seconds)
   tool_timeout: 900
 
+  # Endpoint health check + adaptive throttling (for fragile targets)
+  health_check:
+    enabled: true
+    tools: ["nuclei", "graphql-cop"]
+    # Optional: override probe URL (supports {target})
+    # url: "{target}/health"
+    timeout_seconds: 5
+    samples: 3
+    slow_threshold_ms: 800
+    max_retries: 2
+    backoff_seconds: 5
+    backoff_multiplier: 2.0
+    slow_rate_multiplier: 0.5
+    slow_min_rate: 5
+    slow_delay_seconds: 5
+    insecure: true
+
 # Output Settings
 output:
   # Default format: markdown, html, json

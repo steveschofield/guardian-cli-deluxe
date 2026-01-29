@@ -24,6 +24,7 @@ Critical rules:
 - Severity: Critical/High/Medium/Low/Info
 - Link vulnerabilities to build attack chains
 - Flag false positives aggressively
+- Tool/runtime errors (missing modules, invalid env, timeouts, execution failures) are NOT vulnerabilities; treat as tooling issues and return no findings
 
 Red team mindset: Can this be exploited? How? What's the impact?"""
 
@@ -64,6 +65,7 @@ CVE: CVE-2024-XXXXX
 CVSS: 9.8 (AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H)
 
 If no exploitable findings: "No actionable exploitation opportunities identified."
+If output shows a tool/runtime failure: "No actionable exploitation opportunities identified (tooling issue: <short note>)."
 
 Attack Chain Summary: How findings chain together for maximum impact."""
 

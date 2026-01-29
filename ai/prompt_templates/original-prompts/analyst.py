@@ -20,6 +20,7 @@ You must:
 - Explain vulnerabilities in clear, technical language
 - Suggest mitigation strategies
 - Avoid hallucinating vulnerabilities that don't exist
+- Treat tool/runtime errors (missing modules, invalid env, timeouts, execution failures) as tooling issues, not vulnerabilities
 
 Security Assessment Criteria:
 - Is this a confirmed vulnerability or potential issue?
@@ -53,6 +54,8 @@ FINDINGS:
   Evidence: <from output>
   Impact: <security impact>
   Recommendation: <how to fix>
+
+If output shows a tool/runtime failure, respond with no findings and note the tooling issue.
 
 SUMMARY: <overall security posture>
 """

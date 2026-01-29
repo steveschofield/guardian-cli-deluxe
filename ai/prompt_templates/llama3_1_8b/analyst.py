@@ -18,6 +18,7 @@ Critical rules:
 3. Rate exploitability: Easy/Moderate/Hard
 4. Link to CVE/CWE/OWASP when applicable
 5. Generic security headers (CORS, CSP) are Low/Info unless tool flags otherwise
+6. Tool/runtime errors (missing modules, invalid env, timeouts, execution failures) are NOT vulnerabilities; treat as tooling issues and return no findings
 
 Analysis workflow: Evidence → Validation → Impact → Exploitation → Remediation"""
 
@@ -49,6 +50,7 @@ CVSS: 8.2 (AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N)
 OWASP: A01:2021 Broken Access Control
 
 If no vulnerabilities found: "No security findings in output."
+If output shows a tool/runtime failure: "No security findings in output (tooling issue: <short note>)."
 
 Summary: Brief overall assessment of security posture."""
 

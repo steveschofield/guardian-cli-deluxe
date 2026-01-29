@@ -4,6 +4,9 @@ Selects appropriate pentesting tools and configures them
 """
 
 import asyncio
+import ssl
+import time
+import urllib.request
 from typing import Dict, Any, Optional
 from core.agent import BaseAgent
 from utils.error_handler import ToolExecutionError, with_error_handling
@@ -175,6 +178,146 @@ class ToolAgent(BaseAgent):
         if missing:
             self.logger.warning(f"Missing tools: {', '.join(missing)}. Some functionality will be limited.")
 
+    def _health_check_config(self) -> Dict[str, Any]:
+        return (self.config or {}).get("pentest", {}).get("health_check", {}) or {}
+
+    def _should_health_check(self, tool_name: str) -> bool:
+        cfg = self._health_check_config()
+        if not cfg.get("enabled", False):
+            return False
+        tools = cfg.get("tools")
+        if isinstance(tools, (list, tuple, set)):
+            return tool_name in tools
+        return tool_name in {"nuclei", "graphql-cop"}
+
+    def _build_health_urls(self, target: str) -> list[str]:
+        cfg = self._health_check_config()
+        url_tpl = cfg.get("url") or cfg.get("health_url")
+        if isinstance(url_tpl, str) and url_tpl.strip():
+            url = url_tpl.replace("{target}", target).strip()
+            if "://" not in url:
+                url = f"https://{url}"
+            return [url]
+
+        target_str = (target or "").strip()
+        if target_str.startswith("http://") or target_str.startswith("https://"):
+            return [target_str]
+        return [f"https://{target_str}", f"http://{target_str}"]
+
+    def _probe_url(self, url: str, timeout: int, insecure: bool) -> tuple[bool, float | None, str | None]:
+        start = time.monotonic()
+        ctx = None
+        if insecure and url.lower().startswith("https://"):
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        req = urllib.request.Request(url, headers={"User-Agent": "Guardian-HealthCheck/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                resp.read(1)
+            latency_ms = (time.monotonic() - start) * 1000.0
+            return True, latency_ms, None
+        except Exception as exc:
+            return False, None, str(exc)
+
+    async def _run_health_check(self, target: str) -> Dict[str, Any]:
+        cfg = self._health_check_config()
+        timeout = int(cfg.get("timeout_seconds", 5))
+        samples = int(cfg.get("samples", 3))
+        insecure = bool(cfg.get("insecure", True))
+        slow_threshold = float(cfg.get("slow_threshold_ms", 800))
+
+        urls = self._build_health_urls(target)
+        latencies: list[float] = []
+        errors: list[str] = []
+        used_url = urls[0] if urls else ""
+
+        for url in urls:
+            used_url = url
+            for _ in range(samples):
+                ok, latency, err = await asyncio.to_thread(self._probe_url, url, timeout, insecure)
+                if ok and latency is not None:
+                    latencies.append(latency)
+                elif err:
+                    errors.append(err)
+            if latencies:
+                break
+
+        reachable = len(latencies) > 0
+        avg_ms = (sum(latencies) / len(latencies)) if latencies else None
+        slow = bool(reachable and avg_ms is not None and avg_ms >= slow_threshold)
+        return {
+            "reachable": reachable,
+            "avg_ms": avg_ms,
+            "slow": slow,
+            "url": used_url,
+            "errors": errors[-3:],
+        }
+
+    async def _maybe_apply_health_check(
+        self,
+        tool_name: str,
+        target: str,
+        tool_kwargs: Dict[str, Any],
+    ) -> tuple[Dict[str, Any] | None, Dict[str, Any] | None]:
+        if not self._should_health_check(tool_name):
+            return tool_kwargs, None
+
+        cfg = self._health_check_config()
+        max_retries = int(cfg.get("max_retries", 2))
+        backoff = float(cfg.get("backoff_seconds", 5))
+        backoff_mult = float(cfg.get("backoff_multiplier", 2.0))
+
+        attempt = 0
+        result: Dict[str, Any] | None = None
+        while attempt <= max_retries:
+            result = await self._run_health_check(target)
+            if result.get("reachable"):
+                break
+            if attempt == max_retries:
+                break
+            delay = backoff * (backoff_mult ** attempt)
+            self.logger.warning(
+                f"Health check failed for {tool_name} (attempt {attempt + 1}/{max_retries + 1}); retrying in {delay:.1f}s"
+            )
+            await asyncio.sleep(delay)
+            attempt += 1
+
+        if not result or not result.get("reachable"):
+            return None, result
+
+        if result.get("slow"):
+            slow_delay = float(cfg.get("slow_delay_seconds", 5))
+            tool_kwargs = dict(tool_kwargs or {})
+
+            if tool_name == "nuclei":
+                multiplier = float(cfg.get("slow_rate_multiplier", 0.5))
+                min_rate = int(cfg.get("slow_min_rate", 5))
+                nuclei_cfg = (self.config or {}).get("tools", {}).get("nuclei", {}) or {}
+                safe_mode = (self.config or {}).get("pentest", {}).get("safe_mode", True)
+                base_rate = tool_kwargs.get("rate_limit")
+                if base_rate is None:
+                    base_rate = nuclei_cfg.get("rate_limit", 50 if safe_mode else 150)
+                new_rate = max(min_rate, int(float(base_rate) * multiplier))
+                tool_kwargs["rate_limit"] = new_rate
+
+                base_concurrency = tool_kwargs.get("concurrency")
+                if base_concurrency is None:
+                    base_concurrency = nuclei_cfg.get("concurrency")
+                if base_concurrency is not None:
+                    tool_kwargs["concurrency"] = max(1, int(float(base_concurrency) * multiplier))
+
+                self.logger.warning(
+                    f"Health check slow (avg {result.get('avg_ms'):.0f}ms); reducing nuclei rate to {tool_kwargs['rate_limit']}"
+                )
+            elif tool_name == "graphql-cop" and slow_delay > 0:
+                self.logger.warning(
+                    f"Health check slow (avg {result.get('avg_ms'):.0f}ms); delaying graphql-cop by {slow_delay:.1f}s"
+                )
+                await asyncio.sleep(slow_delay)
+
+        return tool_kwargs, result
+
     
     async def execute(self, objective: str, target: str, **kwargs) -> Dict[str, Any]:
         """
@@ -333,6 +476,19 @@ class ToolAgent(BaseAgent):
         try:
             # Execute tool with circuit breaker protection
             timeout = kwargs.pop('tool_timeout', self.config.get("pentest", {}).get("tool_timeout", 300))
+
+            kwargs, health = await self._maybe_apply_health_check(tool_name, target, kwargs or {})
+            if kwargs is None:
+                reason = "Target not reachable"
+                if health and health.get("errors"):
+                    reason = f"Health check failed: {health.get('errors')[-1]}"
+                return self._record_tool_failure(
+                    tool_name=tool_name,
+                    target=target,
+                    error=reason,
+                    exit_code=0,
+                    skipped=True,
+                )
             
             # Use enhanced error handler if available
             if hasattr(self, 'enhanced_error_handler'):

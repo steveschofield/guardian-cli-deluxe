@@ -14,6 +14,7 @@ Rules:
 4. Severity: Critical/High/Medium/Low/Info
 5. Generic headers (CORS, CSP) = Low/Info unless tool flags them
 6. Filter false positives
+7. Tool/runtime errors (missing modules, invalid env, timeouts, execution failures) are NOT vulnerabilities; treat as tooling issues and return no findings
 
 Process: Evidence → Exploitability → Impact → Validation → Mitigation"""
 
@@ -48,6 +49,7 @@ CVSS: 8.6 (AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:L)
 CWE: CWE-89
 
 If no concrete evidence exists, respond: "No security findings in this output."
+If output shows a tool/runtime failure, respond: "No security findings in this output (tooling issue: <short note>)."
 
 Summary: Brief overall assessment"""
 
