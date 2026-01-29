@@ -84,6 +84,9 @@ class WorkflowEngine:
         self.max_steps = self.config.get("workflows", {}).get("max_steps", 20)
         self._step_durations: List[float] = []
         self._scope_cache: Dict[str, bool] = {}
+        self.stop_reason: Optional[str] = None
+        self.stop_resume_command: Optional[str] = None
+        self.stop_file: Optional[str] = None
 
     def _configure_session_outputs(self) -> None:
         apply_session_paths(self.config, self.memory.session_id)
@@ -316,12 +319,28 @@ class WorkflowEngine:
                 self.logger.info(f"Executing step: {step['name']}")
                 step_started = datetime.now()
                 await self._execute_step(step, workflow_name)
+                if not self.is_running and self.stop_reason:
+                    break
                 if self._should_run_planner(step):
                     decision = await self.planner.decide_next_action()
                     self.logger.info(f"Planner checkpoint decision after {step['name']}: {decision.get('next_action')}")
                 self._record_step_duration(step_started)
                 self.current_step += 1
                 self._save_progress_if_enabled()
+
+            if not self.is_running and self.stop_reason:
+                self._save_session()
+                self._log_tool_summary()
+                tool_summary = self._get_tool_summary()
+                return {
+                    "status": "stopped",
+                    "findings": len(self.memory.findings),
+                    "session_id": self.memory.session_id,
+                    "stop_reason": self.stop_reason,
+                    "resume_command": self.stop_resume_command,
+                    "stop_file": self.stop_file,
+                    "tool_summary": tool_summary,
+                }
             
             # Generate final analysis
             analysis = await self.planner.analyze_results()
@@ -477,6 +496,9 @@ class WorkflowEngine:
             return
         
         if step_type == "tool":
+            if self._is_web_workflow(workflow_name):
+                if not await self._ensure_web_target_responding(step.get("name") or step.get("tool") or "tool", workflow_name):
+                    return
             # Use Tool Agent to select and execute tool
             tool_name = self._select_tool_for_step(step, workflow_name)
             if not tool_name:
@@ -512,6 +534,9 @@ class WorkflowEngine:
                     continue
                 if self._should_skip_for_condition(entry_condition, f"{step.get('name', 'multi_tool')}:{tool_name}"):
                     continue
+                if self._is_web_workflow(workflow_name):
+                    if not await self._ensure_web_target_responding(f"{step.get('name', 'multi_tool')}:{tool_name}", workflow_name):
+                        return
 
                 if tool_name == "snmpwalk" and snmp_community and "community" not in tool_kwargs:
                     tool_kwargs = dict(tool_kwargs)
@@ -567,6 +592,78 @@ class WorkflowEngine:
                 self.logger.info(f"Report saved to: {report_file}")
         
         self.memory.mark_action_complete(step["name"])
+
+    def _is_web_workflow(self, workflow_name: Optional[str]) -> bool:
+        key = self._normalize_workflow_key(workflow_name or "")
+        return key == "web"
+
+    async def _ensure_web_target_responding(self, step_name: str, workflow_name: Optional[str]) -> bool:
+        if self._target_is_path():
+            return True
+
+        base_url = self._get_target_base_url()
+        if not base_url:
+            return True
+
+        urls = [base_url]
+        if "://" not in (self.target or "") and base_url.startswith("https://"):
+            urls.append(base_url.replace("https://", "http://", 1))
+
+        attempts = 3
+        timeout_s = 10.0
+        last_error: Optional[Exception] = None
+
+        for attempt in range(1, attempts + 1):
+            for url in urls:
+                try:
+                    import httpx
+                    async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
+                        resp = await client.get(url)
+                    if resp is not None:
+                        return True
+                except Exception as exc:
+                    last_error = exc
+            if attempt < attempts:
+                await asyncio.sleep(1.5)
+
+        self._stop_for_unresponsive_target(step_name, workflow_name, attempts, last_error)
+        return False
+
+    def _stop_for_unresponsive_target(
+        self,
+        step_name: str,
+        workflow_name: Optional[str],
+        attempts: int,
+        error: Optional[Exception],
+    ) -> None:
+        resume_name = workflow_name or "web"
+        resume_cmd = f"guardian workflow run --name {resume_name} --resume {self.memory.session_id}"
+        err_text = f" ({error})" if error else ""
+        message = (
+            f"Site was not responding after {attempts} attempts before step '{step_name}'."
+            f"{err_text} You can resume from the previous successful step with: {resume_cmd}"
+        )
+
+        output_dir = Path(self.config.get("output", {}).get("save_path", "./reports"))
+        output_dir.mkdir(parents=True, exist_ok=True)
+        stop_file = output_dir / f"site_unresponsive_{self.memory.session_id}.txt"
+        try:
+            stop_file.write_text(
+                f"{datetime.now().isoformat()} - {message}\n",
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
+        self.stop_reason = message
+        self.stop_resume_command = resume_cmd
+        self.stop_file = str(stop_file)
+        self.memory.metadata["stop_reason"] = message
+        self.memory.metadata["resume_command"] = resume_cmd
+        self.memory.metadata["stop_file"] = str(stop_file)
+        self.logger.error(message)
+        self.logger.info(f"Resume with: {resume_cmd}")
+        self.is_running = False
 
     def _select_tool_for_step(self, step: Dict[str, Any], workflow_name: Optional[str]) -> Optional[str]:
         primary_tool = step.get("tool")

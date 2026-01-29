@@ -184,7 +184,20 @@ def _run_workflow(name: str, target: str, config_file: Path, resume: str = None,
             results = asyncio.run(engine.run_autonomous())
         else:
             results = asyncio.run(engine.run_workflow(name))
-        
+
+        status = results.get("status")
+        if status == "stopped":
+            console.print(f"\n[bold yellow]⏸ Workflow stopped[/bold yellow]")
+            if results.get("stop_reason"):
+                console.print(f"[yellow]{results['stop_reason']}[/yellow]")
+            if results.get("session_id"):
+                console.print(f"Session: [cyan]{results['session_id']}[/cyan]")
+            if results.get("resume_command"):
+                console.print(f"[cyan]Resume:[/cyan] {results['resume_command']}")
+            if results.get("stop_file"):
+                console.print(f"[dim]Details written to {results['stop_file']}[/dim]")
+            return
+
         console.print(f"\n[bold green]✓ Workflow completed![/bold green]")
         console.print(f"Findings: [cyan]{results['findings']}[/cyan]")
         console.print(f"Session: [cyan]{results['session_id']}[/cyan]")
