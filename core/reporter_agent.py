@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime
 import shlex
 import json
+import re
 from core.agent import BaseAgent
 from ai.prompt_templates import (
     REPORTER_SYSTEM_PROMPT,
@@ -40,43 +41,8 @@ class ReporterAgent(BaseAgent):
             Dict with report content and metadata
         """
         self.log_action("GeneratingReport", f"Format: {format}")
-        
-        # Reset per-report cache
-        self._report_findings_cache = None
-
-        # Generate all sections
-        executive_summary = await self.generate_executive_summary()
-        technical_findings = await self.generate_technical_findings()
-        remediation = await self.generate_remediation_plan()
-        ai_trace = await self.generate_ai_trace()
-        zap_summary = await self.generate_zap_summary()
-
-        # Assemble report
-        if format == "markdown":
-            report_content = await self._assemble_markdown_report(
-                executive_summary,
-                technical_findings,
-                remediation,
-                ai_trace,
-                zap_summary
-            )
-        elif format == "html":
-            report_content = self._assemble_html_report(
-                executive_summary,
-                technical_findings,
-                remediation,
-                ai_trace,
-                zap_summary
-            )
-        elif format == "json":
-            report_content = self._assemble_json_report(
-                executive_summary,
-                technical_findings,
-                remediation,
-                ai_trace
-            )
-        else:
-            raise ValueError(f"Unknown format: {format}")
+        sections = await self.generate_sections()
+        report_content = await self.assemble_report(format, sections)
         
         return {
             "content": report_content,
@@ -85,6 +51,52 @@ class ReporterAgent(BaseAgent):
             "target": self.memory.target,
             "timestamp": datetime.now().isoformat()
         }
+
+    async def generate_sections(self) -> Dict[str, str]:
+        """Generate report sections once for reuse across formats."""
+        # Reset per-report cache
+        self._report_findings_cache = None
+
+        executive_summary = await self.generate_executive_summary()
+        technical_findings = await self.generate_technical_findings()
+        remediation = await self.generate_remediation_plan()
+        ai_trace = await self.generate_ai_trace()
+        zap_summary = await self.generate_zap_summary()
+
+        return {
+            "executive_summary": executive_summary,
+            "technical_findings": technical_findings,
+            "remediation": remediation,
+            "ai_trace": ai_trace,
+            "zap_summary": zap_summary,
+        }
+
+    async def assemble_report(self, format: str, sections: Dict[str, str]) -> str:
+        """Assemble report content for the requested format."""
+        if format == "markdown":
+            return await self._assemble_markdown_report(
+                sections["executive_summary"],
+                sections["technical_findings"],
+                sections["remediation"],
+                sections["ai_trace"],
+                sections.get("zap_summary", "")
+            )
+        if format == "html":
+            return self._assemble_html_report(
+                sections["executive_summary"],
+                sections["technical_findings"],
+                sections["remediation"],
+                sections["ai_trace"],
+                sections.get("zap_summary", "")
+            )
+        if format == "json":
+            return self._assemble_json_report(
+                sections["executive_summary"],
+                sections["technical_findings"],
+                sections["remediation"],
+                sections["ai_trace"]
+            )
+        raise ValueError(f"Unknown format: {format}")
     
     async def generate_executive_summary(self) -> str:
         """Generate executive summary for non-technical audience"""
@@ -124,7 +136,7 @@ class ReporterAgent(BaseAgent):
         )
         
         result = await self.think(prompt, REPORTER_SYSTEM_PROMPT)
-        return result["response"]
+        return self._dedupe_markdown_sections(result["response"])
     
     async def generate_remediation_plan(self) -> str:
         """Generate prioritized remediation recommendations"""
@@ -145,10 +157,39 @@ class ReporterAgent(BaseAgent):
     
     async def generate_ai_trace(self) -> str:
         """Generate AI decision trace for transparency"""
-        ai_decisions = "\n".join([
-            f"- [{d['agent']}] {d['decision']} (Reasoning: {d['reasoning'][:100]}...)"
-            for d in self.memory.ai_decisions
-        ])
+        reporting_cfg = (self.config or {}).get("reporting", {}) or {}
+        max_entries = reporting_cfg.get("max_ai_trace_entries", 200)
+        try:
+            max_entries = int(max_entries)
+        except (TypeError, ValueError):
+            max_entries = 200
+
+        decisions = list(self.memory.ai_decisions)
+        truncated = False
+        if max_entries > 0 and len(decisions) > max_entries:
+            decisions = decisions[-max_entries:]
+            truncated = True
+
+        max_decision_chars = reporting_cfg.get("max_ai_trace_decision_chars", 200)
+        try:
+            max_decision_chars = int(max_decision_chars)
+        except (TypeError, ValueError):
+            max_decision_chars = 200
+
+        ai_decisions_lines = []
+        for d in decisions:
+            decision = d.get("decision", "")
+            if max_decision_chars > 0 and len(decision) > max_decision_chars:
+                decision = decision[:max_decision_chars].rstrip() + "…"
+            reasoning = (d.get("reasoning", "") or "")[:100]
+            ai_decisions_lines.append(
+                f"- [{d['agent']}] {decision} (Reasoning: {reasoning}...)"
+            )
+        if truncated:
+            ai_decisions_lines.insert(
+                0, f"- [system] AI trace truncated to last {max_entries} decisions"
+            )
+        ai_decisions = "\n".join(ai_decisions_lines)
         
         workflow = f"Phase: {self.memory.current_phase}\nCompleted Actions: {len(self.memory.completed_actions)}"
         
@@ -906,6 +947,65 @@ Exploitation Information:
             return ""
         import html as _html
         return f"<p><em>{_html.escape(msg)}</em></p>"
+
+    def _dedupe_markdown_sections(self, text: str) -> str:
+        if not text:
+            return text
+        lines = text.splitlines()
+        preamble: list[str] = []
+        sections: list[list[str]] = []
+        current: list[str] | None = None
+
+        for line in lines:
+            if line.startswith("### "):
+                if current is not None:
+                    sections.append(current)
+                current = [line]
+            else:
+                if current is None:
+                    preamble.append(line)
+                else:
+                    current.append(line)
+
+        if current is not None:
+            sections.append(current)
+
+        def _section_key(block: list[str]) -> str:
+            text = "\n".join(block)
+            cves = {
+                cve.upper()
+                for cve in re.findall(r"\bCVE-\d{4}-\d{4,7}\b", text, flags=re.I)
+            }
+            if cves:
+                return "cve:" + ",".join(sorted(cves))
+            heading = block[0].strip()
+            heading = re.sub(
+                r"\s*\((?:low|medium|high|critical)\s+risk\)\s*$",
+                "",
+                heading,
+                flags=re.I,
+            )
+            heading = re.sub(r"^###\s*\[[^\]]+\]\s*", "### ", heading, flags=re.I)
+            heading = re.sub(r"\s+", " ", heading).lower()
+            return heading
+
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for section in sections:
+            if not section:
+                continue
+            key = _section_key(section)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append("\n".join(section).rstrip())
+
+        parts: list[str] = []
+        preamble_text = "\n".join(preamble).rstrip()
+        if preamble_text:
+            parts.append(preamble_text)
+        parts.extend(deduped)
+        return "\n\n".join(p for p in parts if p)
 
     def _collect_evidence_entries(self) -> List[Dict[str, str]]:
         evidence_files = self._extract_evidence_files()

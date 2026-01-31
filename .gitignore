@@ -40,19 +40,19 @@ gap-analysis*
 *.swo
 *~
 .npm-global
-.hypthesis
+.hypothesis
 
 # Environment variables
 .env
 .env.local
 
 # Reports and logs
-reports/*.json
-reports/*.html
-reports/*.md
-reports/session_*.json
+#reports/*.json
+#reports/*.html
+#reports/*.md
+#reports/session_*.json
 logs/
-*.log
+#*.log
 wordlists/SecLists/
 
 # Test coverage

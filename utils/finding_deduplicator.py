@@ -25,6 +25,7 @@ class FindingDeduplicator:
         reporting_cfg = self.config.get("reporting", {}) if isinstance(self.config, dict) else {}
         self.enabled = bool(reporting_cfg.get("deduplicate_findings", True))
         self.merge_evidence = bool(reporting_cfg.get("merge_duplicate_evidence", True))
+        self.merge_cve_findings = bool(reporting_cfg.get("merge_cve_findings", True))
         self.logger = get_logger(self.config)
 
     def deduplicate(self, findings: List) -> List:
@@ -45,7 +46,70 @@ class FindingDeduplicator:
             deduplicated.append(self._merge_findings(group))
             self.logger.debug(f"Merged {len(group)} duplicate findings for: {key.title_normalized}")
 
+        if self.merge_cve_findings:
+            deduplicated = self._merge_by_cve_overlap(deduplicated)
+
         return deduplicated
+
+    def _merge_by_cve_overlap(self, findings: List) -> List:
+        if not findings:
+            return findings
+
+        by_target: Dict[str, List] = defaultdict(list)
+        for finding in findings:
+            target = self._normalize_text(getattr(finding, "target", ""))
+            by_target[target].append(finding)
+
+        merged: List = []
+        for target, group in by_target.items():
+            if len(group) <= 1:
+                merged.extend(group)
+                continue
+
+            cve_map: Dict[str, List[int]] = defaultdict(list)
+            for idx, finding in enumerate(group):
+                for cve in getattr(finding, "cve_ids", []) or []:
+                    cve_map[cve.upper()].append(idx)
+
+            if not cve_map:
+                merged.extend(group)
+                continue
+
+            parent = list(range(len(group)))
+
+            def find(i: int) -> int:
+                while parent[i] != i:
+                    parent[i] = parent[parent[i]]
+                    i = parent[i]
+                return i
+
+            def union(a: int, b: int) -> None:
+                ra = find(a)
+                rb = find(b)
+                if ra != rb:
+                    parent[rb] = ra
+
+            for indices in cve_map.values():
+                if len(indices) < 2:
+                    continue
+                first = indices[0]
+                for idx in indices[1:]:
+                    union(first, idx)
+
+            components: Dict[int, List] = defaultdict(list)
+            for idx, finding in enumerate(group):
+                components[find(idx)].append(finding)
+
+            for component in components.values():
+                if len(component) == 1:
+                    merged.append(component[0])
+                    continue
+                merged.append(self._merge_findings(component))
+                self.logger.debug(
+                    f"Merged {len(component)} findings by CVE overlap for target: {target}"
+                )
+
+        return merged
 
     def _create_key(self, finding) -> FindingKey:
         title = self._normalize_text(getattr(finding, "title", ""))
