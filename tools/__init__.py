@@ -61,6 +61,9 @@ from .xxe_scanner import XXEScannerTool
 from .deserialization_scanner import DeserializationScannerTool
 from .auth_scanner import AuthScannerTool
 from .idor_scanner import IDORScannerTool
+from .bloodhound import BloodhoundTool
+from .semgrep import SemgrepTool
+from .trivy import TrivyTool
 
 __all__ = [
     "BaseTool",
@@ -124,4 +127,7 @@ __all__ = [
     "DeserializationScannerTool",
     "AuthScannerTool",
     "IDORScannerTool",
+    "BloodhoundTool",
+    "SemgrepTool",
+    "TrivyTool",
 ]

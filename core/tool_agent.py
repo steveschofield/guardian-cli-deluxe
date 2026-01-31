@@ -47,6 +47,7 @@ class ToolAgent(BaseAgent):
             CORSScannerTool, CookieAnalyzerTool, ErrorDetectorTool,
             SSRFScannerTool, XXEScannerTool, DeserializationScannerTool,
             AuthScannerTool, IDORScannerTool,
+            BloodhoundTool, SemgrepTool, TrivyTool
         )
 
         import platform
@@ -110,8 +111,13 @@ class ToolAgent(BaseAgent):
             "deserialization-scanner": DeserializationScannerTool(config),
             "auth-scanner": AuthScannerTool(config),
             "idor-scanner": IDORScannerTool(config),
+            # SAST/Whitebox tools
+            "semgrep": SemgrepTool(config),
+            "trivy": TrivyTool(config),
+            # MCP-based tools (Active Directory)
+            "bloodhound": BloodhoundTool(config),
         }
-        
+
         # Add OS-specific tools
         if platform.system().lower() != "darwin":  # Not macOS
             self.available_tools["httpx"] = HttpxTool(config)
@@ -185,6 +191,9 @@ class ToolAgent(BaseAgent):
             "deserialization-scanner": "built-in (uses curl for deserialization detection)",
             "auth-scanner": "built-in (uses curl for authentication testing)",
             "idor-scanner": "built-in (uses curl for IDOR detection)",
+            "semgrep": "pip install semgrep",
+            "trivy": "brew install trivy (or see https://aquasecurity.github.io/trivy)",
+            "bloodhound": "docker pull ghcr.io/fuzzinglabs/bloodhound-mcp:latest (requires Docker + Neo4j)",
         }
 
         missing = []
