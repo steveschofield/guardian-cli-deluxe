@@ -2,11 +2,10 @@
 
 ## Overview
 
-Guardian now integrates three powerful OSINT (Open Source Intelligence) sources to enrich vulnerability findings with real-world threat intelligence:
+Guardian now integrates two powerful OSINT (Open Source Intelligence) sources to enrich vulnerability findings with real-world threat intelligence:
 
 1. **CISA KEV** - Known Exploited Vulnerabilities actively exploited in the wild
 2. **GitHub PoCs** - Community exploit proof-of-concept repositories
-3. **Vulners API** - Aggregated exploit intelligence from 100+ sources
 
 ## Quick Start (5 Minutes)
 
@@ -71,31 +70,6 @@ python -m cli.main workflow run --name network --target vulnerable-system
 grep -A 3 "GitHub PoCs" reports/*/report_*.md
 ```
 
-### 3. Enable Vulners API (FREE tier: 100 requests/day)
-
-1. Get Vulners API Key:
-   - Go to: https://vulners.com/userinfo
-   - Sign up (free)
-   - Copy your API key
-
-2. Add to config:
-   ```yaml
-   # config/guardian.yaml
-   osint:
-     sources:
-       vulners:
-         enabled: true
-         api_key: "YOUR_VULNERS_API_KEY_HERE"
-   ```
-
-**Test it:**
-```bash
-python -m cli.main workflow run --name network --target vulnerable-system
-
-# Check report for Vulners data:
-grep -A 2 "Vulners AI Risk Score" reports/*/report_*.md
-```
-
 ## Complete Configuration Example
 
 ```yaml
@@ -119,11 +93,6 @@ osint:
       max_results: 5
       timeout: 10
 
-    # Vulners (FREE tier: 100 req/day)
-    vulners:
-      enabled: true
-      api_key: "XXXXXXXXXXXXXXXXXXXXXXXX"  # Required
-      timeout: 10
 ```
 
 ## Example Report Output
@@ -154,8 +123,6 @@ osint:
   - **GitHub PoCs (12 repositories):**
     * [worawit/MS17-010](https://github.com/worawit/MS17-010) ⭐ 2,145 stars
     * [3ndG4me/AutoBlue-MS17-010](https://github.com/3ndG4me/AutoBlue-MS17-010) ⭐ 1,823 stars
-  - **Vulners AI Risk Score:** 9.5/10
-  - **Total Exploits (all sources):** 18
 
 | Severity | Finding | CVSS | Exploit Status |
 |----------|---------|------|----------------|
@@ -195,30 +162,12 @@ GitHub PoCs (12 repositories):
   - 3ndG4me/AutoBlue-MS17-010 ⭐ 1,823 stars - https://github.com/3ndG4me/AutoBlue-MS17-010
 ```
 
-### 3. Vulners API
-
-**What it provides:**
-- ✅ Aggregates 100+ exploit sources
-- ✅ AI-based risk scoring (0-10)
-- ✅ Total exploit count across all sources
-- ✅ Additional references (Exploit-DB, etc.)
-
-**Example Vulners Entry:**
-```
-Vulners AI Risk Score: 9.5/10
-Total Exploits (all sources): 18
-```
-
 ## Rate Limits & Costs
 
 | Source | Free Tier | Cost | Recommendation |
 |--------|-----------|------|----------------|
 | **CISA KEV** | Unlimited | FREE | ✅ Always enable |
 | **GitHub** | 60/hour (5000 with token) | FREE | ✅ Use with token |
-| **Vulners** | 100/day | FREE | ✅ Enable for critical scans |
-
-**For heavy usage:**
-- Vulners paid tier: $99/mo for 10,000 requests/day
 
 ## Usage Patterns
 
@@ -231,8 +180,7 @@ python -m cli.main workflow run --name network --target 192.168.1.0/24
 1. Tools discover vulnerabilities with CVEs
 2. CISA KEV checks if CVEs are actively exploited ⚡ INSTANT
 3. GitHub searches for exploit PoCs (1-2 seconds per CVE)
-4. Vulners aggregates all exploit intelligence (1-2 seconds per CVE)
-5. Report includes comprehensive threat context
+4. Report includes comprehensive threat context
 
 ### Quick Scan (CISA KEV Only)
 ```yaml
@@ -242,8 +190,6 @@ osint:
     cisa_kev:
       enabled: true
     github:
-      enabled: false  # Disable for speed
-    vulners:
       enabled: false  # Disable for speed
 ```
 
@@ -258,24 +204,6 @@ osint:
 ```
 
 ## Troubleshooting
-
-### Issue: "Vulners API authentication failed"
-
-**Cause:** Invalid or missing API key
-
-**Fix:**
-1. Verify your API key at https://vulners.com/userinfo
-2. Ensure key is in config:
-   ```yaml
-   vulners:
-     api_key: "YOUR_KEY_HERE"
-   ```
-3. Test with:
-   ```bash
-   python -c "from utils.osint import VulnersClient; import yaml; \
-   c = VulnersClient(yaml.safe_load(open('config/guardian.yaml'))); \
-   print(c.check_api_status())"
-   ```
 
 ### Issue: "GitHub API rate limit exceeded"
 
@@ -327,12 +255,10 @@ OSINT data is cached to improve performance:
 First scan:
 - CISA KEV: 3s download, then cached 24h
 - GitHub: 1-2s per CVE
-- Vulners: 1-2s per CVE
 
 Subsequent scans (within cache TTL):
 - CISA KEV: <0.1s (from cache)
 - GitHub: 1-2s per CVE (not cached)
-- Vulners: 1-2s per CVE (not cached)
 ```
 
 **Recommendation:** Accept cache defaults (24 hours) for best performance.
@@ -374,15 +300,12 @@ git filter-branch --force --index-filter \
 # config/guardian.yaml
 osint:
   sources:
-    vulners:
-      api_key: ${VULNERS_API_KEY}  # Read from environment
     github:
       token: ${GITHUB_TOKEN}
 ```
 
 ```bash
 # Set in shell
-export VULNERS_API_KEY="your-key-here"
 export GITHUB_TOKEN="ghp_your-token-here"
 ```
 
@@ -419,22 +342,18 @@ osint:
       enabled: true   # Keep this one
     github:
       enabled: false  # Disable GitHub
-    vulners:
-      enabled: false  # Disable Vulners
 ```
 
 ## Next Steps
 
 1. **Enable CISA KEV** - Works immediately, no setup
 2. **Get GitHub token** - 5 minutes, huge rate limit increase
-3. **Get Vulners API key** - 5 minutes, adds comprehensive intelligence
-4. **Run a scan** - See the difference in your reports!
+3. **Run a scan** - See the difference in your reports!
 
 ## Support
 
 - **CISA KEV Issues:** Check https://www.cisa.gov/known-exploited-vulnerabilities-catalog
 - **GitHub API:** https://docs.github.com/en/rest
-- **Vulners API:** https://vulners.com/docs
 
 ---
 

@@ -107,8 +107,6 @@ def test_env_var_expansion_nested():
       sources:
         github:
           token: "${NESTED_KEY}"
-        vulners:
-          api_key: "${NESTED_KEY}"
     tools:
       - name: "${LIST_ITEM}"
       - name: "static_value"
@@ -124,7 +122,6 @@ def test_env_var_expansion_nested():
 
         # Verify nested expansion
         assert config["osint"]["sources"]["github"]["token"] == "nested_value"
-        assert config["osint"]["sources"]["vulners"]["api_key"] == "nested_value"
         assert config["tools"][0]["name"] == "item_from_env"
         assert config["tools"][1]["name"] == "static_value"
     finally:
@@ -166,7 +163,6 @@ def test_osint_api_keys_expansion():
     """Test OSINT API key expansion as configured in guardian.yaml"""
     # Set test API keys
     os.environ["GITHUB_TOKEN"] = "ghp_test123"
-    os.environ["VULNERS_API_KEY"] = "vulners_test123"
 
     # Create temporary config matching guardian.yaml structure
     config_content = """
@@ -176,9 +172,6 @@ def test_osint_api_keys_expansion():
         github:
           enabled: true
           token: "${GITHUB_TOKEN:-}"
-        vulners:
-          enabled: true
-          api_key: "${VULNERS_API_KEY:-}"
     """
 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
@@ -191,12 +184,10 @@ def test_osint_api_keys_expansion():
 
         # Verify API keys are expanded
         assert config["osint"]["sources"]["github"]["token"] == "ghp_test123"
-        assert config["osint"]["sources"]["vulners"]["api_key"] == "vulners_test123"
     finally:
         # Cleanup
         Path(config_path).unlink()
         del os.environ["GITHUB_TOKEN"]
-        del os.environ["VULNERS_API_KEY"]
 
 
 if __name__ == "__main__":

@@ -39,6 +39,8 @@ gap-analysis*
 *.swp
 *.swo
 *~
+.npm-global
+.hypthesis
 
 # Environment variables
 .env

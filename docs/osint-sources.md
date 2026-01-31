@@ -20,15 +20,7 @@ Guardian CLI integrates multiple OSINT (Open Source Intelligence) sources to enr
 - **Config**: `osint.sources.github`
 - **Requires**: Optional GitHub Personal Access Token
 
-### 3. Vulners API
-- **Status**: Active
-- **Cost**: FREE (100 req/day), PAID ($99/mo for 10,000 req/day)
-- **Purpose**: Aggregates exploit intelligence from 100+ sources
-- **Source**: https://vulners.com
-- **Config**: `osint.sources.vulners`
-- **Requires**: API key (free tier available)
-
-### 4. EPSS (Exploit Prediction Scoring System)
+### 3. EPSS (Exploit Prediction Scoring System)
 - **Status**: Active
 - **Cost**: FREE
 - **Rate Limit**: None
@@ -40,7 +32,7 @@ Guardian CLI integrates multiple OSINT (Open Source Intelligence) sources to enr
   - Percentile rankings
   - Automatic risk level classification (critical/high/medium/low)
 
-### 5. OSV (Open Source Vulnerabilities)
+### 4. OSV (Open Source Vulnerabilities)
 - **Status**: Active
 - **Cost**: FREE
 - **Rate Limit**: None
@@ -75,10 +67,6 @@ osint:
     github:
       enabled: true
       token: ""  # Optional but recommended
-
-    vulners:
-      enabled: true
-      api_key: ""  # Required
 
     epss:
       enabled: true
@@ -115,14 +103,6 @@ The OSINT enricher returns enrichment data keyed by finding ID with the followin
                 "description": "..."
             }
         ],
-        "vulners_data": {
-            "CVE-YYYY-XXXXX": {
-                "id": "CVE-YYYY-XXXXX",
-                "cvss": 9.8,
-                "exploits": [...],
-                "bulletins": [...]
-            }
-        },
         "epss_scores": {
             "CVE-YYYY-XXXXX": {
                 "epss": 0.85,
@@ -171,12 +151,6 @@ summary = enricher.get_summary()
 
 ## API Keys and Authentication
 
-### Required API Keys
-
-1. **Vulners**: Sign up at https://vulners.com/userinfo
-   - Free tier: 100 requests/day
-   - No credit card required
-
 ### Optional API Keys
 
 1. **GitHub**: Create at https://github.com/settings/tokens
@@ -197,10 +171,9 @@ The new OSINT sources require the following Python packages (automatically insta
 ## Recommendations
 
 1. **Enable all sources** for maximum coverage
-2. **Set up API keys** for Vulners (free tier available)
-3. **Add GitHub token** if scanning frequently (rate limit improvement)
-4. **Monitor rate limits** when scanning large numbers of CVEs
-5. **Use caching** (default 24 hours) to reduce API calls
+2. **Add GitHub token** if scanning frequently (rate limit improvement)
+3. **Monitor rate limits** when scanning large numbers of CVEs
+4. **Use caching** (default 24 hours) to reduce API calls
 
 ## Future Enhancements
 

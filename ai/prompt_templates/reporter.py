@@ -79,7 +79,6 @@ For each finding, provide:
    - Specify available Metasploit modules by name
    - Specify available Exploit-DB references (EDB-XXXXX)
    - Include GitHub PoC repositories if mentioned (with star counts)
-   - Include Vulners AI risk scores if available
    - If exploitation was attempted, clearly state the outcome (successful/failed) and which module was used
    - If Exploit-DB exploits are available for manual use, note this
 7. Detailed remediation steps
@@ -90,7 +89,6 @@ For each finding, provide:
 - **CISA KEV status (if applicable)** - Highest priority indicator
 - CVE identifiers
 - Known public exploits (Metasploit modules, Exploit-DB IDs, GitHub PoCs)
-- Vulners AI risk scoring (if available)
 - Exploitation attempt status if auto-exploit was used
 - Whether successful exploitation was achieved
 

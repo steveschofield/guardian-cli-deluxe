@@ -6,7 +6,6 @@ from typing import Dict, List, Any
 from core.memory import Finding
 from utils.osint.cisa_kev import CISAKEVClient
 from utils.osint.github_pocs import GitHubPoCSearch
-from utils.osint.vulners import VulnersClient
 from utils.osint.epss import EPSSClient
 from utils.osint.osv import OSVClient
 
@@ -18,7 +17,6 @@ class OSINTEnricher:
     Integrates:
     - CISA KEV: Known exploited vulnerabilities
     - GitHub: Community exploit PoCs
-    - Vulners: Aggregated exploit intelligence
     - EPSS: Exploitation probability predictions
     - OSV: Open source package vulnerabilities
     """
@@ -36,7 +34,6 @@ class OSINTEnricher:
         # Initialize OSINT clients
         self.cisa_kev = CISAKEVClient(config, logger)
         self.github = GitHubPoCSearch(config, logger)
-        self.vulners = VulnersClient(config, logger)
         self.epss = EPSSClient(config, logger)
         self.osv = OSVClient(config, logger)
 
@@ -46,8 +43,6 @@ class OSINTEnricher:
                 enabled_sources.append("CISA KEV")
             if self.github.enabled:
                 enabled_sources.append("GitHub")
-            if self.vulners.enabled:
-                enabled_sources.append("Vulners")
             if self.epss.enabled:
                 enabled_sources.append("EPSS")
             if self.osv.enabled:
@@ -96,7 +91,6 @@ class OSINTEnricher:
                 "cve_data": {},
                 "kev_status": {},
                 "github_pocs": [],
-                "vulners_data": {},
                 "epss_scores": {},
                 "osv_data": {},
             }
@@ -108,12 +102,6 @@ class OSINTEnricher:
                     kev_entry = self.cisa_kev.lookup(cve_id)
                     if kev_entry:
                         finding_enrichment["kev_status"][cve_id] = kev_entry
-
-                # Vulners comprehensive lookup
-                if self.vulners.enabled:
-                    vulners_data = self.vulners.lookup(cve_id)
-                    if vulners_data:
-                        finding_enrichment["vulners_data"][cve_id] = vulners_data
 
                 # OSV lookup
                 if self.osv.enabled:
@@ -139,7 +127,6 @@ class OSINTEnricher:
             if any([
                 finding_enrichment["kev_status"],
                 finding_enrichment["github_pocs"],
-                finding_enrichment["vulners_data"],
                 finding_enrichment["epss_scores"],
                 finding_enrichment["osv_data"]
             ]):
@@ -178,13 +165,6 @@ class OSINTEnricher:
                     "rate_limit_remaining": rate_limit.get("remaining"),
                     "rate_limit_total": rate_limit.get("limit"),
                 }
-
-        # Vulners API status
-        if self.vulners.enabled:
-            api_ok = self.vulners.check_api_status()
-            summary["sources"]["vulners"] = {
-                "api_status": "OK" if api_ok else "ERROR"
-            }
 
         # EPSS status
         if self.epss.enabled:

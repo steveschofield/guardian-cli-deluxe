@@ -484,7 +484,7 @@ Guardian CLI Deluxe is a **mature and comprehensive penetration testing framewor
 - **Specialized**: testssl, sslyze, hydra, metasploit
 
 ### OSINT Tools (5)
-- CISA KEV, GitHub PoC, Vulners API, EPSS, OSV
+- CISA KEV, GitHub PoC, EPSS, OSV
 
 ### Exploitation (2)
 - Metasploit Framework, Exploit-DB

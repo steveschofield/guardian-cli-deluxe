@@ -575,14 +575,6 @@ The following static analysis tools were executed on the source code:
                 for poc in github_pocs[:3]:  # Top 3
                     exploit_info.append(f"  - {poc['name']} ⭐ {poc['stars']} stars - {poc['url']}")
 
-            # OSINT: Add Vulners data
-            vulners_data = enrichment.get("vulners_data", {})
-            for cve_id, vdata in vulners_data.items():
-                if vdata.get("ai_score"):
-                    exploit_info.append(f"Vulners AI Risk Score: {vdata['ai_score']}/10")
-                if vdata.get("exploit_count"):
-                    exploit_info.append(f"Total Exploits (all sources): {vdata['exploit_count']}")
-
             # Add exploitation attempt status if auto-exploit was used
             if f.metadata.get("exploitation_attempted"):
                 if f.metadata.get("exploitation_successful"):

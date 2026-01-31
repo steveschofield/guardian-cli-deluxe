@@ -96,15 +96,6 @@ steps:
       ports_from_context: true
       tool_timeout: 900
 
-  - name: nmap_vulners_scan
-    type: tool
-    tool: nmap
-    objective: "Nmap vulners script scan on discovered ports"
-    parameters:
-      scan_type: "-sV --script vulners"
-      ports_from_context: true
-      tool_timeout: 900
-
   - name: nmap_common_udp_scan
     type: tool
     tool: nmap

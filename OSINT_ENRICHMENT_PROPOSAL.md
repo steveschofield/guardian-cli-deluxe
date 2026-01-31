@@ -30,7 +30,6 @@ class OSINTEnricher:
         self.cisa_kev = CISAKEVClient(config)
         self.epss = EPSSClient(config)
         self.github = GitHubExploitSearch(config)
-        self.vulners = VulnersClient(config)
 
     def enrich_finding(self, finding: Finding) -> Dict[str, Any]:
         """Enrich a finding with OSINT data"""
@@ -43,7 +42,6 @@ class OSINTEnricher:
                     "kev": self.cisa_kev.is_exploited(cve_id),
                     "epss": self.epss.get_score(cve_id),
                     "github_pocs": self.github.search_exploits(cve_id),
-                    "vulners": self.vulners.lookup(cve_id),
                 }
 
         return enrichment
@@ -160,41 +158,6 @@ language:python OR language:ruby OR language:go
 - ✅ Multiple implementation examples
 - ✅ Star count = popularity/reliability indicator
 
-#### E. Vulners API (Aggregator)
-
-**API**: https://vulners.com/api/v3/search/lucene/
-
-**Rate Limits**: 100 requests/day (free), 10k/day (paid)
-
-**Data Retrieved**:
-```json
-{
-  "cve_id": "CVE-2017-0143",
-  "exploit_count": 15,
-  "exploits": [
-    {
-      "source": "metasploit",
-      "title": "MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption"
-    },
-    {
-      "source": "exploitdb",
-      "id": "42315"
-    },
-    {
-      "source": "seebug",
-      "id": "SSV-97087"
-    }
-  ],
-  "ai_score": 9.5,
-  "cvss": 8.1
-}
-```
-
-**Benefits**:
-- ✅ Aggregates 100+ sources
-- ✅ AI-based risk scoring
-- ✅ Additional exploit references
-
 ## Enhanced Report Output
 
 ### Example: Technical Findings Section
@@ -234,7 +197,6 @@ language:python OR language:ruby OR language:go
     + **Exploitation Risk Assessment:**
       - **EPSS Score:** 97.5% probability of exploitation in next 30 days
       - **EPSS Percentile:** 99.9th percentile (higher risk than 99.9% of all CVEs)
-      - **Vulners AI Score:** 9.5/10 (extremely high risk)
 
 * **Impact Analysis:**
     - Remote, unauthenticated code execution
@@ -285,7 +247,6 @@ language:python OR language:ruby OR language:go
 
 ### Phase 3: Secondary Sources (Week 4)
 - [ ] Implement GitHub exploit search
-- [ ] Implement Vulners API client (optional)
 - [ ] Add error handling and fallbacks
 
 ### Phase 4: Report Integration (Week 5)
@@ -327,10 +288,6 @@ osint:
       token: ""  # Optional: increases rate limit to 5000/hour
       min_stars: 10  # Only include repos with 10+ stars
       max_results: 5
-
-    vulners:
-      enabled: false  # Optional paid service
-      api_key: ""
 
   rate_limiting:
     enabled: true
@@ -385,7 +342,6 @@ reporting:
 | CISA KEV | Unlimited | N/A | Always use |
 | EPSS | Unlimited | N/A | Always use |
 | GitHub | 60/hour | 5000/hour ($0) | Use with token (free) |
-| Vulners | 100/day | 10k/day ($99/mo) | Optional |
 
 **Recommended Setup:** All free tiers provide excellent coverage
 
@@ -449,4 +405,3 @@ python -m cli.main workflow run --name network --target lab.internal
 - [CISA KEV Catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)
 - [EPSS User Guide](https://www.first.org/epss/user-guide)
 - [GitHub REST API](https://docs.github.com/en/rest)
-- [Vulners API](https://vulners.com/docs)

@@ -1,4 +1,4 @@
-# OSINT Implementation Plan: CISA KEV + GitHub PoCs + Vulners
+# OSINT Implementation Plan: CISA KEV + GitHub PoCs
 
 ## Priority Implementation: 3 High-Value Sources
 
@@ -129,89 +129,6 @@ query = 'CVE-2017-0143 (exploit OR poc OR vulnerability) language:python OR lang
       - Easy to use for penetration testing
 ```
 
-### 3. Vulners API - HIGH PRIORITY 📊
-
-**Why this is powerful:**
-- Aggregates 100+ vulnerability sources
-- Unified exploit references (Metasploit, Exploit-DB, GitHub, etc.)
-- AI-based risk scoring
-- Comprehensive CVE metadata
-
-**Implementation Complexity:** ⭐⭐ Medium (REST API)
-
-**API Details:**
-```
-Endpoint: https://vulners.com/api/v3/
-Rate Limit: 100 requests/day (FREE), 10,000/day (PAID $99/mo)
-Cost: FREE tier sufficient for most scans
-Authentication: API key required (free registration)
-```
-
-**API Methods:**
-```python
-# Search by CVE
-POST https://vulners.com/api/v3/search/lucene/
-{
-  "query": "cve:CVE-2017-0143"
-}
-
-# Search by CPE (product)
-POST https://vulners.com/api/v3/burp/software/
-{
-  "software": "Microsoft Windows Server 2008",
-  "version": "R2 SP1"
-}
-```
-
-**Sample Response:**
-```json
-{
-  "result": "OK",
-  "data": {
-    "total": 1,
-    "search": [
-      {
-        "id": "CVE-2017-0143",
-        "type": "cve",
-        "title": "Microsoft Windows SMB Remote Code Execution Vulnerability",
-        "description": "The SMBv1 server in Microsoft Windows...",
-        "cvss": {
-          "score": 8.1,
-          "vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
-        },
-        "lastseen": "2024-01-22T10:30:15",
-        "published": "2017-03-14T00:00:00",
-        "cwe": ["CWE-119"],
-        "sourceData": {
-          "exploitdb": ["42315", "42031", "41987"],
-          "metasploit": ["exploit/windows/smb/ms17_010_eternalblue"],
-          "githubexploit": ["worawit/MS17-010"]
-        },
-        "ai_score": 9.5,
-        "exploit_count": 18,
-        "references": [
-          "https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/CVE-2017-0143"
-        ]
-      }
-    ]
-  }
-}
-```
-
-**Report Impact Example:**
-```markdown
-### MS17-010 Remote Code Execution (CRITICAL)
-
-* **Comprehensive Exploit Intelligence (via Vulners):**
-  + **Exploit Count:** 18 public exploits found across all sources
-  + **AI Risk Score:** 9.5/10 (Extremely High Risk)
-  + **Sources:**
-    * Metasploit: 3 modules
-    * Exploit-DB: 7 exploits (EDB-42315, EDB-42031, EDB-41987, ...)
-    * GitHub: 12 repositories
-  + **Vendor Advisory:** [Microsoft Security Bulletin](https://portal.msrc.microsoft.com/...)
-```
-
 ## Implementation Architecture
 
 ### File Structure
@@ -222,7 +139,6 @@ utils/
 │   ├── base.py           # Base OSINT client class
 │   ├── cisa_kev.py       # CISA KEV implementation
 │   ├── github_pocs.py    # GitHub exploit search
-│   ├── vulners.py        # Vulners API client
 │   └── enricher.py       # Main enrichment orchestrator
 ```
 
@@ -233,7 +149,6 @@ from typing import Dict, List, Any
 from core.memory import Finding
 from utils.osint.cisa_kev import CISAKEVClient
 from utils.osint.github_pocs import GitHubPoCSearch
-from utils.osint.vulners import VulnersClient
 
 class OSINTEnricher:
     """
@@ -248,7 +163,6 @@ class OSINTEnricher:
         # Initialize OSINT clients
         self.cisa_kev = CISAKEVClient(config, logger)
         self.github = GitHubPoCSearch(config, logger)
-        self.vulners = VulnersClient(config, logger)
 
     def enrich_findings(self, findings: List[Finding]) -> Dict[str, Any]:
         """
@@ -270,7 +184,6 @@ class OSINTEnricher:
                 "cve_data": {},
                 "kev_status": {},
                 "github_pocs": [],
-                "vulners_data": {},
             }
 
             for cve_id in finding.cve_ids:
@@ -283,11 +196,6 @@ class OSINTEnricher:
                 pocs = self.github.search_exploits(cve_id)
                 if pocs:
                     finding_enrichment["github_pocs"].extend(pocs)
-
-                # Vulners comprehensive lookup
-                vulners_data = self.vulners.lookup(cve_id)
-                if vulners_data:
-                    finding_enrichment["vulners_data"][cve_id] = vulners_data
 
             enrichment_data[finding.id] = finding_enrichment
 
@@ -505,78 +413,6 @@ class GitHubPoCSearch:
             return []
 ```
 
-### Module 3: Vulners API Client
-
-**File:** `utils/osint/vulners.py`
-
-```python
-import requests
-from typing import Dict, Optional
-
-class VulnersClient:
-    """
-    Client for Vulners API
-    """
-
-    API_URL = "https://vulners.com/api/v3/search/lucene/"
-
-    def __init__(self, config, logger=None):
-        self.config = config
-        self.logger = logger
-        vulners_config = config.get("osint", {}).get("sources", {}).get("vulners", {})
-        self.enabled = vulners_config.get("enabled", False)
-        self.api_key = vulners_config.get("api_key", None)
-
-    def lookup(self, cve_id: str) -> Optional[Dict]:
-        """
-        Lookup CVE in Vulners database
-
-        Args:
-            cve_id: CVE identifier
-
-        Returns:
-            Vulners data dict if found
-        """
-        if not self.enabled or not self.api_key:
-            return None
-
-        payload = {
-            "query": f"cve:{cve_id}",
-            "apiKey": self.api_key,
-        }
-
-        try:
-            response = requests.post(self.API_URL, json=payload, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-
-            if data.get("result") != "OK":
-                return None
-
-            search_results = data.get("data", {}).get("search", [])
-            if not search_results:
-                return None
-
-            vuln = search_results[0]  # Take first result
-
-            return {
-                "cve_id": vuln.get("id"),
-                "title": vuln.get("title"),
-                "cvss_score": vuln.get("cvss", {}).get("score"),
-                "cvss_vector": vuln.get("cvss", {}).get("vector"),
-                "cwe": vuln.get("cwe", []),
-                "exploit_count": vuln.get("exploit_count", 0),
-                "ai_score": vuln.get("ai_score"),
-                "exploits": vuln.get("sourceData", {}),
-                "references": vuln.get("references", []),
-            }
-
-        except Exception as e:
-            if self.logger:
-                self.logger.warning(f"Vulners API lookup failed for {cve_id}: {e}")
-            return None
-```
-
 ## Configuration
 
 Add to `config/guardian.yaml`:
@@ -601,10 +437,6 @@ osint:
       min_stars: 10  # Only show repos with 10+ stars
       max_results: 5  # Max PoCs to include per CVE
 
-    # Vulners API (100/day FREE, 10k/day PAID $99/mo)
-    vulners:
-      enabled: true  # Recommended even with free tier
-      api_key: ""  # Get from: https://vulners.com/userinfo
 ```
 
 ## Integration with Reporter
@@ -646,13 +478,6 @@ class ReporterAgent(BaseAgent):
                 for poc in github_pocs[:3]:
                     exploit_info.append(f"  - {poc['name']} ⭐ {poc['stars']} stars - {poc['url']}")
 
-            # Add Vulners comprehensive data
-            vulners_data = enrichment.get("vulners_data", {})
-            for cve_id, vdata in vulners_data.items():
-                if vdata.get("ai_score"):
-                    exploit_info.append(f"Vulners AI Risk Score: {vdata['ai_score']}/10")
-                if vdata.get("exploit_count"):
-                    exploit_info.append(f"Total exploits (all sources): {vdata['exploit_count']}")
 ```
 
 ## Testing Plan
@@ -673,14 +498,6 @@ python -m cli.main workflow run --name web --target https://test.com
 # Expected: GitHub PoCs listed with star counts
 ```
 
-### Test 3: Vulners Comprehensive
-```bash
-# Scan with Vulners enabled
-python -m cli.main workflow run --name network --target vulnerable-box
-
-# Expected: AI risk scores, exploit counts from all sources
-```
-
 ## Rollout Strategy
 
 ### Week 1: CISA KEV
@@ -693,12 +510,6 @@ python -m cli.main workflow run --name network --target vulnerable-box
 - [ ] Implement `github_pocs.py`
 - [ ] Handle rate limiting
 - [ ] Test with various CVEs
-- [ ] Integrate into reports
-
-### Week 3: Vulners API
-- [ ] Implement `vulners.py`
-- [ ] Test free tier limits
-- [ ] Add comprehensive error handling
 - [ ] Integrate into reports
 
 ### Week 4: Polish & Document
@@ -729,8 +540,6 @@ python -m cli.main workflow run --name network --target vulnerable-box
 
 * **Exploit Intelligence:**
   - CVE: CVE-2017-0143, CVE-2017-0144, CVE-2017-0145
-  - **Vulners AI Risk Score: 9.5/10 (Extreme)**
-  - **Total Exploits: 18 across all sources**
   - Metasploit: 3 modules
   - Exploit-DB: 7 exploits
   - GitHub PoCs: 12 repositories
@@ -744,16 +553,11 @@ python -m cli.main workflow run --name network --target vulnerable-box
 |--------|-----------|------|----------------|
 | CISA KEV | Unlimited | $0 | ✅ Always enable |
 | GitHub | 60/hour (5000 with token) | $0 | ✅ Use with token |
-| Vulners | 100/day | $0 | ✅ Enable, monitor usage |
-
 **Total Cost:** $0 for typical penetration test usage
-
-For heavy usage (100+ scans/day), Vulners paid tier ($99/mo) provides 10,000 requests/day.
 
 ## Success Metrics
 
 - ✅ KEV vulnerabilities automatically flagged as CRITICAL
 - ✅ GitHub PoC count increases exploit intelligence
-- ✅ Vulners AI scores help prioritize findings
 - ✅ Report value increases with minimal API cost
 - ✅ Security teams have full threat context

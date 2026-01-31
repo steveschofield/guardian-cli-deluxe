@@ -197,20 +197,6 @@ osint:
       # Request timeout (seconds)
       timeout: 10
 
-    # Vulners API
-    # Aggregates exploit intelligence from 100+ sources
-    # Cost: FREE (100 req/day) | PAID ($99/mo for 10,000 req/day)
-    vulners:
-      enabled: true  # Recommended even with free tier
-      # Vulners API Key (required)
-      # Get from: https://vulners.com/userinfo
-      # Sign up for free tier: 100 requests/day
-      # Set via environment variable: VULNERS_API_KEY
-      #api_key: "${VULNERS_API_KEY:-}"  # REQUIRED - Add your Vulners API key here or set env var
-    
-      # Request timeout (seconds)
-      timeout: 10
-
     # EPSS (Exploit Prediction Scoring System)
     # Provides exploitation probability predictions from FIRST.org
     # Cost: FREE | Rate Limit: None (public API)

@@ -29,7 +29,6 @@ You can use `python-dotenv` syntax in `.env` files:
 ```bash
 # .env file
 GITHUB_TOKEN=ghp_xxxxxxxxxxxx
-VULNERS_API_KEY=xxxxxxxxxxxxxxxxxx
 ```
 
 ## OSINT API Keys
@@ -51,24 +50,6 @@ osint:
   sources:
     github:
       token: "${GITHUB_TOKEN:-}"
-```
-
-### Vulners API Key
-
-**Required for Vulners OSINT source** - Free tier provides 100 requests/day.
-
-```bash
-# Get from: https://vulners.com/userinfo
-export VULNERS_API_KEY=xxxxxxxxxxxx
-```
-
-In `guardian.yaml`:
-
-```yaml
-osint:
-  sources:
-    vulners:
-      api_key: "${VULNERS_API_KEY:-}"
 ```
 
 ## AI Provider API Keys
@@ -140,7 +121,6 @@ osint:
    ```bash
    # OSINT API Keys
    GITHUB_TOKEN=ghp_xxxxxxxxxxxx
-   VULNERS_API_KEY=xxxxxxxxxxxx
    ```
 
 3. Run Guardian (it will automatically load `.env`):
@@ -154,7 +134,6 @@ Export variables in your shell:
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
-export VULNERS_API_KEY=xxxxxxxxxxxx
 
 guardian scan example.com
 ```
@@ -164,7 +143,7 @@ guardian scan example.com
 Pass variables inline for a single command:
 
 ```bash
-GITHUB_TOKEN=xxx VULNERS_API_KEY=yyy guardian scan example.com
+GITHUB_TOKEN=xxx guardian scan example.com
 ```
 
 ## Security Best Practices
@@ -261,34 +240,11 @@ guardian osint test
    api_key: "${GITHUB_TOKEN}"
    ```
 
-### Empty API Key Values
-
-If Guardian warns about missing API keys:
-
-```
-WARNING - [VulnersClient] Vulners API enabled but no API key configured
-```
-
-Check:
-
-1. Environment variable is set:
-   ```bash
-   echo $VULNERS_API_KEY
-   ```
-
-2. .env file contains the variable:
-   ```bash
-   grep VULNERS_API_KEY .env
-   ```
-
-3. Variable name matches in both .env and guardian.yaml
-
 ### Rate Limiting Issues
 
 If you hit API rate limits:
 
 1. **GitHub**: Add `GITHUB_TOKEN` to increase limit from 60/hour to 5000/hour
-2. **Vulners**: Upgrade to paid tier or wait for daily reset
 
 ## Examples
 
@@ -297,7 +253,6 @@ If you hit API rate limits:
 ```bash
 # OSINT API Keys
 GITHUB_TOKEN=ghp_1234567890abcdef1234567890abcdef12345678
-VULNERS_API_KEY=ABCDEF1234567890ABCDEF1234567890ABCDEF12
 
 # AI Providers
 GOOGLE_API_KEY=AIzaSy1234567890abcdef1234567890abcd
@@ -325,12 +280,6 @@ else
     echo "✅ GITHUB_TOKEN set (${#GITHUB_TOKEN} characters)"
 fi
 
-if [ -z "$VULNERS_API_KEY" ]; then
-    echo "⚠️  VULNERS_API_KEY not set (Vulners will be disabled)"
-else
-    echo "✅ VULNERS_API_KEY set"
-fi
-
 # Run Guardian with loaded variables
 guardian scan --help
 ```
@@ -353,7 +302,6 @@ jobs:
       - name: Run Guardian
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VULNERS_API_KEY: ${{ secrets.VULNERS_API_KEY }}
         run: |
           guardian scan target.com
 ```
