@@ -1,0 +1,298 @@
+# Deep Web Security Assessment Workflow
+# 7-phase comprehensive workflow matching commercial scanner depth
+# Covers: discovery, SSL/TLS, content, parameters, vulnerabilities, app-specific, and reporting
+
+name: deep_web_security
+description: Comprehensive deep web security assessment with commercial-grade depth
+
+whitebox:
+  enabled_if_source: true
+  tools:
+    - semgrep
+    - trivy
+    - gitleaks
+    - trufflehog
+  extract_attack_surface: true
+  ai_analysis: true
+
+steps:
+  # ─── Phase 1: Discovery & Reconnaissance ───
+  - name: http_discovery
+    type: tool
+    tool: httpx
+    objective: "Discover web services, fingerprint technologies, and identify live endpoints"
+    parameters:
+      tech_detect: true
+
+  - name: waf_detection
+    type: tool
+    tool: wafw00f
+    objective: "Detect WAF/CDN protections to adapt scanning strategy"
+    parameters:
+      find_all: true
+    dependencies:
+      - http_discovery
+
+  - name: tech_fingerprint
+    type: tool
+    tool: whatweb
+    objective: "Identify web technologies, frameworks, and server software"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  # ─── Phase 2: SSL/TLS & Transport Security ───
+  - name: ssl_tls_scan
+    type: tool
+    tool: testssl
+    objective: "Comprehensive SSL/TLS testing for 15+ vulnerability types"
+    parameters:
+      severity: "LOW"
+    dependencies:
+      - http_discovery
+
+  - name: security_headers
+    type: tool
+    tool: headers
+    objective: "Check 9 security headers plus weak CSP detection"
+    parameters:
+      follow_redirects: true
+      timeout: 10
+    dependencies:
+      - http_discovery
+
+  - name: cookie_security
+    type: tool
+    tool: cookie-analyzer
+    objective: "Analyze cookie security flags (HttpOnly, Secure, SameSite)"
+    parameters:
+      timeout: 10
+    dependencies:
+      - http_discovery
+
+  - name: cors_scan
+    type: tool
+    tool: cors-scanner
+    objective: "Test for CORS misconfigurations (8 issue types)"
+    parameters:
+      threads: 10
+    dependencies:
+      - http_discovery
+
+  # ─── Phase 3: Content Discovery ───
+  - name: crawl
+    type: tool
+    tool: katana
+    objective: "Crawl the site to enumerate all endpoints and forms"
+    parameters:
+      depth: 3
+    dependencies:
+      - http_discovery
+
+  - name: directory_discovery
+    type: tool
+    tool: feroxbuster
+    objective: "Discover hidden directories, files, and API paths"
+    parameters:
+      api_mode: true
+    dependencies:
+      - http_discovery
+
+  - name: api_route_discovery
+    type: tool
+    tool: kiterunner
+    objective: "Discover API routes using common REST/GraphQL wordlists"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  - name: js_endpoint_extraction
+    type: tool
+    tool: linkfinder
+    objective: "Extract endpoints and secrets from JavaScript files"
+    parameters: {}
+    dependencies:
+      - crawl
+
+  - name: historical_urls
+    type: tool
+    tool: waybackurls
+    objective: "Collect historical URLs for hidden or removed endpoints"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  # ─── Phase 4: Parameter Discovery ───
+  - name: param_discovery
+    type: tool
+    tool: paramspider
+    objective: "Find parameterized URLs across web archives"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  - name: hidden_param_probe
+    type: tool
+    tool: arjun
+    objective: "Discover hidden and undocumented parameters"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  # ─── Phase 5: Vulnerability Scanning ───
+  - name: sqli_scan
+    type: tool
+    tool: sqlmap
+    objective: "SQL injection testing with enhanced detection"
+    parameters:
+      level: 2
+      risk: 2
+    dependencies:
+      - param_discovery
+
+  - name: xss_scan
+    type: tool
+    tool: dalfox
+    objective: "Deep XSS scanning with payload analysis"
+    parameters:
+      deep: true
+    dependencies:
+      - crawl
+
+  - name: command_injection
+    type: tool
+    tool: commix
+    objective: "Test for OS command injection vulnerabilities"
+    parameters:
+      level: 2
+    dependencies:
+      - param_discovery
+
+  - name: ssrf_scan
+    type: tool
+    tool: ssrf-scanner
+    objective: "Test for Server-Side Request Forgery vulnerabilities"
+    parameters: {}
+    dependencies:
+      - param_discovery
+
+  - name: xxe_scan
+    type: tool
+    tool: xxe-scanner
+    objective: "Test for XML External Entity injection"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  - name: deserialization_scan
+    type: tool
+    tool: deserialization-scanner
+    objective: "Detect insecure deserialization vulnerabilities"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  - name: upload_scan
+    type: tool
+    tool: upload-scanner
+    objective: "Test file upload handling with malicious payloads"
+    parameters: {}
+    dependencies:
+      - crawl
+
+  - name: csrf_scan
+    type: tool
+    tool: csrf-tester
+    objective: "Check for CSRF vulnerabilities in forms"
+    parameters: {}
+    dependencies:
+      - crawl
+
+  - name: nuclei_scan
+    type: tool
+    tool: nuclei
+    objective: "Template-based vulnerability scanning"
+    parameters:
+      severity: ["critical", "high", "medium"]
+      tool_timeout: 900
+    dependencies:
+      - crawl
+
+  - name: nikto_scan
+    type: tool
+    tool: nikto
+    objective: "Web server vulnerability baseline scan"
+    parameters:
+      tuning: "x"
+    dependencies:
+      - http_discovery
+
+  - name: error_detection
+    type: tool
+    tool: error-detector
+    objective: "Detect information disclosure through verbose error messages"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  # ─── Phase 6: Application-Specific Tests ───
+  - name: auth_scan
+    type: tool
+    tool: auth-scanner
+    objective: "Test for authentication bypass and session management flaws"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  - name: idor_scan
+    type: tool
+    tool: idor-scanner
+    objective: "Test for IDOR and authorization bypass vulnerabilities"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  - name: jwt_analysis
+    type: tool
+    tool: jwt_tool
+    objective: "Analyze JWT handling and common weaknesses"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  - name: graphql_scan
+    type: tool
+    tool: graphql-cop
+    objective: "Probe GraphQL endpoints for common issues"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  - name: api_schema_scan
+    type: tool
+    tool: schemathesis
+    objective: "Fuzz OpenAPI/Swagger endpoints for logic and validation flaws"
+    parameters: {}
+    dependencies:
+      - http_discovery
+
+  # ─── Phase 7: Analysis & Reporting ───
+  - name: analyze_findings
+    type: analysis
+    agent: analyst
+    objective: "Analyze all findings, identify attack chains, and correlate vulnerabilities"
+
+  - name: false_positive_filter
+    type: analysis
+    agent: analyst
+    objective: "Filter false positives and apply confidence scoring"
+
+  - name: generate_report
+    type: report
+    agent: reporter
+    format: html
+
+settings:
+  max_parallel_tools: 3
+  require_confirmation: false
+  save_intermediate: true

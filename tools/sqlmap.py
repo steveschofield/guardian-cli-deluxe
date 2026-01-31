@@ -81,25 +81,26 @@ class SQLMapTool(BaseTool):
         return command
     
     def parse_output(self, output: str) -> Dict[str, Any]:
-        """Parse sqlmap output"""
+        """Parse sqlmap output with structured findings"""
         results = {
             "vulnerable": False,
             "injection_points": [],
             "databases": [],
             "dbms": None,
             "injection_types": [],
-            "payloads": []
+            "payloads": [],
+            "findings": [],
         }
-        
+
         # Check if vulnerable
         if "sqlmap identified the following injection point" in output.lower():
             results["vulnerable"] = True
-        
+
         # Extract DBMS
         dbms_match = re.search(r"back-end DBMS:\s*([^\n]+)", output, re.IGNORECASE)
         if dbms_match:
             results["dbms"] = dbms_match.group(1).strip()
-        
+
         # Extract injection types
         type_patterns = [
             r"Type:\s*([^\n]+)",
@@ -110,29 +111,80 @@ class SQLMapTool(BaseTool):
                 injection_type = match.group(1).strip()
                 if injection_type and injection_type not in results["injection_types"]:
                     results["injection_types"].append(injection_type)
-        
-        # Extract parameters
-        param_match = re.search(r"Parameter:\s*([^\n]+)", output)
-        if param_match:
+
+        # Extract parameters (support multiple)
+        for param_match in re.finditer(r"Parameter:\s*([^\n]+)", output):
             param = param_match.group(1).strip()
-            results["injection_points"].append({
-                "parameter": param,
-                "vulnerable": True
-            })
-        
+            if not any(p["parameter"] == param for p in results["injection_points"]):
+                results["injection_points"].append({
+                    "parameter": param,
+                    "vulnerable": True
+                })
+
         # Extract payloads
         payload_pattern = r"Payload:\s*([^\n]+)"
         for match in re.finditer(payload_pattern, output):
             payload = match.group(1).strip()
             if payload:
                 results["payloads"].append(payload)
-        
+
         # Extract databases (if enumeration was done)
         db_section = re.search(r"available databases \[(\d+)\]:(.*?)(\n\n|\Z)", output, re.DOTALL | re.IGNORECASE)
         if db_section:
             db_text = db_section.group(2)
-            # Extract database names from bulleted list
             db_names = re.findall(r"\[\*\]\s*([^\n]+)", db_text)
             results["databases"] = [db.strip() for db in db_names]
-        
+
+        # Generate structured findings
+        if results["vulnerable"]:
+            for injection_point in results["injection_points"]:
+                param = injection_point["parameter"]
+                types_str = ", ".join(results["injection_types"]) if results["injection_types"] else "unknown"
+                dbms_str = results["dbms"] or "unknown"
+
+                finding = {
+                    "title": f"SQL Injection in parameter '{param}'",
+                    "severity": "critical",
+                    "type": "sql_injection",
+                    "parameter": param,
+                    "injection_types": results["injection_types"],
+                    "dbms": dbms_str,
+                    "description": (
+                        f"SQL injection vulnerability detected in parameter '{param}'. "
+                        f"Injection types: {types_str}. Back-end DBMS: {dbms_str}. "
+                        "This vulnerability allows an attacker to read, modify, or delete database contents, "
+                        "bypass authentication, and potentially execute operating system commands."
+                    ),
+                    "remediation": (
+                        "Use parameterized queries/prepared statements for all database interactions. "
+                        "Implement input validation with strict allowlists. "
+                        "Apply the principle of least privilege to database accounts. "
+                        "Use stored procedures where appropriate. "
+                        "Deploy a Web Application Firewall (WAF) as defense-in-depth."
+                    ),
+                }
+                if results["payloads"]:
+                    finding["payloads"] = results["payloads"][:5]
+                results["findings"].append(finding)
+
+            # If no specific parameters found but still vulnerable
+            if not results["injection_points"]:
+                results["findings"].append({
+                    "title": "SQL Injection Detected",
+                    "severity": "critical",
+                    "type": "sql_injection",
+                    "injection_types": results["injection_types"],
+                    "dbms": results["dbms"] or "unknown",
+                    "description": (
+                        "SQL injection vulnerability confirmed by sqlmap. "
+                        f"Injection types: {', '.join(results['injection_types']) or 'unknown'}. "
+                        f"Back-end DBMS: {results['dbms'] or 'unknown'}."
+                    ),
+                    "remediation": (
+                        "Use parameterized queries/prepared statements for all database interactions. "
+                        "Implement input validation with strict allowlists. "
+                        "Apply the principle of least privilege to database accounts."
+                    ),
+                })
+
         return results
