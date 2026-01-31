@@ -248,7 +248,7 @@ tools:
   # Optional: resolve tools from custom paths (falls back to PATH)
   auto_discover: true
   paths:
-    godeye: /home/kali/code/guardian-cli-deluxe/venv/bin/god-eye
+    # godeye: /usr/local/bin/god-eye
     # nmap: /usr/bin/nmap
     # nuclei: /usr/local/bin/nuclei
 
@@ -490,8 +490,8 @@ tools:
     severity: ["critical", "high"]
     # Nuclei can take longer than the default workflow timeout depending on template set/target size.
     tool_timeout: 900
-    # Consolidated log (all runs append here)
-    log_file: "./reports/nuclei.log"
+    # Nuclei logs are now per-session (in session directory)
+    # log_file: "./reports/nuclei.log"
     templates_paths:
       - ~/nuclei-templates
     # Nuclei tags are template-defined (run `nuclei -tgl` to see what's available in your template set).
@@ -582,6 +582,48 @@ tools:
     export_har: false
     # Run additional ZAP scan when available
     run_additional_scan: true
+
+  # CORS Scanner - Detect CORS misconfigurations
+  cors_scanner:
+    enabled: true
+    threads: 10
+    timeout: 10
+
+  # Cookie Analyzer - Check cookie security flags
+  cookie_analyzer:
+    enabled: true
+    timeout: 10
+    insecure: true
+
+  # Error Detector - Find information disclosure via error messages
+  error_detector:
+    enabled: true
+    timeout: 15
+
+  # SSRF Scanner - Server-Side Request Forgery detection
+  ssrf_scanner:
+    enabled: true
+    timeout: 10
+
+  # XXE Scanner - XML External Entity injection detection
+  xxe_scanner:
+    enabled: true
+    timeout: 10
+
+  # Deserialization Scanner - Insecure deserialization detection
+  deserialization_scanner:
+    enabled: true
+    timeout: 10
+
+  # Authentication Scanner - Auth bypass and session management testing
+  auth_scanner:
+    enabled: true
+    timeout: 10
+
+  # IDOR Scanner - Authorization bypass and IDOR detection
+  idor_scanner:
+    enabled: true
+    timeout: 10
 
 # Whitebox Analysis Settings (Source Code Security Testing)
 # Enable SAST tools to analyze source code and correlate findings with dynamic testing

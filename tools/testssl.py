@@ -151,8 +151,102 @@ class TestSSLTool(BaseTool):
                 "parsed": parsed,
             }
     
+    # SSL/TLS vulnerability descriptions and remediation
+    SSL_VULN_INFO = {
+        "heartbleed": {
+            "title": "Heartbleed Vulnerability",
+            "severity": "critical",
+            "description": "The Heartbleed bug (CVE-2014-0160) allows attackers to read memory from the server, potentially exposing private keys, session tokens, and user data.",
+            "remediation": "Update OpenSSL to version 1.0.1g or later. Revoke and reissue all SSL certificates. Rotate all server-side secrets and session keys.",
+        },
+        "ccs": {
+            "title": "CCS Injection Vulnerability",
+            "severity": "high",
+            "description": "CCS injection (CVE-2014-0224) allows man-in-the-middle attackers to decrypt and modify traffic between vulnerable clients and servers.",
+            "remediation": "Update OpenSSL to the latest version. Ensure both client and server are patched.",
+        },
+        "ticketbleed": {
+            "title": "Ticketbleed Vulnerability",
+            "severity": "high",
+            "description": "Ticketbleed (CVE-2016-9244) is a memory disclosure vulnerability in F5 BIG-IP TLS session tickets, leaking up to 31 bytes of server memory per request.",
+            "remediation": "Update F5 BIG-IP firmware. Disable session tickets as a workaround.",
+        },
+        "robot": {
+            "title": "ROBOT Attack Vulnerability",
+            "severity": "high",
+            "description": "ROBOT allows RSA decryption and signing operations using the server's private key via an adaptive chosen-ciphertext attack.",
+            "remediation": "Disable RSA key exchange cipher suites. Use ECDHE or DHE key exchange instead.",
+        },
+        "secure_renego": {
+            "title": "Insecure TLS Renegotiation",
+            "severity": "high",
+            "description": "Server supports insecure TLS renegotiation (CVE-2009-3555), allowing man-in-the-middle attackers to inject plaintext into the TLS session.",
+            "remediation": "Enable RFC 5746 secure renegotiation. Disable client-initiated renegotiation if not needed.",
+        },
+        "crime": {
+            "title": "CRIME Attack Vulnerability",
+            "severity": "high",
+            "description": "CRIME (CVE-2012-4929) exploits TLS compression to recover secret data through a chosen-plaintext attack.",
+            "remediation": "Disable TLS-level compression.",
+        },
+        "breach": {
+            "title": "BREACH Attack Vulnerability",
+            "severity": "medium",
+            "description": "BREACH exploits HTTP compression to recover secrets from HTTPS traffic.",
+            "remediation": "Disable HTTP compression for sensitive pages. Use per-request CSRF tokens. Separate secrets from user input in responses.",
+        },
+        "poodle_ssl": {
+            "title": "POODLE Vulnerability (SSLv3)",
+            "severity": "high",
+            "description": "POODLE (CVE-2014-3566) exploits SSLv3 to decrypt secure connections.",
+            "remediation": "Disable SSLv3 entirely. Use TLS 1.2 or TLS 1.3 only.",
+        },
+        "sweet32": {
+            "title": "Sweet32 Birthday Attack",
+            "severity": "medium",
+            "description": "Sweet32 (CVE-2016-2183) exploits 64-bit block ciphers (3DES, Blowfish) via birthday attack on long-lived connections.",
+            "remediation": "Disable 3DES and other 64-bit block cipher suites. Use AES-128 or AES-256.",
+        },
+        "freak": {
+            "title": "FREAK Attack Vulnerability",
+            "severity": "high",
+            "description": "FREAK (CVE-2015-0204) forces export-grade RSA key exchange, breaking encryption with modest resources.",
+            "remediation": "Disable export cipher suites. Ensure no RSA_EXPORT ciphers are offered.",
+        },
+        "drown": {
+            "title": "DROWN Attack Vulnerability",
+            "severity": "critical",
+            "description": "DROWN (CVE-2016-0800) allows decrypting TLS traffic by exploiting servers supporting SSLv2.",
+            "remediation": "Disable SSLv2 on all servers sharing the same RSA private key.",
+        },
+        "logjam": {
+            "title": "Logjam Attack Vulnerability",
+            "severity": "high",
+            "description": "Logjam (CVE-2015-4000) allows downgrading TLS to export-grade Diffie-Hellman.",
+            "remediation": "Disable export cipher suites. Use 2048-bit or larger DH parameters. Prefer ECDHE over DHE.",
+        },
+        "beast": {
+            "title": "BEAST Attack Vulnerability",
+            "severity": "medium",
+            "description": "BEAST (CVE-2011-3389) exploits TLS 1.0 CBC mode to decrypt portions of HTTPS traffic.",
+            "remediation": "Disable TLS 1.0. Use TLS 1.2+ with AEAD ciphers (AES-GCM).",
+        },
+        "lucky13": {
+            "title": "Lucky Thirteen Attack",
+            "severity": "medium",
+            "description": "Lucky Thirteen is a timing side-channel attack against CBC mode in TLS, potentially allowing plaintext recovery.",
+            "remediation": "Use AEAD cipher suites (AES-GCM, ChaCha20-Poly1305) instead of CBC mode ciphers.",
+        },
+        "rc4": {
+            "title": "RC4 Cipher Support",
+            "severity": "medium",
+            "description": "Server supports the RC4 cipher which has known statistical biases making it vulnerable to plaintext recovery.",
+            "remediation": "Disable all RC4 cipher suites. Use AES-GCM or ChaCha20-Poly1305 instead.",
+        },
+    }
+
     def parse_output(self, output: str) -> Dict[str, Any]:
-        """Parse testssl JSON output"""
+        """Parse testssl JSON output with structured findings"""
         results = {
             "ssl_enabled": False,
             "tls_versions": [],
@@ -160,9 +254,10 @@ class TestSSLTool(BaseTool):
             "vulnerabilities": [],
             "certificate_info": {},
             "grade": None,
-            "issues_count": 0
+            "issues_count": 0,
+            "findings": [],
         }
-        
+
         try:
             import json
 
@@ -181,7 +276,6 @@ class TestSSLTool(BaseTool):
                 except json.JSONDecodeError:
                     items = []
 
-            # Fallback: JSON lines (some builds emit one object per line)
             if not items:
                 for line in text.splitlines():
                     line = line.strip()
@@ -195,30 +289,21 @@ class TestSSLTool(BaseTool):
                         continue
 
             for data in items:
-                # Extract certificate info
                 if data.get("id") == "cert_commonName":
                     results["certificate_info"]["common_name"] = data.get("finding")
-
                 elif data.get("id") == "cert_subjectAltName":
-                    # Extract Subject Alternative Names
                     san_finding = data.get("finding", "")
                     if san_finding:
-                        # Parse SAN - testssl formats as comma-separated list
                         san_list = [s.strip() for s in san_finding.split(",") if s.strip()]
                         results["certificate_info"]["san"] = san_list
                     else:
                         results["certificate_info"]["san"] = []
-
                 elif data.get("id") == "cert_notAfter":
                     results["certificate_info"]["expiry"] = data.get("finding")
-
-                # Extract protocols
                 elif "SSLv" in data.get("id", "") or "TLS" in data.get("id", ""):
                     if str(data.get("finding", "")).lower() == "offered":
                         protocol = str(data.get("id", "")).replace("_", " ")
                         results["tls_versions"].append(protocol)
-
-                # Extract vulnerabilities
                 elif data.get("severity") in ["HIGH", "CRITICAL", "MEDIUM"]:
                     vuln = {
                         "name": data.get("id"),
@@ -228,12 +313,62 @@ class TestSSLTool(BaseTool):
                     }
                     results["vulnerabilities"].append(vuln)
                     results["issues_count"] += 1
-            
+
+                    # Generate structured finding with description
+                    vuln_id = str(data.get("id", "")).lower()
+                    vuln_info = self._get_vuln_info(vuln_id)
+                    cve = data.get("cve", "")
+                    severity = str(data.get("severity", "")).lower()
+                    title = vuln_info["title"] if vuln_info else self._format_vuln_title(vuln_id)
+                    if cve:
+                        title = f"{title} ({cve})"
+
+                    finding = {
+                        "title": title,
+                        "severity": vuln_info["severity"] if vuln_info else severity,
+                        "type": "ssl_tls_vulnerability",
+                        "vulnerability": vuln_id,
+                        "finding_detail": data.get("finding", ""),
+                        "description": vuln_info["description"] if vuln_info else f"SSL/TLS vulnerability detected: {data.get('finding', vuln_id)}",
+                        "remediation": vuln_info["remediation"] if vuln_info else "Update SSL/TLS configuration. Disable vulnerable protocols and cipher suites.",
+                    }
+                    if cve:
+                        finding["cve"] = cve
+                    results["findings"].append(finding)
+
             results["ssl_enabled"] = len(results["tls_versions"]) > 0
-            
+
+            # Flag deprecated protocols
+            deprecated = {"SSLv2", "SSLv3", "TLS 1.0", "TLSv1", "TLS 1.1", "TLSv1 1"}
+            for proto in results["tls_versions"]:
+                proto_clean = proto.strip()
+                if any(d.lower() in proto_clean.lower() for d in deprecated):
+                    results["findings"].append({
+                        "title": f"Deprecated Protocol: {proto_clean}",
+                        "severity": "high" if "ssl" in proto_clean.lower() else "medium",
+                        "type": "ssl_tls_vulnerability",
+                        "vulnerability": "deprecated_protocol",
+                        "description": f"Server offers deprecated protocol {proto_clean}. Deprecated protocols have known vulnerabilities.",
+                        "remediation": f"Disable {proto_clean}. Use TLS 1.2 or TLS 1.3 only.",
+                    })
+
         except Exception as e:
-            # Fallback to text parsing if JSON fails
             if "ssl" in output.lower() or "tls" in output.lower():
                 results["ssl_enabled"] = True
-        
+
         return results
+
+    def _get_vuln_info(self, vuln_id: str) -> dict | None:
+        """Look up vulnerability info by testssl ID."""
+        vuln_id_lower = vuln_id.lower()
+        if vuln_id_lower in self.SSL_VULN_INFO:
+            return self.SSL_VULN_INFO[vuln_id_lower]
+        for key, info in self.SSL_VULN_INFO.items():
+            if key in vuln_id_lower or vuln_id_lower in key:
+                return info
+        return None
+
+    @staticmethod
+    def _format_vuln_title(vuln_id: str) -> str:
+        """Format a raw vulnerability ID into a readable title."""
+        return vuln_id.replace("_", " ").replace("-", " ").title()

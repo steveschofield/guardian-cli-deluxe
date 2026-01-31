@@ -43,7 +43,10 @@ class ToolAgent(BaseAgent):
             AsnmapTool, WaybackurlsTool, SubjsTool,
             LinkfinderTool, XnlinkfinderTool, ParamspiderTool,
             SchemathesisTool, TrufflehogTool, MetasploitTool, ZapTool,
-            DalfoxTool, CommixTool, FeroxbusterTool, GodEyeTool
+            DalfoxTool, CommixTool, FeroxbusterTool, GodEyeTool,
+            CORSScannerTool, CookieAnalyzerTool, ErrorDetectorTool,
+            SSRFScannerTool, XXEScannerTool, DeserializationScannerTool,
+            AuthScannerTool, IDORScannerTool,
         )
 
         import platform
@@ -99,6 +102,14 @@ class ToolAgent(BaseAgent):
             "commix": CommixTool(config),
             "feroxbuster": FeroxbusterTool(config),
             "godeye": GodEyeTool(config),
+            "cors-scanner": CORSScannerTool(config),
+            "cookie-analyzer": CookieAnalyzerTool(config),
+            "error-detector": ErrorDetectorTool(config),
+            "ssrf-scanner": SSRFScannerTool(config),
+            "xxe-scanner": XXEScannerTool(config),
+            "deserialization-scanner": DeserializationScannerTool(config),
+            "auth-scanner": AuthScannerTool(config),
+            "idor-scanner": IDORScannerTool(config),
         }
         
         # Add OS-specific tools
@@ -166,6 +177,14 @@ class ToolAgent(BaseAgent):
             "dalfox": "go install github.com/hahwul/dalfox/v2@latest",
             "commix": "pip install commix",
             "feroxbuster": "cargo install feroxbuster",
+            "cors-scanner": "git clone https://github.com/chenjj/CORScanner (vendored in tools/vendor/CORScanner)",
+            "cookie-analyzer": "apt install curl (uses curl)",
+            "error-detector": "built-in (passive analysis, uses curl)",
+            "ssrf-scanner": "built-in (uses curl for SSRF probing)",
+            "xxe-scanner": "built-in (uses curl for XXE payload delivery)",
+            "deserialization-scanner": "built-in (uses curl for deserialization detection)",
+            "auth-scanner": "built-in (uses curl for authentication testing)",
+            "idor-scanner": "built-in (uses curl for IDOR detection)",
         }
 
         missing = []

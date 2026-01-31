@@ -53,6 +53,14 @@ from .dalfox import DalfoxTool
 from .commix import CommixTool
 from .feroxbuster import FeroxbusterTool
 from .godeye import GodEyeTool
+from .cors_scanner import CORSScannerTool
+from .cookie_analyzer import CookieAnalyzerTool
+from .error_detector import ErrorDetectorTool
+from .ssrf_scanner import SSRFScannerTool
+from .xxe_scanner import XXEScannerTool
+from .deserialization_scanner import DeserializationScannerTool
+from .auth_scanner import AuthScannerTool
+from .idor_scanner import IDORScannerTool
 
 __all__ = [
     "BaseTool",
@@ -108,4 +116,12 @@ __all__ = [
     "CommixTool",
     "FeroxbusterTool",
     "GodEyeTool",
+    "CORSScannerTool",
+    "CookieAnalyzerTool",
+    "ErrorDetectorTool",
+    "SSRFScannerTool",
+    "XXEScannerTool",
+    "DeserializationScannerTool",
+    "AuthScannerTool",
+    "IDORScannerTool",
 ]
