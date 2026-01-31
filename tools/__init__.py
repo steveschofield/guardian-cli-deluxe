@@ -53,6 +53,9 @@ from .dalfox import DalfoxTool
 from .commix import CommixTool
 from .feroxbuster import FeroxbusterTool
 from .godeye import GodEyeTool
+from .bloodhound import BloodhoundTool
+from .semgrep import SemgrepTool
+from .trivy import TrivyTool
 
 __all__ = [
     "BaseTool",
@@ -108,4 +111,7 @@ __all__ = [
     "CommixTool",
     "FeroxbusterTool",
     "GodEyeTool",
+    "BloodhoundTool",
+    "SemgrepTool",
+    "TrivyTool",
 ]

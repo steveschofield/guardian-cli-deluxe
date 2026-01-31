@@ -622,6 +622,64 @@ whitebox:
     # Minimum confidence for SAST/DAST correlation (0.0-1.0)
     confidence_threshold: 0.7
 
+# MCP (Model Context Protocol) Security Servers
+# Enables integration with Dockerized security tools via MCP protocol
+# Source: https://github.com/FuzzingLabs/mcp-security-hub
+mcp:
+  # Enable MCP server integration
+  enabled: true
+
+  # Docker network for MCP containers (optional)
+  # docker_network: guardian-mcp
+
+  # MCP Servers Configuration
+  servers:
+    # BloodHound - Active Directory Attack Path Analysis
+    # Provides 75+ tools for AD security assessment
+    # Requires: Neo4j with SharpHound data imported
+    bloodhound:
+      image: ghcr.io/fuzzinglabs/bloodhound-mcp:latest
+      # Neo4j connection settings
+      neo4j_uri: bolt://localhost:7687
+      neo4j_user: neo4j
+      neo4j_password: "${BLOODHOUND_NEO4J_PASSWORD:-}"
+      timeout: 300
+      capabilities: []
+      # Key tools available:
+      # - find_path_to_da: Find paths to Domain Admins
+      # - get_kerberoastable_users: Find Kerberoastable accounts
+      # - get_asreproastable_users: Find AS-REP roastable users
+      # - get_unconstrained_delegation: Find delegation issues
+      # - get_acl_abuse_paths: Find ACL abuse opportunities
+
+    # Uncomment to enable additional MCP servers:
+
+    # radare2:
+    #   image: ghcr.io/fuzzinglabs/radare2-mcp:latest
+    #   timeout: 300
+    #   volumes:
+    #     - "${SAMPLES_DIR:-/tmp/samples}:/samples:ro"
+    #   # 32 binary analysis tools
+
+    # yara:
+    #   image: ghcr.io/fuzzinglabs/yara-mcp:latest
+    #   timeout: 120
+    #   volumes:
+    #     - "${YARA_RULES:-/opt/yara-rules}:/rules:ro"
+    #   # Malware pattern matching
+
+    # prowler:
+    #   image: ghcr.io/fuzzinglabs/prowler-mcp:latest
+    #   timeout: 600
+    #   env:
+    #     - AWS_PROFILE=${AWS_PROFILE:-default}
+    #   # AWS/Azure/GCP security auditing
+
+    # hashcat:
+    #   image: ghcr.io/fuzzinglabs/hashcat-mcp:latest
+    #   timeout: 3600
+    #   # Password cracking (requires GPU passthrough for performance)
+
 # Workflow Settings
 workflows:
   # Default workflow timeout (seconds)

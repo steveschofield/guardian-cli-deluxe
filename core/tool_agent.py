@@ -40,7 +40,8 @@ class ToolAgent(BaseAgent):
             AsnmapTool, WaybackurlsTool, SubjsTool,
             LinkfinderTool, XnlinkfinderTool, ParamspiderTool,
             SchemathesisTool, TrufflehogTool, MetasploitTool, ZapTool,
-            DalfoxTool, CommixTool, FeroxbusterTool, GodEyeTool
+            DalfoxTool, CommixTool, FeroxbusterTool, GodEyeTool,
+            BloodhoundTool, SemgrepTool, TrivyTool
         )
 
         import platform
@@ -96,8 +97,13 @@ class ToolAgent(BaseAgent):
             "commix": CommixTool(config),
             "feroxbuster": FeroxbusterTool(config),
             "godeye": GodEyeTool(config),
+            # SAST/Whitebox tools
+            "semgrep": SemgrepTool(config),
+            "trivy": TrivyTool(config),
+            # MCP-based tools (Active Directory)
+            "bloodhound": BloodhoundTool(config),
         }
-        
+
         # Add OS-specific tools
         if platform.system().lower() != "darwin":  # Not macOS
             self.available_tools["httpx"] = HttpxTool(config)
@@ -163,6 +169,9 @@ class ToolAgent(BaseAgent):
             "dalfox": "go install github.com/hahwul/dalfox/v2@latest",
             "commix": "pip install commix",
             "feroxbuster": "cargo install feroxbuster",
+            "semgrep": "pip install semgrep",
+            "trivy": "brew install trivy (or see https://aquasecurity.github.io/trivy)",
+            "bloodhound": "docker pull ghcr.io/fuzzinglabs/bloodhound-mcp:latest (requires Docker + Neo4j)",
         }
 
         missing = []
