@@ -644,16 +644,8 @@ install_trivy() {
         *) log_error "Unsupported architecture: ${ARCH}"; return 1 ;;
     esac
 
-    # Detect Kali (Trivy repo does not publish kali-rolling Release files)
-    local is_kali="false"
-    if [[ -r /etc/os-release ]]; then
-        if grep -qi '^ID=kali' /etc/os-release || grep -qi '^ID_LIKE=.*kali' /etc/os-release; then
-            is_kali="true"
-        fi
-    fi
-
-    # Install on Debian/Ubuntu (skip Kali)
-    if [[ "${OS}" == "debian" && "${is_kali}" != "true" ]]; then
+    # Install on Debian/Ubuntu
+    if [[ "${OS}" == "debian" ]]; then
         log_info "Installing Trivy via apt..."
 
         # Add Trivy repository
@@ -669,9 +661,6 @@ install_trivy() {
             install_trivy_binary
         }
     else
-        if [[ "${is_kali}" == "true" ]]; then
-            log_warn "Kali detected; Trivy apt repo lacks kali-rolling Release. Using binary install."
-        fi
         # Fallback to binary installation
         install_trivy_binary
     fi

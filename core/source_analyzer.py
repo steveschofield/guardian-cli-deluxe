@@ -48,10 +48,10 @@ class SourceCodeAnalyzer:
         }
 
         # Initialize tools
-        self.semgrep = SemgrepTool(config)
-        self.trivy = TrivyTool(config)
-        self.gitleaks = GitleaksTool(config)
-        self.trufflehog = TrufflehogTool(config)
+        self.semgrep = SemgrepTool(logger=logger)
+        self.trivy = TrivyTool(logger=logger)
+        self.gitleaks = GitleaksTool(logger=logger)
+        self.trufflehog = TrufflehogTool(logger=logger)
 
     async def analyze(self) -> Dict[str, Any]:
         """

@@ -229,8 +229,6 @@ class WorkflowEngine:
                 "endpoints_found": len(self.whitebox_findings.get("attack_surface", {}).get("endpoints", [])),
                 "secrets_found": len(self.whitebox_findings.get("attack_surface", {}).get("secrets", []))
             }
-            # Persist extracted endpoints for downstream tooling.
-            self._persist_whitebox_endpoints()
 
             # Initialize correlation engine
             self.correlation_engine = CorrelationEngine(
@@ -1731,14 +1729,10 @@ class WorkflowEngine:
     
     def _load_workflow_config(self, workflow_name: str) -> Dict[str, Any]:
         """Load full workflow configuration from YAML file"""
-        name = self._normalize_workflow_name(workflow_name)
-        if not name:
-            return {}
-
         repo_root = Path(__file__).resolve().parent.parent
         workflows_dir = repo_root / "workflows"
 
-        for candidate in {name, name.replace("-", "_")}:
+        for candidate in {workflow_name, workflow_name.replace("-", "_")}:
             path = workflows_dir / f"{candidate}.yaml"
             if path.exists():
                 try:

@@ -611,6 +611,7 @@ tools:
     enabled: true
     timeout: 10
 
+
 # Whitebox Analysis Settings (Source Code Security Testing)
 # Enable SAST tools to analyze source code and correlate findings with dynamic testing
 whitebox:
@@ -628,10 +629,7 @@ whitebox:
       # Options: "auto" (curated), "p/owasp-top-ten", "p/security-audit", "p/ci"
       rulesets:
         - "auto"
-        # NOTE: Some GitHub repos include non-rule YAML files that break Semgrep validation.
-        # If you want to use these, point to a specific rules YAML or a known-good Semgrep pack.
-        # - "https://github.com/elttam/semgrep-rules"
-        # - "https://github.com/apiiro/malicious-code-ruleset"
+        - "p/owasp-top-ten"
       # Filter by severity: ERROR, WARNING, INFO
       severity: ["ERROR", "WARNING"]
 
@@ -727,6 +725,7 @@ mcp:
     #   image: ghcr.io/fuzzinglabs/hashcat-mcp:latest
     #   timeout: 3600
     #   # Password cracking (requires GPU passthrough for performance)
+
 
 # Workflow Settings
 workflows:
