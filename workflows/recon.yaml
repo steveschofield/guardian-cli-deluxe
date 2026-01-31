@@ -125,6 +125,25 @@ steps:
       - http_probing
     condition: target_is_domain
 
+  - name: ssl_tls_scan
+    type: tool
+    tool: testssl
+    objective: "Assess SSL/TLS posture of discovered web services"
+    parameters:
+      severity: "LOW"
+    dependencies:
+      - http_probing
+
+  - name: security_headers
+    type: tool
+    tool: headers
+    objective: "Check HTTP security headers on discovered hosts"
+    parameters:
+      follow_redirects: true
+      timeout: 10
+    dependencies:
+      - http_probing
+
   - name: web_vuln_scan_nikto
     type: tool
     tool: nikto
