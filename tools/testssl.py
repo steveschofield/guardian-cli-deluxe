@@ -100,18 +100,27 @@ class TestSSLTool(BaseTool):
 
             self.logger.info(f"Executing: {' '.join(command)}")
 
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
+            process: asyncio.subprocess.Process | None = None
             try:
+                process = await asyncio.create_subprocess_exec(
+                    *command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+            except asyncio.CancelledError:
+                try:
+                    if process and process.returncode is None:
+                        process.kill()
+                        await process.communicate()
+                except Exception:
+                    pass
+                raise
             except asyncio.TimeoutError:
                 try:
-                    process.kill()
-                    await process.communicate()
+                    if process:
+                        process.kill()
+                        await process.communicate()
                 except Exception:
                     pass
                 duration = (datetime.now() - started).total_seconds()

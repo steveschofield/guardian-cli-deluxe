@@ -217,6 +217,7 @@ class BloodhoundTool(BaseTool):
 
         from datetime import datetime
         start_time = datetime.now()
+        process: asyncio.subprocess.Process | None = None
 
         try:
             process = await asyncio.create_subprocess_exec(
@@ -252,8 +253,22 @@ class BloodhoundTool(BaseTool):
                 "parsed": parsed
             }
 
+        except asyncio.CancelledError:
+            try:
+                if process and process.returncode is None:
+                    process.kill()
+                    await process.communicate()
+            except Exception:
+                pass
+            raise
         except asyncio.TimeoutError:
             self.logger.error(f"BloodHound MCP timed out after {self.timeout}s")
+            try:
+                if process and process.returncode is None:
+                    process.kill()
+                    await process.communicate()
+            except Exception:
+                pass
             raise
         except Exception as e:
             self.logger.error(f"BloodHound MCP execution failed: {e}")

@@ -48,22 +48,31 @@ class ParamspiderTool(BaseTool):
         start_time = datetime.now()
 
         with tempfile.TemporaryDirectory(prefix="guardian-paramspider-") as tmpdir:
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdin=asyncio.subprocess.DEVNULL,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=tmpdir,  # Run from temp dir so results/ is created there
-            )
-
+            process: asyncio.subprocess.Process | None = None
             try:
+                process = await asyncio.create_subprocess_exec(
+                    *command,
+                    stdin=asyncio.subprocess.DEVNULL,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=tmpdir,  # Run from temp dir so results/ is created there
+                )
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(), timeout=timeout
                 )
+            except asyncio.CancelledError:
+                try:
+                    if process and process.returncode is None:
+                        process.kill()
+                        await process.communicate()
+                except Exception:
+                    pass
+                raise
             except asyncio.TimeoutError:
                 try:
-                    process.kill()
-                    await process.communicate()
+                    if process:
+                        process.kill()
+                        await process.communicate()
                 except Exception:
                     pass
                 raise

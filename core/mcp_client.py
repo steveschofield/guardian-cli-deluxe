@@ -67,6 +67,9 @@ class MCPClient:
         for name, server_cfg in servers.items():
             if not server_cfg:
                 continue
+            if server_cfg.get("enabled") is False:
+                self.logger.debug(f"MCP server '{name}' disabled by config")
+                continue
             self._servers[name] = MCPServerConfig(
                 name=name,
                 image=server_cfg.get("image", f"ghcr.io/fuzzinglabs/{name}-mcp:latest"),
@@ -146,6 +149,7 @@ class MCPClient:
 
         self.logger.debug(f"MCP request to {server_name}: {method}")
 
+        process: Optional[asyncio.subprocess.Process] = None
         try:
             # Run docker container and pipe request
             process = await asyncio.create_subprocess_exec(
@@ -187,8 +191,22 @@ class MCPClient:
 
             return response.get("result", {})
 
+        except asyncio.CancelledError:
+            try:
+                if process and process.returncode is None:
+                    process.kill()
+                    await process.communicate()
+            except Exception:
+                pass
+            raise
         except asyncio.TimeoutError:
             self.logger.error(f"MCP server {server_name} timed out")
+            try:
+                if process and process.returncode is None:
+                    process.kill()
+                    await process.communicate()
+            except Exception:
+                pass
             raise RuntimeError(f"MCP server '{server_name}' timed out after {server.timeout}s")
         except Exception as e:
             self.logger.error(f"MCP request failed: {e}")

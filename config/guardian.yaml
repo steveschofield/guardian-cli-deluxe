@@ -684,6 +684,7 @@ mcp:
     # Provides 75+ tools for AD security assessment
     # Requires: Neo4j with SharpHound data imported
     bloodhound:
+      enabled: false
       image: ghcr.io/fuzzinglabs/bloodhound-mcp:latest
       # Neo4j connection settings
       neo4j_uri: bolt://localhost:7687

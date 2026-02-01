@@ -150,6 +150,15 @@ class BaseTool(ABC):
             status = "completed" if self.is_success_exit_code(process.returncode) else "failed"
             return result
             
+        except asyncio.CancelledError:
+            status = "cancelled"
+            try:
+                if process and process.returncode is None:
+                    process.kill()
+                    await process.communicate()
+            except Exception:
+                pass
+            raise
         except asyncio.TimeoutError:
             status = "timed_out"
             self.logger.error(f"Tool {self.tool_name} timed out after {timeout}s")

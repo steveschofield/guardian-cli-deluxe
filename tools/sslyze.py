@@ -82,9 +82,9 @@ class SSLyzeTool(BaseTool):
             # HTTP security headers
             command.append("--http_headers")
         
-        # Timeout
-        timeout = config.get("timeout", 10)
-        command.extend(["--timeout", str(timeout)])
+        # Connectivity options
+        if config.get("slow_connection"):
+            command.append("--slow_connection")
         
         # Quiet mode
         command.append("--quiet")
