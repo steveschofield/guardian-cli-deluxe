@@ -1070,8 +1070,12 @@ Exploitation Information:
             for i, tok in enumerate(tokens):
                 if tok == "-o" and i + 1 < len(tokens):
                     files.append(tokens[i + 1])
+                if tok in ("-oX", "-oJ", "-oN", "-oG", "-oA") and i + 1 < len(tokens):
+                    files.append(tokens[i + 1])
                 if tok.startswith("-o") and len(tok) > 2:
-                    files.append(tok[2:])
+                    suffix = tok[2:]
+                    if suffix and suffix not in ("X", "J", "N", "G", "A"):
+                        files.append(suffix)
                 if tok == "--report-path" and i + 1 < len(tokens):
                     files.append(tokens[i + 1])
 
