@@ -19,7 +19,7 @@ parts/
 sdist/
 var/
 wheels/
-reports*
+#reports*
 *.egg-info/
 .installed.cfg
 *.egg
