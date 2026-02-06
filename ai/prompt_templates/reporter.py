@@ -77,7 +77,7 @@ For each finding, provide:
      * Required action
    - List all CVE identifiers
    - Specify available Metasploit modules by name
-   - Specify available Exploit-DB references (EDB-XXXXX)
+   - Specify available Exploit-DB references using real IDs from input data (e.g., EDB-42315)
    - Include GitHub PoC repositories if mentioned (with star counts)
    - If exploitation was attempted, clearly state the outcome (successful/failed) and which module was used
    - If Exploit-DB exploits are available for manual use, note this
@@ -91,6 +91,11 @@ For each finding, provide:
 - Known public exploits (Metasploit modules, Exploit-DB IDs, GitHub PoCs)
 - Exploitation attempt status if auto-exploit was used
 - Whether successful exploitation was achieved
+
+Strict data integrity rules:
+- Use only exploit references present in the provided finding data.
+- Do not invent Metasploit modules, Exploit-DB IDs, or GitHub PoC links.
+- If an exploit source is not present in the finding data, write `N/A` for that source.
 
 Format as a professional technical report section with clear headings and structure.
 """

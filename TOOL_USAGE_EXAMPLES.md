@@ -173,6 +173,7 @@ done < subdomains.txt
 4. katana - Modern crawling
 5. arjun - Parameter discovery
 6. nuclei - Vulnerability scanning
+# Nmap vuln profile uses: --script vuln,vulners (configurable via tools.nmap.vuln_args)
 ```
 
 ### Advanced SSRF Testing
@@ -264,4 +265,3 @@ sudo masscan TARGET -p1-65535
 # If no root, use nmap instead
 nmap -p- -T4 TARGET
 ```
-

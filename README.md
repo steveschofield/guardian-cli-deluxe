@@ -180,7 +180,7 @@ For the full list of tools and how they are used, see the workflow files in `wor
 
 **Core Tools (Always Available):**
 
-- **[nmap](https://nmap.org/)** - Port scanning and service detection
+- **[nmap](https://nmap.org/)** - Port scanning and service detection (vuln profile runs `--script vuln,vulners` by default; configurable)
 - **[nuclei](https://github.com/projectdiscovery/nuclei)** - Vulnerability scanning (15min timeout)
 - **[subfinder](https://github.com/projectdiscovery/subfinder)** - Subdomain enumeration
 - **[ffuf](https://github.com/ffuf/ffuf)** - Directory/file brute forcing

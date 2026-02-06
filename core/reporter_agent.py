@@ -9,6 +9,7 @@ from datetime import datetime
 import shlex
 import json
 import re
+import hashlib
 from core.agent import BaseAgent
 from ai.prompt_templates import (
     REPORTER_SYSTEM_PROMPT,
@@ -56,6 +57,7 @@ class ReporterAgent(BaseAgent):
         """Generate report sections once for reuse across formats."""
         # Reset per-report cache
         self._report_findings_cache = None
+        self._report_quality_notes = []
 
         executive_summary = await self.generate_executive_summary()
         technical_findings = await self.generate_technical_findings()
@@ -136,7 +138,39 @@ class ReporterAgent(BaseAgent):
         )
         
         result = await self.think(prompt, REPORTER_SYSTEM_PROMPT)
-        return self._dedupe_markdown_sections(result["response"])
+        technical = self._dedupe_markdown_sections(result["response"])
+        issues = self._validate_technical_findings_quality(technical)
+        if not issues:
+            return technical
+
+        self._add_report_quality_note(
+            "Technical findings required quality repair: " + "; ".join(issues)
+        )
+        self.logger.warning(
+            "Technical findings quality validation failed: " + "; ".join(issues)
+        )
+
+        repaired = await self._regenerate_technical_findings_with_quality_guard(
+            findings_text, issues
+        )
+        repaired = self._dedupe_markdown_sections(repaired)
+        repaired_issues = self._validate_technical_findings_quality(repaired)
+        if not repaired_issues:
+            self.logger.info("Technical findings quality repaired on retry")
+            self._add_report_quality_note(
+                "Technical findings were regenerated once to resolve quality issues."
+            )
+            return repaired
+
+        self.logger.warning(
+            "Technical findings retry still failed quality checks; using structured fallback: "
+            + "; ".join(repaired_issues)
+        )
+        self._add_report_quality_note(
+            "Technical findings fallback used after retry still failed quality checks: "
+            + "; ".join(repaired_issues)
+        )
+        return self._render_structured_technical_findings_fallback(findings_text)
     
     async def generate_remediation_plan(self) -> str:
         """Generate prioritized remediation recommendations"""
@@ -343,6 +377,7 @@ The following static analysis tools were executed on the source code:
         findings = self._get_report_findings()
         summary = self._summarize_findings(findings)
         evidence_section = self._format_evidence_markdown()
+        quality_notes_section = self._format_report_quality_notes_markdown()
 
         # Build ZAP section if present
         zap_section = f"\n\n{zap_summary}\n" if zap_summary else ""
@@ -381,6 +416,7 @@ The following static analysis tools were executed on the source code:
 | Low      | {summary['low']} |
 | Info     | {summary['info']} |
 | **Total** | **{len(findings)}** |
+{quality_notes_section}
 {zap_section}
 {whitebox_section if whitebox_section else ""}
 
@@ -430,6 +466,7 @@ The following static analysis tools were executed on the source code:
         findings = self._get_report_findings()
         summary = self._summarize_findings(findings)
         evidence_section = self._format_evidence_html()
+        quality_notes_section = self._format_report_quality_notes_html()
         import html as _html
 
         # Build SAN section if certificate info available
@@ -486,6 +523,7 @@ The following static analysis tools were executed on the source code:
         <tr><td class="info">Info</td><td>{summary['info']}</td></tr>
         <tr><th>Total</th><th>{len(findings)}</th></tr>
     </table>
+    {quality_notes_section}
 
     {"<h2>ZAP Scan Summary</h2><div>" + self._markdown_to_html(zap_summary) + "</div>" if zap_summary else ""}
     
@@ -595,6 +633,10 @@ The following static analysis tools were executed on the source code:
                 exploit_info.append(f"   Required Action: {kev_entry.get('required_action')}")
                 exploit_info.append(f"   Government Deadline: {kev_entry.get('due_date')}")
 
+            # Track whether local exploit sources produced concrete matches
+            has_msf_match = False
+            has_edb_match = False
+
             # Add known exploits from database lookup
             entry = matches.get(f.id)
             if entry:
@@ -604,10 +646,13 @@ The following static analysis tools were executed on the source code:
                 if metasploit:
                     msf_names = [m.get("name") or m.get("module", "") for m in metasploit[:3]]
                     exploit_info.append(f"Known Metasploit Modules: {', '.join(msf_names)}")
+                    has_msf_match = True
 
                 if exploitdb:
                     edb_ids = [f"EDB-{e.get('id')}" for e in exploitdb[:3] if e.get('id')]
-                    exploit_info.append(f"Known Exploit-DB: {', '.join(edb_ids)}")
+                    if edb_ids:
+                        exploit_info.append(f"Known Exploit-DB: {', '.join(edb_ids)}")
+                        has_edb_match = True
 
             # OSINT: Add GitHub PoCs
             github_pocs = enrichment.get("github_pocs", [])
@@ -629,6 +674,12 @@ The following static analysis tools were executed on the source code:
                 edb_count = len(f.metadata.get("exploitdb_ids", []))
                 exploit_info.append(f"{edb_count} Exploit-DB exploit(s) available for manual use")
 
+            # Provide explicit N/A values to reduce LLM placeholder/hallucinated exploit references.
+            if not has_msf_match:
+                exploit_info.append("Known Metasploit Modules: N/A")
+            if not has_edb_match:
+                exploit_info.append("Known Exploit-DB IDs: N/A")
+
             exploit_section = "\n".join(exploit_info) if exploit_info else "No public exploits found"
 
             formatted.append(f"""
@@ -641,6 +692,8 @@ OWASP: {owasp}
 Confidence: {confidence}
 Description: {f.description[:200]}
 Evidence: {f.evidence[:200]}
+Evidence Source: {self._build_finding_evidence_reference(f)}
+Provenance ID: {self._get_finding_provenance_id(f)}
 Exploitation Information:
 {exploit_section}
 """)
@@ -1007,22 +1060,126 @@ Exploitation Information:
         parts.extend(deduped)
         return "\n\n".join(p for p in parts if p)
 
+    async def _regenerate_technical_findings_with_quality_guard(
+        self,
+        findings_text: str,
+        issues: List[str],
+    ) -> str:
+        summary = self._summarize_findings(self._get_report_findings())
+        issue_lines = "\n".join(f"- {issue}" for issue in issues)
+        prompt = (
+            "Regenerate the technical findings section from source findings.\n\n"
+            "Quality violations to fix:\n"
+            f"{issue_lines}\n\n"
+            "Severity counts from source findings (must not be contradicted):\n"
+            f"- Critical: {summary['critical']}\n"
+            f"- High: {summary['high']}\n"
+            f"- Medium: {summary['medium']}\n"
+            f"- Low: {summary['low']}\n"
+            f"- Info: {summary['info']}\n\n"
+            "Hard requirements:\n"
+            "- Do not use placeholders like EDB-XXXXX.\n"
+            "- Do not include truncation markers like '... (rest of the findings)'.\n"
+            "- Do not invent exploit IDs, CVEs, modules, or PoC links not present in the provided data.\n"
+            "- If exploit information is not present in the data, use N/A.\n"
+            "- Do not classify tool execution/configuration errors as vulnerabilities.\n"
+            "- Do not label a finding as CRITICAL when source critical count is 0.\n\n"
+            "FINDINGS:\n"
+            f"{findings_text}\n"
+        )
+        result = await self.think(prompt, REPORTER_SYSTEM_PROMPT)
+        return result["response"]
+
+    def _render_structured_technical_findings_fallback(self, findings_text: str) -> str:
+        return (
+            "**Technical Findings Section**\n\n"
+            "Structured fallback generated from normalized finding data after quality validation failed.\n\n"
+            f"{findings_text}"
+        )
+
+    def _add_report_quality_note(self, note: str) -> None:
+        if not note:
+            return
+        notes = getattr(self, "_report_quality_notes", None)
+        if not isinstance(notes, list):
+            notes = []
+            self._report_quality_notes = notes
+        if note not in notes:
+            notes.append(note)
+
+    def _format_report_quality_notes_markdown(self) -> str:
+        notes = getattr(self, "_report_quality_notes", None) or []
+        if not notes:
+            return ""
+        lines = ["", "## Report Quality Notes", ""]
+        for note in notes:
+            lines.append(f"- {note}")
+        lines.append("")
+        return "\n".join(lines)
+
+    def _format_report_quality_notes_html(self) -> str:
+        notes = getattr(self, "_report_quality_notes", None) or []
+        if not notes:
+            return ""
+        import html as _html
+        items = "".join(f"<li>{_html.escape(str(note))}</li>" for note in notes)
+        return (
+            "<h2>Report Quality Notes</h2>"
+            "<div class=\"summary\"><p>Soft quality markers for reviewer awareness.</p>"
+            f"<ul>{items}</ul></div>"
+        )
+
+    def _validate_technical_findings_quality(self, text: str) -> List[str]:
+        issues: List[str] = []
+        if not text:
+            return ["empty technical findings output"]
+
+        checks = [
+            (r"\bEDB-X{2,}\b", "contains Exploit-DB placeholder"),
+            (r"\.\.\.\s*\(rest of the findings\)", "contains truncation marker"),
+        ]
+        for pattern, message in checks:
+            if re.search(pattern, text, flags=re.I):
+                issues.append(message)
+
+        summary = self._summarize_findings(self._get_report_findings())
+        if summary.get("critical", 0) == 0 and re.search(r"\[CRITICAL\]", text, flags=re.I):
+            issues.append("contains CRITICAL technical findings but source critical count is 0")
+        if summary.get("high", 0) == 0 and re.search(r"\[HIGH\]", text, flags=re.I):
+            issues.append("contains HIGH technical findings but source high count is 0")
+
+        tool_error_pattern = re.compile(
+            r"\[(?:MEDIUM|HIGH|CRITICAL)\][^\n]*(?:panic:|unrecognized arguments|required arguments were not provided)",
+            flags=re.I,
+        )
+        if tool_error_pattern.search(text):
+            issues.append("promotes tool execution/configuration errors as security findings")
+
+        return issues
+
     def _collect_evidence_entries(self) -> List[Dict[str, str]]:
-        evidence_files = self._extract_evidence_files()
+        trace_index = self._build_evidence_trace_index()
         entries: List[Dict[str, str]] = []
         for f in self._get_report_findings():
             evidence = (f.evidence or "").strip()
             if not evidence:
                 continue
+            trace = trace_index.get(f.tool, {})
+            files = trace.get("files", []) or []
+            runs = trace.get("runs", []) or []
+            if not files and not runs:
+                # Enforce traceability: skip claims that cannot be tied to an artifact/location.
+                continue
             compact = " ".join(evidence.split())
-            files = evidence_files.get(f.tool, [])
             entries.append({
                 "title": f.title,
                 "severity": f.severity.upper(),
                 "tool": f.tool,
                 "target": f.target,
                 "evidence": compact[:500],
-                "evidence_files": ", ".join(files) if files else "",
+                "evidence_files": ", ".join(files[:3]) if files else "",
+                "evidence_locations": "; ".join(runs[:3]) if runs else "",
+                "provenance_id": self._get_finding_provenance_id(f),
             })
         return entries
 
@@ -1033,9 +1190,19 @@ Exploitation Information:
         lines = ["", "## Evidence", ""]
         for e in entries:
             file_part = f" Evidence file: {e['evidence_files']}" if e.get("evidence_files") else ""
+            location_part = (
+                f" Evidence location: {e['evidence_locations']}"
+                if e.get("evidence_locations")
+                else ""
+            )
+            provenance_part = (
+                f" Provenance ID: {e['provenance_id']}"
+                if e.get("provenance_id")
+                else ""
+            )
             lines.append(
                 f"- **[{e['severity']}] {e['title']}** (Tool: {e['tool']}, Target: {e['target']}) "
-                f"Evidence: {e['evidence']}{file_part}"
+                f"Evidence: {e['evidence']}{file_part}{location_part}{provenance_part}"
             )
         return "\n".join(lines)
 
@@ -1047,10 +1214,20 @@ Exploitation Information:
         items = []
         for e in entries:
             file_part = f" Evidence file: {_html.escape(e['evidence_files'])}" if e.get("evidence_files") else ""
+            location_part = (
+                f" Evidence location: {_html.escape(e['evidence_locations'])}"
+                if e.get("evidence_locations")
+                else ""
+            )
+            provenance_part = (
+                f" Provenance ID: {_html.escape(e['provenance_id'])}"
+                if e.get("provenance_id")
+                else ""
+            )
             item = (
                 f"<li><strong>[{_html.escape(e['severity'])}] {_html.escape(e['title'])}</strong> "
                 f"(Tool: {_html.escape(e['tool'])}, Target: {_html.escape(e['target'])}) "
-                f"Evidence: {_html.escape(e['evidence'])}{file_part}</li>"
+                f"Evidence: {_html.escape(e['evidence'])}{file_part}{location_part}{provenance_part}</li>"
             )
             items.append(item)
         return "\n    <h2>Evidence</h2>\n    <ul>\n        " + "\n        ".join(items) + "\n    </ul>\n"
@@ -1082,9 +1259,72 @@ Exploitation Information:
             if files:
                 existing = evidence.setdefault(tool, [])
                 for f in files:
-                    if f and f not in existing:
+                    if self._is_usable_evidence_file_path(f) and f not in existing:
                         existing.append(f)
         return evidence
+
+    def _is_usable_evidence_file_path(self, path_value: str) -> bool:
+        if not path_value:
+            return False
+        candidate = path_value.strip().strip("'\"")
+        if not candidate:
+            return False
+        lowered = candidate.lower()
+        if lowered in {"/dev/null", "null", "none", "cli"}:
+            return False
+        if len(candidate) <= 1:
+            return False
+        if candidate.startswith("-"):
+            return False
+        # Filter parser artifacts like single-letter format tokens (e.g., J).
+        if re.fullmatch(r"[A-Za-z]", candidate):
+            return False
+        return True
+
+    def _build_evidence_trace_index(self) -> Dict[str, Dict[str, List[str]]]:
+        cached = getattr(self, "_evidence_trace_index_cache", None)
+        if isinstance(cached, dict):
+            return cached
+
+        evidence_files = self._extract_evidence_files()
+        output_dir = Path((self.config or {}).get("output", {}).get("save_path", "./reports"))
+        session_file = str(output_dir / f"session_{self.memory.session_id}.json")
+        index: Dict[str, Dict[str, List[str]]] = {}
+
+        for execution in self.memory.tool_executions:
+            tool = execution.tool
+            if tool not in index:
+                tool_files = list(evidence_files.get(tool, []))
+                if session_file not in tool_files:
+                    # Baseline artifact for every tool execution (contains tool_executions with timestamps/commands/output).
+                    tool_files.append(session_file)
+                index[tool] = {
+                    "files": tool_files,
+                    "runs": [],
+                }
+            command_hash = hashlib.sha1((execution.command or "").encode("utf-8", errors="ignore")).hexdigest()[:10]
+            run_ref = (
+                f"{session_file}#tool={tool},timestamp={execution.timestamp},cmd_sha1={command_hash}"
+            )
+            if run_ref not in index[tool]["runs"]:
+                index[tool]["runs"].append(run_ref)
+
+        self._evidence_trace_index_cache = index
+        return index
+
+    def _build_finding_evidence_reference(self, finding) -> str:
+        trace_index = self._build_evidence_trace_index()
+        trace = trace_index.get(finding.tool, {})
+        files = trace.get("files", []) or []
+        runs = trace.get("runs", []) or []
+        parts: List[str] = []
+        if files:
+            parts.append("artifact=" + ", ".join(files[:3]))
+        if runs:
+            parts.append("location=" + "; ".join(runs[:2]))
+        if not parts:
+            return "N/A"
+        return " | ".join(parts)
     
     def _markdown_to_html(self, markdown: str) -> str:
         """Simple markdown to HTML conversion"""
@@ -1114,8 +1354,181 @@ Exploitation Information:
             if reporting_cfg.get("filter_low_confidence", False) and not scorer.verbose:
                 findings = scorer.filter_findings_by_confidence(findings)
 
+        findings = self._enforce_report_consistency(findings)
+        if reporting_cfg.get("require_evidence_traceability", True):
+            findings = self._filter_findings_without_traceability(findings)
+        findings = self._attach_finding_provenance(findings)
+
         self._report_findings_cache = findings
         return findings
+
+    def _enforce_report_consistency(self, findings: List) -> List:
+        """Enforce severity/CVSS/CWE consistency before rendering."""
+        severity_rank = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+        cvss_to_severity = [
+            (9.0, "critical"),
+            (7.0, "high"),
+            (4.0, "medium"),
+            (0.1, "low"),
+            (0.0, "info"),
+        ]
+        changes = 0
+
+        for f in findings:
+            # Normalize severity token.
+            sev = (f.severity or "info").strip().lower()
+            if sev not in severity_rank:
+                sev = "info"
+
+            # Normalize CVSS range.
+            score = None
+            if f.cvss_score is not None:
+                try:
+                    score = float(f.cvss_score)
+                except (TypeError, ValueError):
+                    score = None
+                if score is not None:
+                    score = max(0.0, min(10.0, score))
+                    f.cvss_score = score
+
+            # Derive severity from CVSS when available.
+            if score is not None:
+                derived = "info"
+                for threshold, label in cvss_to_severity:
+                    if score >= threshold:
+                        derived = label
+                        break
+                if severity_rank.get(derived, 0) != severity_rank.get(sev, 0):
+                    f.severity = derived
+                    sev = derived
+                    changes += 1
+            else:
+                f.severity = sev
+
+            # Validate/normalize CWE identifiers.
+            normalized_cwe: List[str] = []
+            for cwe in getattr(f, "cwe_ids", []) or []:
+                raw = str(cwe).strip().upper()
+                m = re.search(r"CWE[-_: ]?(\d+)", raw)
+                if not m:
+                    continue
+                token = f"CWE-{m.group(1)}"
+                if token not in normalized_cwe:
+                    normalized_cwe.append(token)
+            if normalized_cwe != (getattr(f, "cwe_ids", []) or []):
+                f.cwe_ids = normalized_cwe
+                changes += 1
+
+            # Prevent high/critical claims with weak taxonomy/evidence signal.
+            text = " ".join([f.title or "", f.description or "", f.evidence or ""]).lower()
+            has_strong_signal = bool(
+                getattr(f, "cve_ids", [])
+                or getattr(f, "cwe_ids", [])
+                or re.search(r"\bcve-\d{4}-\d+\b", text, flags=re.I)
+                or any(k in text for k in ["rce", "remote code execution", "sqli", "sql injection", "xss", "ssrf"])
+            )
+            if sev in {"critical", "high"} and not has_strong_signal:
+                f.severity = "medium"
+                changes += 1
+
+        if changes:
+            self.logger.info(f"Report consistency normalization applied to {changes} finding fields")
+            self._add_report_quality_note(
+                f"Consistency normalization adjusted {changes} finding field(s) (severity/CVSS/CWE alignment)."
+            )
+        return findings
+
+    def _filter_findings_without_traceability(self, findings: List) -> List:
+        trace_index = self._build_evidence_trace_index()
+        kept = []
+        dropped = 0
+        for f in findings:
+            trace = trace_index.get(f.tool, {})
+            files = trace.get("files", []) or []
+            runs = trace.get("runs", []) or []
+            if files and runs:
+                kept.append(f)
+            else:
+                dropped += 1
+        if dropped:
+            self.logger.warning(
+                f"Dropped {dropped} finding(s) from report due to missing evidence traceability (artifact + location)"
+            )
+            self._add_report_quality_note(
+                f"{dropped} finding(s) excluded due to missing evidence traceability (artifact + location)."
+            )
+        return kept
+
+    def _attach_finding_provenance(self, findings: List) -> List:
+        """
+        Attach finding-level provenance metadata:
+        - snippet hash (SHA-256, short form)
+        - primary source artifact
+        - source location reference
+        - byte offset in tool output when resolvable
+        - deterministic provenance id
+        """
+        trace_index = self._build_evidence_trace_index()
+        for finding in findings:
+            evidence = (finding.evidence or "").strip()
+            if not evidence:
+                continue
+
+            trace = trace_index.get(finding.tool, {})
+            files = trace.get("files", []) or []
+            runs = trace.get("runs", []) or []
+            artifact = files[0] if files else "N/A"
+            location = runs[0] if runs else "N/A"
+            snippet_hash = self._hash_evidence_snippet(evidence)
+            offset = self._find_evidence_offset_for_tool(finding.tool, evidence)
+
+            prov_seed = f"{finding.id}|{snippet_hash}|{artifact}|{location}|{offset if offset is not None else 'na'}"
+            provenance_id = "prov-" + hashlib.sha1(prov_seed.encode("utf-8", errors="ignore")).hexdigest()[:12]
+
+            metadata = getattr(finding, "metadata", None)
+            if not isinstance(metadata, dict):
+                metadata = {}
+                finding.metadata = metadata
+            metadata["provenance"] = {
+                "id": provenance_id,
+                "snippet_hash_sha256_12": snippet_hash,
+                "source_artifact": artifact,
+                "source_location": location,
+                "evidence_offset_bytes": offset,
+            }
+        return findings
+
+    def _hash_evidence_snippet(self, evidence: str) -> str:
+        normalized = " ".join((evidence or "").split())
+        return hashlib.sha256(normalized.encode("utf-8", errors="ignore")).hexdigest()[:12]
+
+    def _find_evidence_offset_for_tool(self, tool: str, evidence: str) -> int | None:
+        candidates = [
+            evidence,
+            evidence.strip("`"),
+            evidence.strip("\"'"),
+            evidence.strip("`\"'"),
+            " ".join(evidence.split()),
+        ]
+        candidates = [c for c in candidates if c]
+        for execution in self.memory.tool_executions:
+            if execution.tool != tool:
+                continue
+            output = execution.output or ""
+            for candidate in candidates:
+                pos = output.find(candidate)
+                if pos >= 0:
+                    return pos
+        return None
+
+    def _get_finding_provenance_id(self, finding) -> str:
+        metadata = getattr(finding, "metadata", None)
+        if not isinstance(metadata, dict):
+            return "N/A"
+        provenance = metadata.get("provenance")
+        if not isinstance(provenance, dict):
+            return "N/A"
+        return str(provenance.get("id") or "N/A")
 
     def _summarize_findings(self, findings: List) -> Dict[str, int]:
         summary = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}

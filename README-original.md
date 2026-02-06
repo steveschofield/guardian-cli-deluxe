@@ -54,7 +54,7 @@ USE AT YOUR OWN RISK - NO WARRANTY PROVIDED
 
 **20+ Integrated Security Tools:**
 
-- **Network**: Nmap (comprehensive port scanning), Masscan (ultra-fast scanning), Naabu (fast TCP/UDP)
+- **Network**: Nmap (comprehensive port scanning; vuln profile runs `--script vuln,vulners`), Masscan (ultra-fast scanning), Naabu (fast TCP/UDP)
 - **Web Reconnaissance**: httpx (HTTP probing), WhatWeb (technology fingerprinting), Wafw00f (WAF detection)
 - **Subdomain/ASN Discovery**: Subfinder (passive enum), Amass (active/passive mapping), ASNmap (AS intel), dnsx/shuffledns/puredns/altdns
 - **URL/Content Discovery**: Katana (crawler), Gospider, Hakrawler, Waybackurls, Subjs, Dirsearch/Gobuster/FFuf

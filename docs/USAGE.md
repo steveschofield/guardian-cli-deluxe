@@ -30,6 +30,7 @@ python -m cli.main scan --target scanme.nmap.org --ports 80,443
 python -m cli.main recon --domain example.com
 python -m cli.main recon --domain example.com --dry-run
 ```
+> Note: Nmap vuln scans use `--script vuln,vulners` by default (see `tools.nmap.vuln_args`).
 
 ## Workflows
 

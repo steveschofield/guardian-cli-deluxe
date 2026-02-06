@@ -137,6 +137,9 @@ reporting:
   verbose_reporting: false
   # Set true to suppress findings below min_confidence
   filter_low_confidence: false
+  # Require each reported finding to have traceable evidence references
+  # (artifact + execution location) before inclusion in final report.
+  require_evidence_traceability: true
 
 # Exploit References (Metasploit + Exploit-DB)
 exploits:
@@ -242,9 +245,9 @@ tools:
     enabled: true
     # Recon / baseline enumeration
     default_args: "-sV -sC"
-    # Vulnerability script sweep (NSE "vuln" category)
-    # Example: nmap -sV --script vuln <target>
-    vuln_args: "-sV --script vuln"
+    # Vulnerability script sweep (NSE "vuln" category + vulners script)
+    # Example: nmap -sV --script vuln,vulners <target>
+    vuln_args: "-sV --script vuln,vulners"
     timing: T4
 
   amass:

@@ -106,6 +106,8 @@ The images aim to include the most common tools used by Guardian:
 | **SSL/TLS Testing** | TestSSL, SSLyze |
 | **Content Discovery** | Gobuster, FFuf |
 
+Nmap vuln scans run `--script vuln,vulners` by default (configurable via `tools.nmap.vuln_args`).
+
 If a wrapper is enabled but the underlying binary is missing, Guardian will skip it and log an install hint.
 
 ---

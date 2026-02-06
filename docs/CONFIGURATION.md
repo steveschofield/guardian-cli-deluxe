@@ -126,6 +126,17 @@ tools:
     nuclei: /usr/local/bin/nuclei
 ```
 
+Nmap arguments (defaults shown):
+
+```yaml
+tools:
+  nmap:
+    # Recon / baseline enumeration
+    default_args: "-sV -sC"
+    # Vulnerability scripts (NSE "vuln" + vulners)
+    vuln_args: "-sV --script vuln,vulners"
+```
+
 ### Workflow-Specific Tool Configuration
 
 Some workflow steps only run when required arguments or tokens are present:

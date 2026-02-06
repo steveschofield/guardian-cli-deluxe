@@ -118,7 +118,7 @@ Execute a pentesting tool:
 - `parameters`: Tool-specific arguments (passed to tool's `execute()`)
 
 **Available Tools (partial list; see `tools/README.md` for the full set):**
-- `nmap` - Port scanning
+- `nmap` - Port scanning (vuln profile runs `--script vuln,vulners` by default; configurable via `tools.nmap.vuln_args`)
 - `masscan` - Fast port discovery (CIDR/range; requires raw socket access, setup.sh attempts setcap)
 - `httpx` - HTTP probing
 - `amass` - Passive OSINT
