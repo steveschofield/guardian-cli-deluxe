@@ -7,7 +7,7 @@ name = "guardian-cli"
 version = "0.1.0"
 description = "AI-Powered Penetration Testing Automation CLI Tool"
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "Guardian Team"}

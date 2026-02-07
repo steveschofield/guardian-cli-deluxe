@@ -90,10 +90,10 @@ fi
 if [[ -n "${PYTHON_CHECK_BIN}" ]]; then
     if ! "${PYTHON_CHECK_BIN}" - <<'PY'
 import sys
-sys.exit(0 if (sys.version_info.major, sys.version_info.minor) < (3, 13) else 1)
+sys.exit(0 if (sys.version_info.major, sys.version_info.minor) >= (3, 11) else 1)
 PY
     then
-        log_error "Python 3.13+ is not supported. Use Python 3.11 or 3.12."
+        log_error "Python 3.11+ is required."
         exit 1
     fi
 fi
