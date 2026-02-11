@@ -349,6 +349,275 @@
       when: not guardian_setup_script.stat.exists
 
     # ===========================================
+    # Install Missing Security Tools
+    # ===========================================
+    - name: Create guardian tools directory
+      ansible.builtin.file:
+        path: "/opt/guardian-tools"
+        state: directory
+        mode: '0755'
+        owner: "{{ username }}"
+        group: "{{ username }}"
+
+    # testssl
+    - name: Clone testssl.sh
+      ansible.builtin.git:
+        repo: https://github.com/drwetter/testssl.sh.git
+        dest: "/opt/guardian-tools/testssl.sh"
+        version: master
+        depth: 1
+        force: yes
+      become_user: "{{ username }}"
+
+    - name: Create testssl symlink
+      ansible.builtin.file:
+        src: "/opt/guardian-tools/testssl.sh/testssl.sh"
+        dest: /usr/local/bin/testssl
+        state: link
+
+    # kiterunner
+    - name: Download and install kiterunner
+      ansible.builtin.shell: |
+        KR_VERSION=$(curl -s https://api.github.com/repos/assetnote/kiterunner/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+        curl -sSL "https://github.com/assetnote/kiterunner/releases/download/v${KR_VERSION}/kiterunner_${KR_VERSION}_linux_amd64.tar.gz" -o /tmp/kiterunner.tar.gz
+        tar -xzf /tmp/kiterunner.tar.gz -C /tmp/
+        mv /tmp/kr /usr/local/bin/kr
+        chmod +x /usr/local/bin/kr
+        rm -f /tmp/kiterunner.tar.gz
+      args:
+        creates: /usr/local/bin/kr
+
+    # jwt_tool
+    - name: Clone jwt_tool
+      ansible.builtin.git:
+        repo: https://github.com/ticarpi/jwt_tool.git
+        dest: "/opt/guardian-tools/jwt_tool"
+        version: master
+        depth: 1
+        force: yes
+      become_user: "{{ username }}"
+
+    - name: Create jwt_tool wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/jwt_tool
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          cd /opt/guardian-tools/jwt_tool
+          python3 jwt_tool.py "$@"
+
+    # graphql-cop
+    - name: Clone graphql-cop
+      ansible.builtin.git:
+        repo: https://github.com/dolevf/graphql-cop.git
+        dest: "/opt/guardian-tools/graphql-cop"
+        version: master
+        depth: 1
+        force: yes
+      become_user: "{{ username }}"
+
+    - name: Create graphqlcop wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/graphqlcop
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          cd /opt/guardian-tools/graphql-cop
+          python3 graphql-cop.py "$@"
+
+    # XSStrike
+    - name: Clone XSStrike
+      ansible.builtin.git:
+        repo: https://github.com/s0md3v/XSStrike.git
+        dest: "/opt/guardian-tools/XSStrike"
+        version: master
+        depth: 1
+        force: yes
+      become_user: "{{ username }}"
+
+    - name: Create xsstrike wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/xsstrike
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          cd /opt/guardian-tools/XSStrike
+          python3 xsstrike.py "$@"
+
+    # CMSeeK
+    - name: Clone CMSeeK
+      ansible.builtin.git:
+        repo: https://github.com/Tuhinshubhra/CMSeeK.git
+        dest: "/opt/guardian-tools/CMSeeK"
+        version: master
+        depth: 1
+        force: yes
+      become_user: "{{ username }}"
+
+    - name: Create cmseek wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/cmseek
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          cd /opt/guardian-tools/CMSeeK
+          python3 cmseek.py "$@"
+
+    # LinkFinder
+    - name: Clone LinkFinder
+      ansible.builtin.git:
+        repo: https://github.com/GerbenJavado/LinkFinder.git
+        dest: "/opt/guardian-tools/LinkFinder"
+        version: master
+        depth: 1
+        force: yes
+      become_user: "{{ username }}"
+
+    - name: Create linkfinder wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/linkfinder
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          cd /opt/guardian-tools/LinkFinder
+          python3 linkfinder.py "$@"
+
+    # xnLinkFinder
+    - name: Clone xnLinkFinder
+      ansible.builtin.git:
+        repo: https://github.com/xnl-h4ck3r/xnLinkFinder.git
+        dest: "/opt/guardian-tools/xnLinkFinder"
+        version: main
+        depth: 1
+        force: yes
+      become_user: "{{ username }}"
+
+    - name: Create xnlinkfinder wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/xnlinkfinder
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          cd /opt/guardian-tools/xnLinkFinder
+          python3 xnLinkFinder.py "$@"
+
+    # ParamSpider
+    - name: Clone ParamSpider
+      ansible.builtin.git:
+        repo: https://github.com/devanshbatham/ParamSpider.git
+        dest: "/opt/guardian-tools/ParamSpider"
+        version: master
+        depth: 1
+        force: yes
+      become_user: "{{ username }}"
+
+    - name: Create paramspider wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/paramspider
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          cd /opt/guardian-tools/ParamSpider
+          python3 paramspider.py "$@"
+
+    # CORScanner
+    - name: Clone CORScanner
+      ansible.builtin.git:
+        repo: https://github.com/chenjj/CORScanner.git
+        dest: "/opt/guardian-tools/CORScanner"
+        version: master
+        depth: 1
+        force: yes
+      become_user: "{{ username }}"
+
+    - name: Create corsscanner wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/corsscanner
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          cd /opt/guardian-tools/CORScanner
+          python3 cors_scan.py "$@"
+
+    # Python tools via pip
+    - name: Install Python security tools globally
+      ansible.builtin.pip:
+        name:
+          - arjun
+          - dirsearch
+          - schemathesis
+          - wafw00f
+          - sslyze
+          - dnsrecon
+          - xnlinkfinder
+          - dnsgen
+          - linkfinder-py
+        state: latest
+        executable: pip3
+      ignore_errors: yes
+
+    # retire.js via npm
+    - name: Install retire.js globally
+      community.general.npm:
+        name: retire
+        global: yes
+        state: present
+
+    # feroxbuster binary
+    - name: Download and install feroxbuster
+      ansible.builtin.shell: |
+        FEROX_VERSION=$(curl -s https://api.github.com/repos/epi052/feroxbuster/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+        curl -sSL "https://github.com/epi052/feroxbuster/releases/download/v${FEROX_VERSION}/x86_64-linux-feroxbuster.zip" -o /tmp/feroxbuster.zip
+        unzip -o /tmp/feroxbuster.zip -d /tmp/
+        mv /tmp/feroxbuster /usr/local/bin/feroxbuster
+        chmod +x /usr/local/bin/feroxbuster
+        rm -f /tmp/feroxbuster.zip
+      args:
+        creates: /usr/local/bin/feroxbuster
+
+    # godeye via go install
+    - name: Install godeye (god-eye) via go
+      ansible.builtin.shell: |
+        export GOROOT="{{ go_root }}"
+        export GOPATH="{{ go_path }}"
+        export PATH="{{ go_root }}/bin:{{ go_path }}/bin:$PATH"
+        go install github.com/Vyntral/god-eye@latest
+      become_user: "{{ username }}"
+      args:
+        creates: "{{ go_path }}/bin/god-eye"
+      environment:
+        GOROOT: "{{ go_root }}"
+        GOPATH: "{{ go_path }}"
+
+    - name: Create godeye symlink
+      ansible.builtin.file:
+        src: "{{ go_path }}/bin/god-eye"
+        dest: /usr/local/bin/godeye
+        state: link
+      ignore_errors: yes
+
+    # trivy binary
+    - name: Download and install Trivy
+      ansible.builtin.shell: |
+        TRIVY_VERSION=$(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+        ARCH=$(uname -m)
+        if [ "$ARCH" = "x86_64" ]; then
+          TRIVY_ARCH="64bit"
+        elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+          TRIVY_ARCH="ARM64"
+        else
+          echo "Unsupported architecture: $ARCH"
+          exit 1
+        fi
+        curl -sSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz" -o /tmp/trivy.tar.gz
+        tar -xzf /tmp/trivy.tar.gz -C /tmp/
+        mv /tmp/trivy /usr/local/bin/trivy
+        chmod +x /usr/local/bin/trivy
+        rm -f /tmp/trivy.tar.gz
+      args:
+        creates: /usr/local/bin/trivy
+
+    # ===========================================
     # Post-setup: Docker images & system config
     # ===========================================
     - name: Pull BloodHound Docker image
