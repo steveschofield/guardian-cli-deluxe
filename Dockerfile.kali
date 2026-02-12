@@ -460,17 +460,20 @@ RUN echo '#!/bin/bash' > /usr/local/bin/zap-docker && \
 # STAGE 12: Smart Port Scanner Wrapper
 # ============================================================================
 
-RUN echo '#!/bin/bash' > /usr/local/bin/guardian-portscan && \
-    echo 'TARGET="$1"' >> /usr/local/bin/guardian-portscan && \
-    echo 'OUT="${2:-.}"' >> /usr/local/bin/guardian-portscan && \
-    echo 'if command -v masscan >/dev/null 2>&1; then' >> /usr/local/bin/guardian-portscan && \
-    echo '    masscan "$TARGET" -p1-65535 --rate=10000 -oL "$OUT/masscan.txt" 2>/dev/null' >> /usr/local/bin/guardian-portscan && \
-    echo '    PORTS=$(awk '\''/open/{print $3}'\'' "$OUT/masscan.txt" | cut -d'\''/'\'\ -f1 | paste -sd, || echo "1-65535")' >> /usr/local/bin/guardian-portscan && \
-    echo 'else' >> /usr/local/bin/guardian-portscan && \
-    echo '    PORTS="1-65535"' >> /usr/local/bin/guardian-portscan && \
-    echo 'fi' >> /usr/local/bin/guardian-portscan && \
-    echo 'nmap -sV -sC -p "$PORTS" "$TARGET" -oX "$OUT/nmap.xml" --open' >> /usr/local/bin/guardian-portscan && \
-    chmod +x /usr/local/bin/guardian-portscan
+RUN cat > /usr/local/bin/guardian-portscan << 'EOF'
+#!/bin/bash
+TARGET="$1"
+OUT="${2:-.}"
+if command -v masscan >/dev/null 2>&1; then
+    masscan "$TARGET" -p1-65535 --rate=10000 -oL "$OUT/masscan.txt" 2>/dev/null
+    PORTS=$(awk '/open/{print $3}' "$OUT/masscan.txt" | cut -d'/' -f1 | paste -sd, || echo "1-65535")
+else
+    PORTS="1-65535"
+fi
+nmap -sV -sC -p "$PORTS" "$TARGET" -oX "$OUT/nmap.xml" --open
+EOF
+
+RUN chmod +x /usr/local/bin/guardian-portscan
 
 # ============================================================================
 # STAGE 13: Setup Guardian CLI Deluxe
