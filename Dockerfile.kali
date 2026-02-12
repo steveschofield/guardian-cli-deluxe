@@ -298,7 +298,7 @@ RUN pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     dirsearch \
     schemathesis \
     wafw00f \
-    sqlmap \
+    # sqlmap (installed via apt - see line 143) \
     sslyze \
     dnsrecon \
     xnlinkfinder \
@@ -306,7 +306,7 @@ RUN pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     # sstimap (installed from git - see line 377) \
     # Security tools
     impacket \
-    crackmapexec \
+    # crackmapexec (installed via apt - see line 166) \
     bloodhound \
     ldap3 \
     pysmb \
