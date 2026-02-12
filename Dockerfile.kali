@@ -254,7 +254,7 @@ RUN cargo install feroxbuster && \
 # ============================================================================
 
 # Upgrade pip first
-RUN python3 -m pip install --upgrade pip setuptools wheel
+RUN python3 -m pip install --break-system-packages --upgrade pip setuptools wheel
 
 # Uninstall old incompatible packages
 RUN pip3 uninstall -y requests urllib3 chardet charset-normalizer safeurl 2>/dev/null || true
