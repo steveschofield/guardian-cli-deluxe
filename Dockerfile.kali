@@ -100,7 +100,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Reconnaissance
     nmap \
     masscan \
-    rustscan \
+    # rustscan (not in Kali repos) \
     netdiscover \
     arp-scan \
     dmitry \
@@ -124,14 +124,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     smbclient \
     smbmap \
     nbtscan \
-    rpcclient \
+    # rpcclient (already in samba-common-bin) \
     samba-common-bin \
     nfs-common \
     # LDAP enumeration
     ldap-utils \
     # SNMP enumeration
     snmp \
-    snmpwalk \
+    # snmpwalk (included in snmp package) \
     onesixtyone \
     # FTP/SSH/Telnet
     ftp \
@@ -178,7 +178,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ============================================================================
 
 # Install Semgrep (SAST - code vulnerability scanner)
-RUN pip3 install --no-cache-dir semgrep && \
+RUN pip3 install --break-system-packages --no-cache-dir semgrep && \
     semgrep --version
 
 
@@ -260,14 +260,14 @@ RUN python3 -m pip install --upgrade pip setuptools wheel
 RUN pip3 uninstall -y requests urllib3 chardet charset-normalizer safeurl 2>/dev/null || true
 
 # Install Python 3.12 compatible versions (EXACT versions from setup.sh)
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --break-system-packages --no-cache-dir \
     "requests>=2.32.0" \
     "urllib3>=2.0.0" \
     "charset-normalizer>=3.0.0" \
     "attrs>=22.2.0"
 
 # Install LangChain ecosystem (CRITICAL - was missing)
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --break-system-packages --no-cache-dir \
     "langchain>=0.2.0" \
     "langchain-core>=0.2.0" \
     "langchain-community>=0.2.0" \
@@ -275,7 +275,7 @@ RUN pip3 install --no-cache-dir \
     "langsmith>=0.1.0"
 
 # Install Guardian core dependencies
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --break-system-packages --no-cache-dir \
     anthropic \
     langchain-anthropic \
     openai \
@@ -292,7 +292,7 @@ RUN pip3 install --no-cache-dir \
 # STAGE 7: Install Python Security Tools
 # ============================================================================
 
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --break-system-packages --no-cache-dir \
     # Web testing tools
     arjun \
     dirsearch \
@@ -341,13 +341,13 @@ RUN git clone --depth 1 https://github.com/drwetter/testssl.sh.git /opt/tools/te
 
 # XSStrike
 RUN git clone --depth 1 https://github.com/s0md3v/XSStrike.git /opt/tools/XSStrike && \
-    pip3 install --no-cache-dir -r /opt/tools/XSStrike/requirements.txt 2>/dev/null || true && \
+    pip3 install --break-system-packages --no-cache-dir -r /opt/tools/XSStrike/requirements.txt 2>/dev/null || true && \
     ln -sf /opt/tools/XSStrike/xsstrike.py /usr/local/bin/xsstrike && \
     chmod +x /usr/local/bin/xsstrike
 
 # CMSeeK
 RUN git clone --depth 1 https://github.com/Tuhinshubhra/CMSeeK.git /opt/tools/CMSeeK && \
-    pip3 install --no-cache-dir -r /opt/tools/CMSeeK/requirements.txt 2>/dev/null || true && \
+    pip3 install --break-system-packages --no-cache-dir -r /opt/tools/CMSeeK/requirements.txt 2>/dev/null || true && \
     ln -sf /opt/tools/CMSeeK/cmseek.py /usr/local/bin/cmseek && \
     chmod +x /usr/local/bin/cmseek
 
@@ -363,13 +363,13 @@ RUN git clone --depth 1 https://github.com/commixproject/commix.git /opt/tools/c
 # graphql-cop
 RUN git clone --depth 1 https://github.com/dolevf/graphql-cop.git /opt/tools/graphql-cop && \
     # Skip requirements.txt - safeurl has ancient requests pin
-    pip3 install --no-cache-dir simplejson && \
+    pip3 install --break-system-packages --no-cache-dir simplejson && \
     ln -sf /opt/tools/graphql-cop/graphql-cop.py /usr/local/bin/graphql-cop && \
     chmod +x /usr/local/bin/graphql-cop
 
 # JWT Tool
 RUN git clone --depth 1 https://github.com/ticarpi/jwt_tool.git /opt/tools/jwt_tool && \
-    pip3 install --no-cache-dir -r /opt/tools/jwt_tool/requirements.txt 2>/dev/null || true && \
+    pip3 install --break-system-packages --no-cache-dir -r /opt/tools/jwt_tool/requirements.txt 2>/dev/null || true && \
     ln -sf /opt/tools/jwt_tool/jwt_tool.py /usr/local/bin/jwt_tool && \
     chmod +x /usr/local/bin/jwt_tool
 
@@ -380,20 +380,20 @@ RUN git clone --depth 1 https://github.com/vladko312/SSTImap.git /opt/tools/SSTI
 
 # CORScanner
 RUN git clone --depth 1 https://github.com/chenjj/CORScanner.git /opt/tools/CORScanner && \
-    pip3 install --no-cache-dir -r /opt/tools/CORScanner/requirements.txt 2>/dev/null || true && \
+    pip3 install --break-system-packages --no-cache-dir -r /opt/tools/CORScanner/requirements.txt 2>/dev/null || true && \
     ln -sf /opt/tools/CORScanner/cors_scan.py /usr/local/bin/corscanner && \
     chmod +x /usr/local/bin/corscanner
 
 # LinkFinder
 RUN git clone --depth 1 https://github.com/GerbenJavado/LinkFinder.git /opt/tools/LinkFinder && \
-    pip3 install --no-cache-dir -r /opt/tools/LinkFinder/requirements.txt 2>/dev/null || true && \
+    pip3 install --break-system-packages --no-cache-dir -r /opt/tools/LinkFinder/requirements.txt 2>/dev/null || true && \
     ln -sf /opt/tools/LinkFinder/linkfinder.py /usr/local/bin/linkfinder && \
     chmod +x /usr/local/bin/linkfinder
 
 # ParamSpider
 RUN git clone --depth 1 https://github.com/devanshbatham/ParamSpider.git /opt/tools/ParamSpider && \
-    pip3 install --no-cache-dir -r /opt/tools/ParamSpider/requirements.txt 2>/dev/null || true && \
-    pip3 install --no-cache-dir "paramspider @ git+https://github.com/devanshbatham/ParamSpider.git" 2>/dev/null || true
+    pip3 install --break-system-packages --no-cache-dir -r /opt/tools/ParamSpider/requirements.txt 2>/dev/null || true && \
+    pip3 install --break-system-packages --no-cache-dir "paramspider @ git+https://github.com/devanshbatham/ParamSpider.git" 2>/dev/null || true
 
 # ============================================================================
 # STAGE 9: Install npm Tools
@@ -480,7 +480,7 @@ RUN echo '#!/bin/bash' > /usr/local/bin/guardian-portscan && \
 COPY . /guardian/
 
 # Fix dependency conflicts (force-reinstall correct versions)
-RUN pip3 install --force-reinstall --no-cache-dir \
+RUN pip3 install --break-system-packages --force-reinstall --no-cache-dir \
     "requests>=2.32.0" \
     "urllib3>=2.0.0" \
     "attrs>=22.2.0" \
@@ -488,12 +488,12 @@ RUN pip3 install --force-reinstall --no-cache-dir \
 
 # Install Guardian Python dependencies
 RUN if [ -f requirements.txt ]; then \
-        pip3 install --no-cache-dir -r requirements.txt; \
+        pip3 install --break-system-packages --no-cache-dir -r requirements.txt; \
     fi
 
 # Install Guardian Python package (if setup.py exists)
 RUN if [ -f setup.py ]; then \
-        pip3 install --no-cache-dir -e .; \
+        pip3 install --break-system-packages --no-cache-dir -e .; \
     fi
 
 # Make scripts executable
