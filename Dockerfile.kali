@@ -178,7 +178,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ============================================================================
 
 # Install Semgrep (SAST - code vulnerability scanner)
-RUN pip3 install --break-system-packages --no-cache-dir semgrep && \
+RUN pip3 install --break-system-packages --ignore-installed --no-cache-dir semgrep && \
     semgrep --version
 
 
@@ -260,14 +260,14 @@ RUN python3 -m pip install --upgrade pip setuptools wheel
 RUN pip3 uninstall -y requests urllib3 chardet charset-normalizer safeurl 2>/dev/null || true
 
 # Install Python 3.12 compatible versions (EXACT versions from setup.sh)
-RUN pip3 install --break-system-packages --no-cache-dir \
+RUN pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     "requests>=2.32.0" \
     "urllib3>=2.0.0" \
     "charset-normalizer>=3.0.0" \
     "attrs>=22.2.0"
 
 # Install LangChain ecosystem (CRITICAL - was missing)
-RUN pip3 install --break-system-packages --no-cache-dir \
+RUN pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     "langchain>=0.2.0" \
     "langchain-core>=0.2.0" \
     "langchain-community>=0.2.0" \
@@ -275,7 +275,7 @@ RUN pip3 install --break-system-packages --no-cache-dir \
     "langsmith>=0.1.0"
 
 # Install Guardian core dependencies
-RUN pip3 install --break-system-packages --no-cache-dir \
+RUN pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     anthropic \
     langchain-anthropic \
     openai \
@@ -292,7 +292,7 @@ RUN pip3 install --break-system-packages --no-cache-dir \
 # STAGE 7: Install Python Security Tools
 # ============================================================================
 
-RUN pip3 install --break-system-packages --no-cache-dir \
+RUN pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     # Web testing tools
     arjun \
     dirsearch \
