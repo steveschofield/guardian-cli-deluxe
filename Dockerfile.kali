@@ -92,6 +92,9 @@ RUN apt-get update && apt-get upgrade -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Create python symlink for python3 (many tools expect 'python')
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
 # ============================================================================
 # STAGE 2: Kali Linux Pentesting Tools (System-level)
 # ============================================================================
@@ -625,12 +628,12 @@ RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo 'echo "  Secrets: trufflehog, gitleaks"' >> /entrypoint.sh && \
     echo 'echo ""' >> /entrypoint.sh && \
     echo 'echo "Quick Start:"' >> /entrypoint.sh && \
-    echo 'echo "  python -m cli.main --help"' >> /entrypoint.sh && \
-    echo 'echo "  python -m cli.main workflow list"' >> /entrypoint.sh && \
-    echo 'echo "  python -m cli.main workflow run --name web --target https://example.com"' >> /entrypoint.sh && \
+    echo 'echo "  python3 -m cli.main --help"' >> /entrypoint.sh && \
+    echo 'echo "  python3 -m cli.main workflow list"' >> /entrypoint.sh && \
+    echo 'echo "  python3 -m cli.main workflow run --name web --target https://example.com"' >> /entrypoint.sh && \
     echo 'echo ""' >> /entrypoint.sh && \
     echo 'echo "Whitebox Analysis (SAST + DAST):"' >> /entrypoint.sh && \
-    echo 'echo "  python -m cli.main workflow run --name web --target https://example.com --source /path/to/code"' >> /entrypoint.sh && \
+    echo 'echo "  python3 -m cli.main workflow run --name web --target https://example.com --source /path/to/code"' >> /entrypoint.sh && \
     echo 'echo ""' >> /entrypoint.sh && \
     echo '' >> /entrypoint.sh && \
     echo '# Execute command or start bash' >> /entrypoint.sh && \
