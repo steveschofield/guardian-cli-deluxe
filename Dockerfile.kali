@@ -303,7 +303,7 @@ RUN pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     dnsrecon \
     xnlinkfinder \
     dnsgen \
-    sstimap \
+    # sstimap (installed from git - see line 377) \
     # Security tools
     impacket \
     crackmapexec \
