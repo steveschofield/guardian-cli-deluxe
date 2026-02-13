@@ -492,15 +492,8 @@ RUN pip3 install --break-system-packages --force-reinstall --no-cache-dir \
     "attrs>=22.2.0" \
     "charset-normalizer>=3.0.0"
 
-# Install Guardian Python dependencies
-RUN if [ -f requirements.txt ]; then \
-        pip3 install --break-system-packages --no-cache-dir -r requirements.txt; \
-    fi
-
-# Install Guardian Python package (if setup.py exists)
-RUN if [ -f setup.py ]; then \
-        pip3 install --break-system-packages --no-cache-dir -e .; \
-    fi
+# Install Guardian Python package from pyproject.toml
+RUN pip3 install --break-system-packages --no-cache-dir -e .
 
 # Make scripts executable
 RUN find /guardian -name "*.sh" -type f -exec chmod +x {} \; && \
