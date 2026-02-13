@@ -82,10 +82,6 @@ class BloodhoundTool(BaseTool):
     }
 
     def __init__(self, config: Dict[str, Any]):
-        # Set tool name before parent init
-        self.tool_name = "bloodhound"
-        super().__init__(config)
-
         # MCP-specific configuration
         mcp_config = config.get("mcp", {}).get("servers", {}).get("bloodhound", {})
         self.docker_image = mcp_config.get(
@@ -96,31 +92,47 @@ class BloodhoundTool(BaseTool):
         self.neo4j_user = mcp_config.get("neo4j_user", "neo4j")
         self.neo4j_password = mcp_config.get("neo4j_password", "")
         self.timeout = mcp_config.get("timeout", 300)
+        # Set tool name before parent init
+        self.tool_name = "bloodhound"
+        super().__init__(config)
 
     def _check_installation(self) -> bool:
-        """Check if Docker and the MCP image are available"""
+        """Check if Docker/Podman and the MCP image are available"""
+        docker_image = getattr(self, "docker_image", "ghcr.io/fuzzinglabs/bloodhound-mcp:latest")
         try:
             import subprocess
-            # Check Docker is available
+            import shutil
+
+            # Check Docker or Podman is available
+            container_cmd = None
+            if shutil.which("docker"):
+                container_cmd = "docker"
+            elif shutil.which("podman"):
+                container_cmd = "podman"
+
+            if not container_cmd:
+                self.logger.warning("Docker/Podman not available for BloodHound MCP")
+                return False
+
             result = subprocess.run(
-                ["docker", "info"],
+                [container_cmd, "info"],
                 capture_output=True,
                 timeout=10
             )
             if result.returncode != 0:
-                self.logger.warning("Docker not available for BloodHound MCP")
+                self.logger.warning(f"{container_cmd} not running for BloodHound MCP")
                 return False
 
             # Check if image exists (don't pull automatically)
             result = subprocess.run(
-                ["docker", "images", "-q", self.docker_image],
+                [container_cmd, "images", "-q", docker_image],
                 capture_output=True,
                 text=True,
                 timeout=10
             )
             if not result.stdout.strip():
                 self.logger.warning(
-                    f"BloodHound MCP image not found. Run: docker pull {self.docker_image}"
+                    f"BloodHound MCP image not found. Run: {container_cmd} pull {docker_image}"
                 )
                 # Still return True - we can pull on demand
             return True

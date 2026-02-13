@@ -28,8 +28,12 @@ class CORSScannerTool(BaseTool):
         if os.path.isfile(vendor_script):
             self._script_path = vendor_script
             return True
-        # Check PATH
-        return shutil.which("cors_scan") is not None or shutil.which("cors_scan.py") is not None
+        # Check PATH - try multiple possible names
+        return (
+            shutil.which("cors_scan") is not None or
+            shutil.which("cors_scan.py") is not None or
+            shutil.which("corscanner") is not None
+        )
 
     def get_command(self, target: str, **kwargs) -> List[str]:
         cfg = (self.config or {}).get("tools", {}).get("cors_scanner", {}) or {}
@@ -38,6 +42,8 @@ class CORSScannerTool(BaseTool):
 
         if self._script_path:
             command = [sys.executable, self._script_path]
+        elif shutil.which("corscanner"):
+            command = ["corscanner"]
         else:
             command = ["cors_scan"]
 

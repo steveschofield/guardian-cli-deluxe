@@ -14,7 +14,7 @@ class GodEyeTool(BaseTool):
 
     def __init__(self, config):
         super().__init__(config)
-        self.tool_name = "god-eye"
+        self.tool_name = "godeye"  # Binary name without hyphen
 
     def get_command(self, target: str, **kwargs) -> List[str]:
         """Build god-eye command"""
@@ -24,7 +24,7 @@ class GodEyeTool(BaseTool):
         parsed = urlparse(target)
         domain = parsed.hostname or target
 
-        command = ["god-eye", "-d", domain]
+        command = ["godeye", "-d", domain]
 
         # Output format
         command.append("--json")

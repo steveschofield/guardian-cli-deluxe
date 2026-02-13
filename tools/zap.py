@@ -32,7 +32,10 @@ class ZapTool(BaseTool):
         mode = (cfg.get("mode") or "docker").lower()
 
         if mode == "docker":
-            return shutil.which("docker") is not None
+            # Check for docker or podman
+            if shutil.which("docker") is not None or shutil.which("podman") is not None:
+                return True
+            # Fall through to check for local ZAP installation
 
         if mode in {"daemon", "remote"}:
             # Daemon mode uses the ZAP API (local or remote) via our helper script.
@@ -44,7 +47,13 @@ class ZapTool(BaseTool):
         if zap_bin:
             return os.path.isfile(str(zap_bin)) and os.access(str(zap_bin), os.X_OK)
 
-        return (shutil.which("zap.sh") is not None) or (shutil.which("zap-baseline.py") is not None)
+        # Check for ZAP binaries in PATH
+        return (
+            shutil.which("zap.sh") is not None or
+            shutil.which("zap-baseline.py") is not None or
+            shutil.which("zap") is not None or
+            shutil.which("zaproxy") is not None
+        )
 
     def _reports_dir(self) -> Path:
         base = Path((self.config or {}).get("output", {}).get("save_path", "./reports"))
