@@ -56,6 +56,10 @@ class NmapTool(BaseTool):
         # Timing template
         timing = kwargs.get("timing") or config.get("timing", "T4")
         command.append(f"-{timing}")
+
+        # Treat hosts as online to handle environments where ICMP is blocked.
+        if "-Pn" not in command:
+            command.append("-Pn")
         
         # XML output for parsing
         output_file = kwargs.get("output_file")

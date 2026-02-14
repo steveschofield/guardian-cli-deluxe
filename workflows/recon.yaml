@@ -69,11 +69,21 @@ steps:
       enable_ai: true
     condition: target_is_domain
 
-  - name: masscan_discovery
+  - name: masscan_discovery_cidr
     type: tool
     tool: masscan
-    objective: "Fast port discovery for IP targets"
-    condition: target_is_ip
+    objective: "Fast common-port discovery for CIDR/range targets"
+    condition: target_is_network
+    parameters:
+      # Common ports + network/device mgmt + VPN + voice signaling services
+      ports: "21,22,23,25,53,67,68,69,80,81,88,110,111,123,135,137,138,139,143,161,162,179,389,427,443,445,465,500,514,515,520,548,554,587,623,631,636,691,993,995,1080,1194,1433,1434,1494,1521,1701,1723,1812,1813,1883,2000,2427,2727,3306,3389,3478,4443,4500,4786,5000,5060,5061,51820,5432,5555,5900,8080,8081,8443"
+      rate: 5000
+
+  - name: masscan_discovery_single_node
+    type: tool
+    tool: masscan
+    objective: "Full port discovery for a single IP target"
+    condition: target_is_single_ip
     parameters:
       ports: "1-65535"
       rate: 5000
@@ -104,7 +114,7 @@ steps:
       ports: "53,67,68,69,88,111,123,135,137,138,161,162,389,445,500,514,520,623,1194,1701,1812,1813,1900,2049,3478,4500,4789,5004,5005,5060,5061,5353,11211,1434,3389"
       scan_type: "-sU"
       timing: "T3"
-    condition: target_is_ip
+    condition: target_is_single_ip
 
   - name: http_probing
     type: tool

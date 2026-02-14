@@ -24,6 +24,7 @@ from .graphql_cop import GraphqlCopTool
 from .upload_scanner import UploadScannerTool
 from .csrf_tester import CsrfTesterTool
 from .enum4linux import Enum4linuxTool
+from .enum4linux_ng import Enum4linuxNgTool
 from .smbclient import SmbclientTool
 from .showmount import ShowmountTool
 from .snmpwalk import SnmpwalkTool
@@ -90,6 +91,7 @@ __all__ = [
     "UploadScannerTool",
     "CsrfTesterTool",
     "Enum4linuxTool",
+    "Enum4linuxNgTool",
     "SmbclientTool",
     "ShowmountTool",
     "SnmpwalkTool",

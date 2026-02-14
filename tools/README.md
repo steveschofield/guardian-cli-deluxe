@@ -17,9 +17,12 @@ This directory contains wrappers for various penetration testing tools.
   - Features: JSONL output, CDN exclusion, top-port presets
 
 ### Network Enumeration
-- **enum4linux**: SMB enumeration (users/shares/policy)
-  - Installation: `apt-get install enum4linux`
-  - Features: SMB share and domain info
+- **enum4linux-ng**: SMB enumeration (primary)
+  - Installation: `apt-get install enum4linux-ng`
+  - Features: Modern SMB share/domain/user enumeration, structured output support
+
+- **enum4linux**: legacy compatibility alias routed to enum4linux-ng in Guardian
+  - Installation: `apt-get install enum4linux` (legacy package)
 
 - **smbclient**: SMB share listing and access checks
   - Installation: `apt-get install smbclient`

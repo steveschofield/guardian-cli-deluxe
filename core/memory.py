@@ -75,6 +75,7 @@ class PentestMemory:
             "urls": [],
             "client_side_scripts": [],
             "open_ports": [],
+            "host_open_ports": {},
             "services": [],
             "technologies": [],
             "certificate_info": {},  # TLS certificate information including SAN

@@ -759,6 +759,36 @@ class WorkflowEngine:
             return False
         return False
 
+    def _target_is_single_ip(self) -> bool:
+        """Return True only for a single IP (not CIDR/range)."""
+        target = (self.target or "").strip()
+        if not target:
+            return False
+
+        host = target
+        if "://" in target:
+            try:
+                parsed = urlparse(target)
+                if parsed.hostname:
+                    host = parsed.hostname
+            except Exception:
+                pass
+        elif "/" not in target:
+            try:
+                parsed = urlparse(f"//{target}")
+                if parsed.hostname:
+                    host = parsed.hostname
+            except Exception:
+                pass
+
+        try:
+            if "/" in host or "-" in host:
+                return False
+            ipaddress.ip_address(host)
+            return True
+        except ValueError:
+            return False
+
     async def _execute_tool_step(
         self,
         tool_name: str,
@@ -914,34 +944,61 @@ class WorkflowEngine:
                 if key not in tool_kwargs and api_cfg.get(key) is not None:
                     tool_kwargs[key] = api_cfg.get(key)
 
+        run_nmap_per_host = False
+        nmap_host_ports: Dict[str, List[int]] = {}
+
         # Allow steps to derive nmap ports from discovered open ports (speeds up vuln scripts).
         if tool_name == "nmap":
             if tool_kwargs.get("ports_from_context") and not tool_kwargs.get("ports"):
-                open_ports = self.memory.context.get("open_ports") or []
-                if isinstance(open_ports, list) and open_ports:
-                    ports = []
-                    for p in open_ports:
-                        try:
-                            ports.append(str(int(p)))
-                        except Exception:
+                ports_filter = tool_kwargs.get("ports_filter")
+                wanted: set[int] = set()
+                if ports_filter:
+                    if isinstance(ports_filter, str):
+                        wanted = {int(x.strip()) for x in ports_filter.split(",") if x.strip()}
+                    elif isinstance(ports_filter, list):
+                        wanted = {int(x) for x in ports_filter}
+
+                target_for_mode = extract_domain_from_url(self.target) or self.target
+                host_ports_ctx = self.memory.context.get("host_open_ports") or {}
+                if self._target_is_network(target_for_mode) and isinstance(host_ports_ctx, dict) and host_ports_ctx:
+                    for host, ports_list in host_ports_ctx.items():
+                        if not isinstance(ports_list, list):
                             continue
-                    ports_filter = tool_kwargs.get("ports_filter")
-                    if ports_filter:
-                        if isinstance(ports_filter, str):
-                            wanted = {int(x.strip()) for x in ports_filter.split(",") if x.strip()}
-                        elif isinstance(ports_filter, list):
-                            wanted = {int(x) for x in ports_filter}
-                        else:
-                            wanted = set()
-                        ports = [p for p in ports if int(p) in wanted]
-                    if ports:
-                        tool_kwargs = dict(tool_kwargs)
-                        tool_kwargs["ports"] = ",".join(ports)
-                    else:
+                        normalized = []
+                        for p in ports_list:
+                            try:
+                                port_int = int(p)
+                                if not wanted or port_int in wanted:
+                                    normalized.append(port_int)
+                            except Exception:
+                                continue
+                        if normalized:
+                            nmap_host_ports[str(host)] = sorted(set(normalized))
+                    run_nmap_per_host = bool(nmap_host_ports)
+                    if not run_nmap_per_host:
                         self.logger.info(
-                            f"Skipping {step_name}: no matching open ports for filtered scan"
+                            f"Skipping {step_name}: no matching discovered host ports for CIDR/range target"
                         )
                         return None
+                else:
+                    open_ports = self.memory.context.get("open_ports") or []
+                    if isinstance(open_ports, list) and open_ports:
+                        ports = []
+                        for p in open_ports:
+                            try:
+                                port_int = int(p)
+                                if not wanted or port_int in wanted:
+                                    ports.append(str(port_int))
+                            except Exception:
+                                continue
+                        if ports:
+                            tool_kwargs = dict(tool_kwargs)
+                            tool_kwargs["ports"] = ",".join(sorted(set(ports), key=int))
+                        else:
+                            self.logger.info(
+                                f"Skipping {step_name}: no matching open ports for filtered scan"
+                            )
+                            return None
                 tool_kwargs = dict(tool_kwargs)
                 tool_kwargs.pop("ports_from_context", None)
                 tool_kwargs.pop("ports_filter", None)
@@ -960,11 +1017,79 @@ class WorkflowEngine:
             return None
 
         try:
-            result = await self.tool_agent.execute_tool(
-                tool_name=tool_name,
-                target=self.target,
-                **tool_kwargs
-            )
+            if tool_name == "nmap" and run_nmap_per_host:
+                commands: List[str] = []
+                outputs: List[str] = []
+                errors: List[str] = []
+                aggregated_open_ports: set[int] = set()
+                aggregated_services: List[Dict[str, Any]] = []
+                hosts_up: List[str] = []
+                host_ports_seen: Dict[str, List[int]] = {}
+                any_success = False
+
+                for host, host_ports in sorted(nmap_host_ports.items()):
+                    if not self._scope_allows(host):
+                        self.logger.warning(f"Skipping out-of-scope discovered host: {host}")
+                        continue
+                    host_kwargs = dict(tool_kwargs or {})
+                    host_kwargs["ports"] = ",".join(str(p) for p in sorted(set(host_ports)))
+                    host_result = await self.tool_agent.execute_tool(
+                        tool_name=tool_name,
+                        target=host,
+                        **host_kwargs
+                    )
+                    if host_result.get("command"):
+                        commands.append(host_result.get("command", ""))
+                    if host_result.get("raw_output"):
+                        outputs.append(host_result.get("raw_output", ""))
+                    if host_result.get("error"):
+                        errors.append(host_result.get("error", ""))
+                    if host_result.get("success"):
+                        any_success = True
+
+                    parsed_host = host_result.get("parsed") if isinstance(host_result.get("parsed"), dict) else {}
+                    for p in parsed_host.get("open_ports") or []:
+                        try:
+                            aggregated_open_ports.add(int(p))
+                        except Exception:
+                            continue
+                    services = parsed_host.get("services") or []
+                    if isinstance(services, list):
+                        aggregated_services.extend(services)
+                    host_up_list = parsed_host.get("hosts_up") or []
+                    if isinstance(host_up_list, list):
+                        for hup in host_up_list:
+                            if hup and hup not in hosts_up:
+                                hosts_up.append(hup)
+                    if host_result.get("success"):
+                        host_ports_seen[host] = sorted(set(host_ports))
+
+                if not commands:
+                    self.logger.info(f"Skipping {step_name}: no discovered hosts with open ports to scan")
+                    return None
+
+                result = {
+                    "success": any_success,
+                    "tool": tool_name,
+                    "target": self.target,
+                    "command": "\n".join(commands),
+                    "raw_output": "\n\n".join(outputs)[:200000],
+                    "error": "\n".join(e for e in errors if e)[:20000] or None,
+                    "duration": 0,
+                    "exit_code": 0 if any_success else 1,
+                    "parsed": {
+                        "open_ports": sorted(aggregated_open_ports),
+                        "services": aggregated_services,
+                        "hosts_up": hosts_up,
+                        "host_ports": host_ports_seen,
+                    },
+                }
+            else:
+                result = await self.tool_agent.execute_tool(
+                    tool_name=tool_name,
+                    target=self.target,
+                    **tool_kwargs
+                )
         except Exception as e:
             self.logger.warning(f"Tool {tool_name} failed with exception: {e}")
             result = {"success": False, "tool": tool_name, "error": str(e), "exit_code": 1}
@@ -985,12 +1110,27 @@ class WorkflowEngine:
                 open_ports = parsed.get("open_ports") or []
                 services = parsed.get("services") or []
                 hosts_up = parsed.get("hosts_up") or []
+                host_ports = parsed.get("host_ports") or {}
                 if isinstance(open_ports, list) and open_ports:
                     self.memory.update_context("open_ports", open_ports)
                 if isinstance(services, list) and services:
                     self.memory.update_context("services", services)
                 if isinstance(hosts_up, list) and hosts_up:
                     self.memory.update_context("discovered_assets", hosts_up)
+                if isinstance(host_ports, dict) and host_ports:
+                    merged_host_ports = self.memory.context.get("host_open_ports") or {}
+                    if not isinstance(merged_host_ports, dict):
+                        merged_host_ports = {}
+                    for host, ports_list in host_ports.items():
+                        existing = merged_host_ports.get(host) or []
+                        normalized = []
+                        for p in ports_list:
+                            try:
+                                normalized.append(int(p))
+                            except Exception:
+                                continue
+                        merged_host_ports[host] = sorted(set(existing + normalized))
+                    self.memory.context["host_open_ports"] = merged_host_ports
             if tool_name == "kiterunner":
                 urls = parsed.get("urls") or []
                 paths = parsed.get("paths") or []
@@ -1047,6 +1187,7 @@ class WorkflowEngine:
                         self.memory.update_context("discovered_assets", sorted(hosts))
             if tool_name == "masscan":
                 open_ports = parsed.get("open_ports") or []
+                hosts_map = parsed.get("hosts") or {}
                 if isinstance(open_ports, list) and open_ports:
                     ports = []
                     hosts = set()
@@ -1065,6 +1206,23 @@ class WorkflowEngine:
                         self.memory.update_context("open_ports", ports)
                     if hosts:
                         self.memory.update_context("discovered_assets", sorted(hosts))
+                if isinstance(hosts_map, dict) and hosts_map:
+                    merged_host_ports = self.memory.context.get("host_open_ports") or {}
+                    if not isinstance(merged_host_ports, dict):
+                        merged_host_ports = {}
+                    for host, ports_list in hosts_map.items():
+                        if not isinstance(ports_list, list):
+                            continue
+                        normalized = []
+                        for p in ports_list:
+                            try:
+                                normalized.append(int(p))
+                            except Exception:
+                                continue
+                        if normalized:
+                            existing = merged_host_ports.get(host) or []
+                            merged_host_ports[host] = sorted(set(existing + normalized))
+                    self.memory.context["host_open_ports"] = merged_host_ports
             # udp-proto-scanner removed - UDP scanning now handled by nmap -sU
             # No special parsing needed as nmap output is already handled above
 
@@ -1761,7 +1919,23 @@ class WorkflowEngine:
                     {"tool": "dnsrecon", "parameters": {"type": "std"}, "condition": "target_is_domain"},
                 ]},
                 {"name": "dns_enumeration", "type": "tool", "tool": "dnsrecon", "condition": "target_is_domain", "parameters": {"type": "std,axfr,zonewalk,brt"}},
-                {"name": "masscan_discovery", "type": "tool", "tool": "masscan", "condition": "target_is_ip"},
+                {
+                    "name": "masscan_discovery_cidr",
+                    "type": "tool",
+                    "tool": "masscan",
+                    "condition": "target_is_network",
+                    "parameters": {
+                        "ports": "21,22,23,25,53,67,68,69,80,81,88,110,111,123,135,137,138,139,143,161,162,179,389,427,443,445,465,500,514,515,520,548,554,587,623,631,636,691,993,995,1080,1194,1433,1434,1494,1521,1701,1723,1812,1813,1883,2000,2427,2727,3306,3389,3478,4443,4500,4786,5000,5060,5061,51820,5432,5555,5900,8080,8081,8443",
+                        "rate": 5000,
+                    },
+                },
+                {
+                    "name": "masscan_discovery_single_node",
+                    "type": "tool",
+                    "tool": "masscan",
+                    "condition": "target_is_single_ip",
+                    "parameters": {"ports": "1-65535", "rate": 5000},
+                },
                 {"name": "godeye_recon", "type": "tool", "tool": "godeye", "condition": "target_is_domain", "parameters": {"enable_ai": True}},
                 {"name": "ip_enrichment", "type": "action", "action": "ip_enrichment"},
                 {"name": "port_scanning", "type": "tool", "tool": "nmap", "condition": "target_is_domain", "parameters": {"profile": "recon"}},
@@ -1815,7 +1989,7 @@ class WorkflowEngine:
                 {"name": "service_enumeration", "type": "tool", "tool": "nmap", "parameters": {"profile": "recon", "ports_from_context": True}},
                 {"name": "network_topology", "type": "tool", "tool": "nmap", "parameters": {"args": "-sn --traceroute"}},
                 {"name": "share_enumeration", "type": "multi_tool", "tools": [
-                    {"tool": "enum4linux"},
+                    {"tool": "enum4linux-ng"},
                     {"tool": "smbclient"},
                     {"tool": "showmount"},
                 ]},
@@ -1912,6 +2086,16 @@ class WorkflowEngine:
         elif condition == "target_is_ip":
             if not self._target_is_ip():
                 self.logger.info(f"Skipping {name}: target is not IP")
+                return True
+        elif condition == "target_is_network":
+            from utils.helpers import extract_domain_from_url
+            host = extract_domain_from_url(self.target) or self.target
+            if not self._target_is_network(host):
+                self.logger.info(f"Skipping {name}: target is not CIDR/range")
+                return True
+        elif condition == "target_is_single_ip":
+            if not self._target_is_single_ip():
+                self.logger.info(f"Skipping {name}: target is not a single IP")
                 return True
         elif condition == "target_is_url":
             if not self._target_is_url():
