@@ -1,0 +1,181 @@
+2026-02-14 08:14:27,822 - guardian - INFO - Initialized Ollama model: llama3.2:3b @ http://192.168.1.69:11434
+2026-02-14 08:14:27,824 - guardian - INFO - Prompt templates: set=llama3_2_3b paths=/home/kali/code/guardian-cli-deluxe/ai/prompt_templates/llama3_2_3b/__init__.py, /home/kali/code/guardian-cli-deluxe/ai/prompt_templates/llama3_2_3b/analyst.py, /home/kali/code/guardian-cli-deluxe/ai/prompt_templates/llama3_2_3b/planner.py, /home/kali/code/guardian-cli-deluxe/ai/prompt_templates/llama3_2_3b/reporter.py
+2026-02-14 08:14:27,832 - guardian - INFO - Loaded skill configuration from config/skills.yaml
+2026-02-14 08:14:28,202 - guardian - WARNING - Tool godeye is not installed or not in PATH
+2026-02-14 08:14:28,265 - guardian - WARNING - BloodHound MCP image not found. Run: docker pull ghcr.io/fuzzinglabs/bloodhound-mcp:latest
+2026-02-14 08:14:28,652 - guardian - INFO - Loaded skill configuration from config/skills.yaml
+2026-02-14 08:14:28,659 - guardian - INFO - [CISAKEVClient] Loaded CISA KEV from cache (1518 entries)
+2026-02-14 08:14:28,660 - guardian - INFO - OSINT enrichment enabled: CISA KEV, GitHub, EPSS, OSV
+2026-02-14 08:14:28,662 - guardian - INFO - Tool available: nmap
+2026-02-14 08:14:28,662 - guardian - INFO - Tool available: subfinder
+2026-02-14 08:14:28,662 - guardian - INFO - Tool available: nuclei
+2026-02-14 08:14:28,663 - guardian - INFO - Tool available: whatweb
+2026-02-14 08:14:28,663 - guardian - INFO - Tool available: wafw00f
+2026-02-14 08:14:28,663 - guardian - INFO - Tool available: nikto
+2026-02-14 08:14:28,664 - guardian - INFO - Tool available: testssl
+2026-02-14 08:14:28,664 - guardian - INFO - Tool available: sqlmap
+2026-02-14 08:14:28,664 - guardian - INFO - Tool available: ffuf
+2026-02-14 08:14:28,665 - guardian - INFO - Tool available: kiterunner
+2026-02-14 08:14:28,665 - guardian - INFO - Tool available: wpscan
+2026-02-14 08:14:28,665 - guardian - INFO - Tool available: sslyze
+2026-02-14 08:14:28,666 - guardian - INFO - Tool available: headers
+2026-02-14 08:14:28,667 - guardian - INFO - Tool available: masscan
+2026-02-14 08:14:28,667 - guardian - INFO - Tool available: amass
+2026-02-14 08:14:28,668 - guardian - INFO - Tool available: whois
+2026-02-14 08:14:28,668 - guardian - INFO - Tool available: hydra
+2026-02-14 08:14:28,669 - guardian - INFO - Tool available: jwt_tool
+2026-02-14 08:14:28,669 - guardian - INFO - Tool available: graphql-cop
+2026-02-14 08:14:28,672 - guardian - INFO - Tool available: upload-scanner
+2026-02-14 08:14:28,672 - guardian - INFO - Tool available: csrf-tester
+2026-02-14 08:14:28,672 - guardian - INFO - Tool available: enum4linux-ng
+2026-02-14 08:14:28,673 - guardian - INFO - Tool available: enum4linux
+2026-02-14 08:14:28,673 - guardian - INFO - Tool available: smbclient
+2026-02-14 08:14:28,674 - guardian - INFO - Tool available: showmount
+2026-02-14 08:14:28,674 - guardian - INFO - Tool available: snmpwalk
+2026-02-14 08:14:28,674 - guardian - INFO - Tool available: onesixtyone
+2026-02-14 08:14:28,675 - guardian - INFO - Tool available: arjun
+2026-02-14 08:14:28,675 - guardian - INFO - Tool available: xsstrike
+2026-02-14 08:14:28,676 - guardian - INFO - Tool available: gitleaks
+2026-02-14 08:14:28,676 - guardian - INFO - Tool available: cmseek
+2026-02-14 08:14:28,677 - guardian - INFO - Tool available: dnsrecon
+2026-02-14 08:14:28,677 - guardian - INFO - Tool available: dnsx
+2026-02-14 08:14:28,678 - guardian - INFO - Tool available: shuffledns
+2026-02-14 08:14:28,678 - guardian - INFO - Tool available: puredns
+2026-02-14 08:14:28,678 - guardian - INFO - Tool available: retire
+2026-02-14 08:14:28,679 - guardian - INFO - Tool available: naabu
+2026-02-14 08:14:28,680 - guardian - INFO - Tool available: asnmap
+2026-02-14 08:14:28,680 - guardian - INFO - Tool available: waybackurls
+2026-02-14 08:14:28,680 - guardian - INFO - Tool available: subjs
+2026-02-14 08:14:28,681 - guardian - INFO - Tool available: linkfinder
+2026-02-14 08:14:28,681 - guardian - INFO - Tool available: xnlinkfinder
+2026-02-14 08:14:28,681 - guardian - INFO - Tool available: paramspider
+2026-02-14 08:14:28,682 - guardian - INFO - Tool available: schemathesis
+2026-02-14 08:14:28,682 - guardian - INFO - Tool available: trufflehog
+2026-02-14 08:14:28,682 - guardian - INFO - Tool available: metasploit
+2026-02-14 08:14:28,683 - guardian - INFO - Tool available: zap
+2026-02-14 08:14:28,683 - guardian - INFO - Tool available: dalfox
+2026-02-14 08:14:28,683 - guardian - INFO - Tool available: commix
+2026-02-14 08:14:28,684 - guardian - INFO - Tool available: feroxbuster
+2026-02-14 08:14:28,684 - guardian - WARNING - Tool missing: godeye (install manually)
+2026-02-14 08:14:28,684 - guardian - INFO - Tool available: cors-scanner
+2026-02-14 08:14:28,685 - guardian - INFO - Tool available: cookie-analyzer
+2026-02-14 08:14:28,685 - guardian - INFO - Tool available: error-detector
+2026-02-14 08:14:28,685 - guardian - INFO - Tool available: ssrf-scanner
+2026-02-14 08:14:28,686 - guardian - INFO - Tool available: xxe-scanner
+2026-02-14 08:14:28,686 - guardian - INFO - Tool available: deserialization-scanner
+2026-02-14 08:14:28,686 - guardian - INFO - Tool available: auth-scanner
+2026-02-14 08:14:28,687 - guardian - INFO - Tool available: idor-scanner
+2026-02-14 08:14:28,687 - guardian - INFO - Tool available: semgrep
+2026-02-14 08:14:28,687 - guardian - INFO - Tool available: trivy
+2026-02-14 08:14:28,688 - guardian - INFO - Tool available: bloodhound
+2026-02-14 08:14:28,688 - guardian - INFO - Tool available: httpx
+2026-02-14 08:14:28,689 - guardian - INFO - Tool available: katana
+2026-02-14 08:14:28,689 - guardian - WARNING - Missing tools: godeye. Some functionality will be limited.
+2026-02-14 08:14:28,689 - guardian - INFO - Starting workflow: recon for target: 192.168.1.232
+2026-02-14 08:14:28,709 - guardian - INFO - Workflow Progress [--------------------] 1/22 (0%) ETA n/a
+2026-02-14 08:14:28,710 - guardian - INFO - Executing step: passive_osint_amass
+2026-02-14 08:14:28,710 - guardian - INFO - Skipping passive_osint_amass: target is IP
+2026-02-14 08:14:28,711 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,711 - guardian - INFO - Workflow Progress [--------------------] 2/22 (4%) ETA ~0s
+2026-02-14 08:14:28,712 - guardian - INFO - Executing step: whois_lookup
+2026-02-14 08:14:28,712 - guardian - INFO - Skipping whois_lookup: target is IP
+2026-02-14 08:14:28,712 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,713 - guardian - INFO - Workflow Progress [#-------------------] 3/22 (9%) ETA ~0s
+2026-02-14 08:14:28,713 - guardian - INFO - Executing step: asn_lookup
+2026-02-14 08:14:28,714 - guardian - INFO - Skipping asn_lookup: target is IP
+2026-02-14 08:14:28,714 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,714 - guardian - INFO - Workflow Progress [##------------------] 4/22 (13%) ETA ~0s
+2026-02-14 08:14:28,715 - guardian - INFO - Executing step: subdomain_discovery
+2026-02-14 08:14:28,716 - guardian - INFO - Skipping subdomain_discovery: target is IP
+2026-02-14 08:14:28,717 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,717 - guardian - INFO - Workflow Progress [###-----------------] 5/22 (18%) ETA ~0s
+2026-02-14 08:14:28,717 - guardian - INFO - Executing step: shuffledns_permutations
+2026-02-14 08:14:28,718 - guardian - INFO - Skipping shuffledns_permutations: target is IP
+2026-02-14 08:14:28,718 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,719 - guardian - INFO - Workflow Progress [####----------------] 6/22 (22%) ETA ~0s
+2026-02-14 08:14:28,719 - guardian - INFO - Executing step: puredns_resolution
+2026-02-14 08:14:28,719 - guardian - INFO - Skipping puredns_resolution: target is IP
+2026-02-14 08:14:28,720 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,720 - guardian - INFO - Workflow Progress [#####---------------] 7/22 (27%) ETA ~0s
+2026-02-14 08:14:28,721 - guardian - INFO - Executing step: dns_enumeration
+2026-02-14 08:14:28,721 - guardian - INFO - Skipping dns_enumeration: target is IP
+2026-02-14 08:14:28,722 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,722 - guardian - INFO - Workflow Progress [######--------------] 8/22 (31%) ETA ~0s
+2026-02-14 08:14:28,723 - guardian - INFO - Executing step: dnsrecon_enum
+2026-02-14 08:14:28,724 - guardian - INFO - Skipping dnsrecon_enum: target is IP
+2026-02-14 08:14:28,724 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,725 - guardian - INFO - Workflow Progress [#######-------------] 9/22 (36%) ETA ~0s
+2026-02-14 08:14:28,725 - guardian - INFO - Executing step: godeye_recon
+2026-02-14 08:14:28,725 - guardian - INFO - Skipping godeye_recon: target is IP
+2026-02-14 08:14:28,726 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,726 - guardian - INFO - Workflow Progress [########------------] 10/22 (40%) ETA ~0s
+2026-02-14 08:14:28,727 - guardian - INFO - Executing step: masscan_discovery_cidr
+2026-02-14 08:14:28,727 - guardian - INFO - Skipping masscan_discovery_cidr: target is not CIDR/range
+2026-02-14 08:14:28,728 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:14:28,728 - guardian - INFO - Workflow Progress [#########-----------] 11/22 (45%) ETA ~0s
+2026-02-14 08:14:28,729 - guardian - INFO - Executing step: masscan_discovery_single_node
+2026-02-14 08:14:28,730 - guardian - INFO - Tool Agent selecting tool: masscan
+2026-02-14 08:14:28,730 - guardian - INFO - Executing: /usr/bin/masscan -p 1-65535 --rate 5000 -oJ reports/20260214_081427/masscan_20260214_081428_730599.json 192.168.1.232
+2026-02-14 08:15:02,680 - guardian - INFO - Tool masscan finished in 33.95s (status=completed, exit=0, stdout=0B, stderr=4866B)
+2026-02-14 08:15:02,683 - guardian - INFO - Tool Executed: masscan
+2026-02-14 08:15:02,685 - guardian - INFO - Analyst Agent analyzing results...
+2026-02-14 08:15:02,686 - guardian - INFO - [Analyst] LLM request: system_prompt=633 chars, prompt=3099 chars
+2026-02-14 08:15:31,030 - guardian - INFO - [Analyst] LLM response: 1712 chars
+2026-02-14 08:15:31,044 - guardian - INFO - AI Decision [Analyst]: ### FINDING: Open RDP Port
+SEVERITY: High
+EVIDENCE: "port: 3389, proto: tcp, status: open, reason: syn-ack"
+DESCRIPTION: An open RDP port (3389) is a potential entry point for unauthorized access.
+IMPACT: Unauthorized access to the system, data theft, and lateral movement.
+RECOMMENDATION: Close or restrict access to RDP port 3389.
+CVSS: N/A
+CWE: N/A
+OWASP: A0X:2021 - Category: Unrestricted Access
+
+### FINDING: Open SMB Port
+SEVERITY: Medium
+EVIDENCE: "port: 445, proto: tcp, status: open, reason: syn-ack"
+DESCRIPTION: An open SMB port (445) may be used for unauthorized access or lateral movement.
+IMPACT: Unauthorized access to the system, data theft, and lateral movement.
+RECOMMENDATION: Close or restrict access to SMB port 445.
+CVSS: N/A
+CWE: N/A
+OWASP: A0X:2021 - Category: Unrestricted Access
+
+### FINDING: Open NetBIOS Port
+SEVERITY: Low
+EVIDENCE: "port: 135, proto: tcp, status: open, reason: syn-ack"
+DESCRIPTION: An open NetBIOS port (135) may be used for unauthorized access or lateral movement.
+IMPACT: Unauthorized access to the system, data theft, and lateral movement.
+RECOMMENDATION: Close or restrict access to NetBIOS port 135.
+CVSS: N/A
+CWE: N/A
+OWASP: A0X:2021 - Category: Unrestricted Access
+
+### FINDING: Open DNS Port
+SEVERITY: Low
+EVIDENCE: "port: 53, proto: tcp, status: open, reason: syn-ack"
+DESCRIPTION: An open DNS port (53) may be used for unauthorized access or lateral movement.
+IMPACT: Unauthorized access to the system, data theft, and lateral movement.
+RECOMMENDATION: Close or restrict access to DNS port 53.
+CVSS: N/A
+CWE: N/A
+OWASP: A0X:2021 - Category: Unrestricted Access
+
+No security findings in this output (tooling issue: No concrete evidence of vulnerabilities).
+2026-02-14 08:15:31,061 - guardian - INFO - [Analyst] AnalysisComplete: No evidence-backed findings; output deemed informational.
+2026-02-14 08:15:31,063 - guardian - INFO - Found 0 findings from masscan
+2026-02-14 08:15:31,067 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:15:31,070 - guardian - INFO - Exported tool commands: reports/20260214_081427/payloads_20260214_081427.txt
+2026-02-14 08:15:31,071 - guardian - INFO - Workflow Progress [##########----------] 12/22 (50%) ETA ~68s
+2026-02-14 08:15:31,073 - guardian - INFO - Executing step: port_scan_main_domain
+2026-02-14 08:15:31,077 - guardian - INFO - Skipping port_scan_main_domain: target is IP
+2026-02-14 08:15:31,079 - guardian - INFO - Session saved to: reports/20260214_081427/session_20260214_081427.json
+2026-02-14 08:15:31,081 - guardian - INFO - Exported tool commands: reports/20260214_081427/payloads_20260214_081427.txt
+2026-02-14 08:15:31,082 - guardian - INFO - Workflow Progress [##########----------] 13/22 (54%) ETA ~62s
+2026-02-14 08:15:31,083 - guardian - INFO - Executing step: nmap_vuln_scan
+2026-02-14 08:15:31,084 - guardian - INFO - Tool Agent selecting tool: nmap
+2026-02-14 08:15:31,086 - guardian - INFO - Executing: /usr/bin/nmap -sV --script vuln,vulners -T4 -Pn -oX reports/20260214_081427/nmap_20260214_081531_086700.xml -p 53,135,139,445,3389,47001,49152,49153,49154,49155,49156,49157,49158 192.168.1.232
+2026-02-14 08:19:36,698 - guardian - INFO - Tool nmap finished in 245.61s (status=completed, exit=0, stdout=2324B, stderr=0B)
+2026-02-14 08:19:36,700 - guardian - INFO - Tool Executed: nmap
+2026-02-14 08:19:36,701 - guardian - INFO - Analyst Agent analyzing results...
+2026-02-14 08:19:36,702 - guardian - INFO - [Analyst] LLM request: system_prompt=633 chars, prompt=5205 chars
