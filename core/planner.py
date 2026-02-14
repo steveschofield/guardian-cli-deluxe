@@ -7,11 +7,7 @@ import json
 import re
 from typing import Dict, Any
 from core.agent import BaseAgent
-from ai.prompt_templates import (
-    PLANNER_SYSTEM_PROMPT,
-    PLANNER_DECISION_PROMPT,
-    PLANNER_ANALYSIS_PROMPT
-)
+from utils.skill_loader import SkillLoader
 
 
 class PlannerAgent(BaseAgent):
@@ -19,6 +15,10 @@ class PlannerAgent(BaseAgent):
     
     def __init__(self, config, llm_client, memory):
         super().__init__("Planner", config, llm_client, memory)
+
+        # Load planner prompts dynamically based on config
+        self.skill_loader = SkillLoader(config)
+        self.prompts = self.skill_loader.load_skill_prompts("planner")
     
     async def execute(self, **kwargs) -> Dict[str, Any]:
         """Decide the next action in the penetration test"""
@@ -37,7 +37,7 @@ class PlannerAgent(BaseAgent):
         available_actions = self._get_available_actions()
         
         try:
-            prompt = PLANNER_DECISION_PROMPT.format(
+            prompt = self.prompts["PLANNER_DECISION_PROMPT"].format(
                 phase=self.memory.current_phase,
                 target=self.memory.target,
                 completed_actions="\n".join(f"- {a}" for a in self.memory.completed_actions) or "None",
@@ -53,7 +53,7 @@ class PlannerAgent(BaseAgent):
             return decision
         
         # Get AI decision
-        result = await self.think(prompt, PLANNER_SYSTEM_PROMPT)
+        result = await self.think(prompt, self.prompts["PLANNER_SYSTEM_PROMPT"])
         
         # Parse the response (with a retry if the model did not follow the schema)
         decision = self._parse_decision(result["response"])
@@ -67,7 +67,7 @@ class PlannerAgent(BaseAgent):
                 "Previous response (do not repeat it; just fix the format):\n"
                 f"{result.get('response', '')}\n"
             )
-            retry = await self.think(retry_prompt, PLANNER_SYSTEM_PROMPT)
+            retry = await self.think(retry_prompt, self.prompts["PLANNER_SYSTEM_PROMPT"])
             decision = self._parse_decision(retry.get("response", ""))
             decision["reasoning"] = retry.get("reasoning", "") or decision.get("reasoning", "")
 
@@ -86,14 +86,14 @@ class PlannerAgent(BaseAgent):
             f"- {t.tool} on {t.target}" for t in self.memory.tool_executions
         )
         
-        prompt = PLANNER_ANALYSIS_PROMPT.format(
+        prompt = self.prompts["PLANNER_ANALYSIS_PROMPT"].format(
             target=self.memory.target,
             phase=self.memory.current_phase,
             findings_summary=findings_summary,
             tools_executed=tools_executed or "None"
         )
-        
-        result = await self.think(prompt, PLANNER_SYSTEM_PROMPT)
+
+        result = await self.think(prompt, self.prompts["PLANNER_SYSTEM_PROMPT"])
         
         return result
     

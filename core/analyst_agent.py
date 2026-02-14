@@ -10,12 +10,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from core.agent import BaseAgent
 from core.memory import Finding
-from ai.prompt_templates import (
-    ANALYST_SYSTEM_PROMPT,
-    ANALYST_INTERPRET_PROMPT,
-    ANALYST_CORRELATION_PROMPT,
-    ANALYST_FALSE_POSITIVE_PROMPT
-)
+from utils.skill_loader import SkillLoader
 from utils.standards import infer_cwe_owasp, normalize_owasp_labels
 from utils.cvss_handler import CVSSHandler
 from utils.vulnerability_taxonomy import VulnerabilityTaxonomy
@@ -30,6 +25,10 @@ class AnalystAgent(BaseAgent):
         self._taxonomy = None
         self._cvss_handler = None
         self._confidence_scorer = None
+
+        # Load analyst prompts dynamically based on config
+        self.skill_loader = SkillLoader(config)
+        self.prompts = self.skill_loader.load_skill_prompts("analyst")
     
     async def execute(self, tool_result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -107,14 +106,14 @@ class AnalystAgent(BaseAgent):
         if max_chars > 0 and len(output) > max_chars:
             output = output[:max_chars] + "\n... (truncated)"
         
-        prompt = ANALYST_INTERPRET_PROMPT.format(
+        prompt = self.prompts["ANALYST_INTERPRET_PROMPT"].format(
             tool=tool,
             target=target,
             command=command,
             output=output
         )
-        
-        result = await self.think(prompt, ANALYST_SYSTEM_PROMPT)
+
+        result = await self.think(prompt, self.prompts["ANALYST_SYSTEM_PROMPT"])
         
         # Parse findings from AI response
         findings = self._parse_findings(result["response"], tool, target)
@@ -751,12 +750,12 @@ class AnalystAgent(BaseAgent):
         # Format findings for AI
         tool_results = self._format_findings_for_correlation()
         
-        prompt = ANALYST_CORRELATION_PROMPT.format(
+        prompt = self.prompts["ANALYST_CORRELATION_PROMPT"].format(
             target=self.memory.target,
             tool_results=tool_results
         )
-        
-        result = await self.think(prompt, ANALYST_SYSTEM_PROMPT)
+
+        result = await self.think(prompt, self.prompts["ANALYST_SYSTEM_PROMPT"])
         
         return {
             "analysis": result["response"],
@@ -774,15 +773,15 @@ class AnalystAgent(BaseAgent):
         # Get context
         context = self.memory.get_context_for_ai()
         
-        prompt = ANALYST_FALSE_POSITIVE_PROMPT.format(
+        prompt = self.prompts["ANALYST_FALSE_POSITIVE_PROMPT"].format(
             tool=finding.tool,
             severity=finding.severity,
             description=finding.description,
             evidence=finding.evidence[:500],  # Truncate
             context=context
         )
-        
-        result = await self.think(prompt, ANALYST_SYSTEM_PROMPT)
+
+        result = await self.think(prompt, self.prompts["ANALYST_SYSTEM_PROMPT"])
         
         # Parse confidence from response
         confidence = self._extract_confidence(result["response"])
