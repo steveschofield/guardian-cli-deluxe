@@ -800,9 +800,16 @@ class AnalystAgent(BaseAgent):
         if not text:
             return []
 
+        # Try structured format first (preferred)
         if re.search(r"(?mi)^###\s*FINDING:\s*", text):
             return self._parse_findings_with_markers(text, tool, target)
 
+        # Try fallback format for LLMs that don't follow instructions
+        fallback_findings = self._parse_findings_fallback(text, tool, target)
+        if fallback_findings:
+            return fallback_findings
+
+        # Fall back to legacy format
         return self._parse_findings_legacy(text, tool, target)
 
     def _new_finding(self, tool: str, target: str, severity: str, title: str) -> Finding:
@@ -944,6 +951,75 @@ class AnalystAgent(BaseAgent):
                 finding.metadata["prerequisites"] = prerequisites
 
             findings.append(finding)
+
+        return findings
+
+    def _parse_findings_fallback(self, text: str, tool: str, target: str) -> List[Finding]:
+        """
+        Fallback parser for LLMs that don't follow the structured format.
+        Handles formats like:
+        ### Critical Vulnerabilities:
+        - **Port 22**: SSH service vulnerable to...
+        """
+        findings: List[Finding] = []
+
+        # Pattern to match severity section headers
+        section_re = re.compile(
+            r"(?mi)^###\s*(Critical|High|Medium|Low|Info)(?:\s+Severity)?\s*(?:Vulnerabilities?|Findings?|Issues?)?:?\s*$"
+        )
+
+        # Pattern to match bullet points with descriptions
+        bullet_re = re.compile(
+            r"^[-*]\s+\*\*([^*]+)\*\*:\s*(.+)$"
+        )
+
+        current_severity = "info"
+        lines = text.splitlines()
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Check if this is a severity section header
+            section_match = section_re.match(line)
+            if section_match:
+                current_severity = section_match.group(1).lower()
+                continue
+
+            # Check if this is a bullet point finding
+            bullet_match = bullet_re.match(line)
+            if bullet_match:
+                title = bullet_match.group(1).strip()
+                description = bullet_match.group(2).strip()
+
+                finding = self._new_finding(
+                    tool=tool,
+                    target=target,
+                    severity=current_severity,
+                    title=title
+                )
+                finding.description = description
+
+                # Try to extract evidence from description
+                # Look for quoted strings or specific technical details
+                evidence_match = re.search(r'"([^"]+)"', description)
+                if evidence_match:
+                    finding.evidence = evidence_match.group(1)
+                elif "port" in description.lower():
+                    # Extract port numbers as evidence
+                    port_match = re.search(r"(?:port\s+)?(\d{1,5})", description, re.IGNORECASE)
+                    if port_match:
+                        finding.evidence = f"Port {port_match.group(1)}"
+
+                # Extract CVEs
+                cves = re.findall(r"CVE-\d{4}-\d{4,7}", description, re.IGNORECASE)
+                for cve in cves:
+                    normalized = cve.upper()
+                    if normalized not in finding.cve_ids:
+                        finding.cve_ids.append(normalized)
+
+                findings.append(finding)
 
         return findings
 
