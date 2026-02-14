@@ -29,6 +29,7 @@ class AnalystAgent(BaseAgent):
         # Load analyst prompts dynamically based on config
         self.skill_loader = SkillLoader(config)
         self.prompts = self.skill_loader.load_skill_prompts("analyst")
+        self.logger.debug(f"[Analyst] Loaded {len(self.prompts)} prompts")
     
     async def execute(self, tool_result: Dict[str, Any]) -> Dict[str, Any]:
         """

@@ -182,7 +182,7 @@ class SkillLoader:
                 module = importlib.import_module(f"ai.prompt_templates.{prompt_set}.{skill_name}")
                 prompts = self._extract_prompts_from_module(module)
                 module_loaded = True
-                self.logger.debug(f"Loaded {skill_name} prompts from {prompt_set} set")
+                self.logger.info(f"✓ Loaded '{skill_name}' skill (optimized for {prompt_set})")
             except (ImportError, ModuleNotFoundError):
                 self.logger.debug(f"No {skill_name} prompts in {prompt_set} set, trying default")
 
@@ -191,9 +191,9 @@ class SkillLoader:
             try:
                 module = importlib.import_module(f"ai.prompt_templates.{skill_name}")
                 prompts = self._extract_prompts_from_module(module)
-                self.logger.debug(f"Loaded {skill_name} prompts from default set")
+                self.logger.info(f"✓ Loaded '{skill_name}' skill (default prompts)")
             except (ImportError, ModuleNotFoundError):
-                self.logger.warning(f"Skill '{skill_name}' prompts not found")
+                self.logger.warning(f"✗ Skill '{skill_name}' prompts not found")
                 return {}
 
         # Cache the results
@@ -278,17 +278,22 @@ class SkillLoader:
         profile = self.get_target_profile(target_type, workflow)
         enabled_skills = self.get_enabled_skills(target_type, workflow)
 
-        self.logger.info(f"=== AI Skills Configuration ===")
-        self.logger.info(f"Profile: {profile}")
-        self.logger.info(f"Active Skills: {', '.join(enabled_skills)}")
+        self.logger.info("")
+        self.logger.info("┌─────────────────────────────────────────────────┐")
+        self.logger.info("│         🧠 AI Skills Configuration              │")
+        self.logger.info("└─────────────────────────────────────────────────┘")
+        self.logger.info(f"  Profile: {profile}")
+        self.logger.info(f"  Active Skills ({len(enabled_skills)}): {', '.join(enabled_skills)}")
 
         settings = self.get_profile_settings(target_type, workflow)
-        if settings.get("tool_preferences"):
-            self.logger.info(f"Tool Preferences: {settings['tool_preferences']}")
-        if settings.get("analyst_settings"):
-            self.logger.info(f"Analyst Settings: {settings['analyst_settings']}")
 
-        self.logger.info(f"==============================")
+        # Show key settings if available
+        if settings.get("analyst_settings", {}).get("focus_areas"):
+            focus = settings["analyst_settings"]["focus_areas"]
+            self.logger.info(f"  Focus Areas: {', '.join(focus[:3])}{'...' if len(focus) > 3 else ''}")
+
+        self.logger.info("─────────────────────────────────────────────────")
+        self.logger.info("")
 
 
 def get_skill_loader(config: Dict[str, Any]) -> SkillLoader:
