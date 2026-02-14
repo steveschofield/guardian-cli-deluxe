@@ -26,11 +26,13 @@ Command: {command}
 OUTPUT:
 {output}
 
-Extract findings using this format (repeat the FINDING block for EACH distinct vulnerability):
+CRITICAL INSTRUCTION: You MUST use the EXACT format below. Each finding MUST start with "### FINDING:" followed by field names in ALL CAPS.
+
+Report EACH distinct vulnerability using this EXACT structure:
 
 ### FINDING: <short title>
 SEVERITY: <Critical|High|Medium|Low|Info>
-EVIDENCE: "quoted from output"
+EVIDENCE: "exact quote from output"
 DESCRIPTION: what the evidence indicates
 IMPACT: security implications
 RECOMMENDATION: specific remediation steps
@@ -38,7 +40,7 @@ CVSS: score and/or vector [if applicable]
 CWE: CWE-XXX [if known]
 OWASP: A0X:2021 - Category [if known]
 
-Example:
+EXAMPLE (follow this format EXACTLY):
 ### FINDING: SQL Injection in login
 SEVERITY: High
 EVIDENCE: "Error: mysql_fetch_array() parameter 1"
@@ -48,9 +50,22 @@ RECOMMENDATION: Use parameterized queries
 CVSS: 8.6 (AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:L)
 CWE: CWE-89
 
-If no concrete evidence exists, respond: "No security findings in this output."
-If output shows a tool/runtime failure, respond: "No security findings in this output (tooling issue: <short note>)."
+### FINDING: vsftpd 2.3.4 Backdoor
+SEVERITY: Critical
+EVIDENCE: "vsftpd 2.3.4"
+DESCRIPTION: Known backdoored version with command injection
+IMPACT: Remote code execution as root
+RECOMMENDATION: Upgrade to latest vsftpd version
+CVE: CVE-2011-2523
 
+IMPORTANT RULES:
+- If NO concrete evidence exists, respond ONLY with: "No security findings in this output."
+- If tool failed/errored, respond ONLY with: "No security findings in this output (tooling issue: <short note>)."
+- Do NOT use markdown headers like "### Critical Vulnerabilities:" - ONLY use "### FINDING:"
+- Do NOT number findings like "1.", "2." - use "### FINDING:" for each one
+- EVIDENCE field MUST contain exact quotes from the OUTPUT above
+
+After all findings, optionally add:
 Summary: Brief overall assessment"""
 
 ANALYST_CORRELATION_PROMPT = """Correlate security findings across multiple tools.
