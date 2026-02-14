@@ -74,6 +74,16 @@ class AnalystAgent(BaseAgent):
 
         # Reduce prompt bloat for Nmap XML by extracting only high-signal elements.
         if tool == "nmap" and output.lstrip().startswith("<?xml") and "<nmaprun" in output:
+            # Check if host is down before processing
+            if re.search(r'<hosts\s+up="0"', output):
+                msg = f"Target {target} appears down (nmap reports 0 hosts up); skipping analysis."
+                self.log_action("HostDown", msg)
+                return {
+                    "findings": [],
+                    "summary": msg,
+                    "reasoning": "Host is offline or unreachable",
+                    "tool": tool
+                }
             hostscript_findings = self._extract_nmap_hostscript_findings(output, target)
             output = self._condense_nmap_xml(output)
         else:
@@ -541,11 +551,20 @@ class AnalystAgent(BaseAgent):
     def _postprocess_findings(self, findings: List[Finding], tool: str, output: str) -> List[Finding]:
         """
         Apply conservative normalization rules so we don't overstate impact from low-signal inputs.
+        Also detect and filter hallucinated findings (evidence not in raw output).
         """
         filtered: List[Finding] = []
         for f in findings:
             ev = (f.evidence or "").lower()
             text = " ".join([f.title or "", f.description or "", f.evidence or ""]).lower()
+
+            # ANTI-HALLUCINATION: Validate evidence exists in raw output
+            if not self._validate_evidence_in_output(f, output, tool):
+                self.logger.warning(
+                    f"[Analyst] Filtering hallucinated finding '{f.title}' - "
+                    f"evidence not found in raw output"
+                )
+                continue
 
             if self._is_header_presence_only(text):
                 continue
@@ -565,8 +584,19 @@ class AnalystAgent(BaseAgent):
                     f.title = "Browser feature policy header present"
 
             # "Service exposed" is generally informational unless coupled with auth bypass, CVE, etc.
+            # BUT: Check if the finding itself has CVEs, not just the raw output
             if tool in {"nmap", "httpx"} and ("port" in ev or "scheme" in ev) and f.severity in {"critical", "high", "medium"}:
-                if not re.search(r"\bCVE-\d{4}-\d+\b", output, re.IGNORECASE):
+                # Check both the raw output AND the finding's extracted CVE IDs
+                has_cve_in_output = re.search(r"\bCVE-\d{4}-\d+\b", output, re.IGNORECASE)
+                has_cve_in_finding = len(f.cve_ids) > 0
+                # Also check if the finding mentions vulnerability, backdoor, exploit, RCE, etc.
+                has_vuln_keywords = re.search(
+                    r"\b(vulnerab|exploit|backdoor|rce|remote code|command injection|sql injection|auth bypass)\b",
+                    text,
+                    re.IGNORECASE
+                )
+                # Only downgrade if NO CVEs found AND no vulnerability keywords
+                if not (has_cve_in_output or has_cve_in_finding or has_vuln_keywords):
                     f.severity = "info"
 
             filtered.append(f)
@@ -638,6 +668,64 @@ class AnalystAgent(BaseAgent):
             if any(term in text for term in ("endpoint", "service", "graphql", "api", "port")):
                 return not self._has_explicit_risk_markers(text)
 
+        return False
+
+    def _validate_evidence_in_output(self, finding: Finding, output: str, tool: str) -> bool:
+        """
+        Validate that the finding's evidence actually exists in the raw tool output.
+        This prevents LLM hallucinations where the model invents vulnerabilities.
+
+        Returns True if evidence is valid, False if hallucinated.
+        """
+        # If no evidence provided, that's suspicious but we'll allow it
+        # (some findings are inferred from analysis rather than direct quotes)
+        if not finding.evidence or not finding.evidence.strip():
+            return True
+
+        # Clean evidence quotes (remove markdown quotes, extra whitespace)
+        evidence = finding.evidence.strip().strip('"').strip("'").strip('`')
+
+        # For very short evidence (< 10 chars), it's too generic to validate
+        if len(evidence) < 10:
+            return True
+
+        # Check if ANY substantial portion of the evidence appears in the output
+        # Split evidence into words and check if a significant portion exists
+        evidence_words = [w for w in evidence.lower().split() if len(w) > 3]
+        if not evidence_words:
+            return True
+
+        output_lower = output.lower()
+
+        # Strategy 1: Check if the exact evidence string appears (with some fuzziness)
+        # Remove special characters for comparison
+        evidence_clean = re.sub(r'[^\w\s]', '', evidence.lower())
+        output_clean = re.sub(r'[^\w\s]', '', output_lower)
+
+        if evidence_clean in output_clean:
+            return True
+
+        # Strategy 2: Check if at least 50% of significant words appear in output
+        words_found = sum(1 for word in evidence_words if word in output_lower)
+        word_match_ratio = words_found / len(evidence_words) if evidence_words else 0
+
+        if word_match_ratio >= 0.5:
+            return True
+
+        # Strategy 3: For CVE/version-specific findings, check if CVEs or versions match
+        if finding.cve_ids:
+            for cve in finding.cve_ids:
+                if cve.lower() in output_lower:
+                    return True
+
+        # Strategy 4: Check for version numbers mentioned in evidence
+        version_in_evidence = re.search(r'\b\d+\.\d+(?:\.\d+)?\b', evidence)
+        if version_in_evidence:
+            if version_in_evidence.group(0) in output:
+                return True
+
+        # If we got here, the evidence doesn't appear to exist in the output
+        # This is likely a hallucination
         return False
 
     def _has_explicit_risk_markers(self, text: str) -> bool:
