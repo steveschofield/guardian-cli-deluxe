@@ -5,6 +5,10 @@ import pytest
 import asyncio
 from pathlib import Path
 from typing import Dict, Any
+from unittest.mock import MagicMock, AsyncMock
+
+# Import workflow fixtures
+pytest_plugins = ["tests.fixtures.workflow_fixtures"]
 
 
 @pytest.fixture(scope="session")
