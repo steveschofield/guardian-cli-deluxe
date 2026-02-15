@@ -56,7 +56,7 @@ ai:
   log_llm_io_file: true
   log_llm_full_io: true
 
-  max_tokens: 8192
+  max_tokens: 2048
   # Request timeout for provider HTTP calls (seconds). Some providers may still impose their own limits.
   timeout: 600
   # Overall time budget for an LLM call at the agent level (seconds).
@@ -140,6 +140,9 @@ reporting:
   # Require each reported finding to have traceable evidence references
   # (artifact + execution location) before inclusion in final report.
   require_evidence_traceability: true
+  # Cap AI decision trace prompt size to reduce long LLM generations/timeouts.
+  max_ai_trace_entries: 40
+  max_ai_trace_decision_chars: 120
 
 # Exploit References (Metasploit + Exploit-DB)
 exploits:
