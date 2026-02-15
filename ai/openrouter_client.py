@@ -191,43 +191,102 @@ class OpenRouterClient:
         except Exception:
             raise RuntimeError(f"Unexpected OpenRouter response shape: {data}")
 
+    def _format_http_error(self, resp: httpx.Response) -> str:
+        status = resp.status_code
+        body_text = (resp.text or "").strip()
+        message = body_text
+
+        try:
+            data = resp.json()
+            err = data.get("error") if isinstance(data, dict) else None
+            if isinstance(err, dict):
+                msg = err.get("message")
+                code = err.get("code")
+                if msg and code:
+                    message = f"{msg} (code={code})"
+                elif msg:
+                    message = str(msg)
+            elif isinstance(err, str):
+                message = err
+        except Exception:
+            pass
+
+        message = (message or body_text or "unknown error").strip()
+        lowered = message.lower()
+        if status == 404 and "migrate to the paid slug" in lowered:
+            message += " | Hint: remove ':free' from the model slug or choose another available model."
+
+        return f"HTTP {status}: {message[:2000]}"
+
     async def _post_with_retries(self, payload: Dict[str, Any]) -> httpx.Response:
         backoff_s = 1.0
         last_err: Optional[Exception] = None
+        retryable_statuses = {429, 500, 502, 503, 504}
         for attempt in range(self._max_retries):
             try:
                 resp = await self._async.post("/chat/completions", json=payload)
-                if resp.status_code in {429, 500, 502, 503, 504}:
-                    last_err = RuntimeError(f"HTTP {resp.status_code}: {resp.text[:2000]}")
+                if resp.status_code < 400:
+                    return resp
+
+                err = RuntimeError(self._format_http_error(resp))
+                if resp.status_code in retryable_statuses and attempt < self._max_retries - 1:
+                    last_err = err
                     await asyncio.sleep(backoff_s)
                     backoff_s = min(backoff_s * 2.0, 10.0)
                     continue
-                resp.raise_for_status()
-                return resp
+                raise err
+            except httpx.RequestError as e:
+                last_err = e
+                if attempt < self._max_retries - 1:
+                    await asyncio.sleep(backoff_s)
+                    backoff_s = min(backoff_s * 2.0, 10.0)
+                    continue
+                raise RuntimeError(f"OpenRouter request failed after retries: {e}") from e
+            except RuntimeError:
+                raise
             except Exception as e:
                 last_err = e
-                await asyncio.sleep(backoff_s)
-                backoff_s = min(backoff_s * 2.0, 10.0)
-        raise RuntimeError(f"OpenRouter request failed after retries: {last_err}")
+                if attempt < self._max_retries - 1:
+                    await asyncio.sleep(backoff_s)
+                    backoff_s = min(backoff_s * 2.0, 10.0)
+                    continue
+                raise RuntimeError(f"OpenRouter request failed after retries: {e}") from e
+        raise RuntimeError(f"OpenRouter request failed after retries: {last_err or 'unknown error'}")
 
     def _post_with_retries_sync(self, payload: Dict[str, Any]) -> httpx.Response:
         backoff_s = 1.0
         last_err: Optional[Exception] = None
+        retryable_statuses = {429, 500, 502, 503, 504}
         for attempt in range(self._max_retries):
             try:
                 resp = self._sync.post("/chat/completions", json=payload)
-                if resp.status_code in {429, 500, 502, 503, 504}:
-                    last_err = RuntimeError(f"HTTP {resp.status_code}: {resp.text[:2000]}")
+                if resp.status_code < 400:
+                    return resp
+
+                err = RuntimeError(self._format_http_error(resp))
+                if resp.status_code in retryable_statuses and attempt < self._max_retries - 1:
+                    last_err = err
                     time.sleep(backoff_s)
                     backoff_s = min(backoff_s * 2.0, 10.0)
                     continue
-                resp.raise_for_status()
-                return resp
+                raise err
+            except httpx.RequestError as e:
+                last_err = e
+                if attempt < self._max_retries - 1:
+                    time.sleep(backoff_s)
+                    backoff_s = min(backoff_s * 2.0, 10.0)
+                    continue
+                raise RuntimeError(f"OpenRouter request failed after retries: {e}") from e
+            except RuntimeError:
+                raise
             except Exception as e:
                 last_err = e
-                time.sleep(backoff_s)
-                backoff_s = min(backoff_s * 2.0, 10.0)
-        raise RuntimeError(f"OpenRouter request failed after retries: {last_err}")
+                if attempt < self._max_retries - 1:
+                    time.sleep(backoff_s)
+                    backoff_s = min(backoff_s * 2.0, 10.0)
+                    continue
+                raise RuntimeError(f"OpenRouter request failed after retries: {e}") from e
+        raise RuntimeError(f"OpenRouter request failed after retries: {last_err or 'unknown error'}")
 
     async def generate(
         self,

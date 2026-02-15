@@ -22,7 +22,7 @@
 
   # OpenRouter (uncomment to use):
   # provider: openrouter
-  # model: "xiaomi/mimo-v2-flash:free"
+  # model: "xiaomi/mimo-v2-flash"
   # base_url: "https://openrouter.ai/api/v1"
   #
   # Ollama (uncomment to use):
