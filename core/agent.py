@@ -50,14 +50,24 @@ class BaseAgent(ABC):
         ai_cfg = (self.config or {}).get("ai", {}) or {}
         pentest_cfg = (self.config or {}).get("pentest", {}) or {}
 
+        # Get model name for model-specific timeout overrides
+        model_name = getattr(self.llm, "model", None) or getattr(self.llm, "model_name", None)
+        model_timeouts = ai_cfg.get("model_timeouts", {})
+
+        # Check for model-specific timeout first, then fall back to defaults
+        llm_timeout = None
+        if model_name and model_timeouts:
+            llm_timeout = model_timeouts.get(model_name)
+
         # Backwards compatible: config/guardian.yaml uses ai.timeout, while newer configs use ai.llm_timeout_seconds.
-        llm_timeout = (
-            ai_cfg.get("llm_timeout_seconds")
-            or ai_cfg.get("timeout")
-            or pentest_cfg.get("llm_timeout_seconds")
-            or pentest_cfg.get("timeout")
-            or 120
-        )
+        if llm_timeout is None:
+            llm_timeout = (
+                ai_cfg.get("llm_timeout_seconds")
+                or ai_cfg.get("timeout")
+                or pentest_cfg.get("llm_timeout_seconds")
+                or pentest_cfg.get("timeout")
+                or 120
+            )
         try:
             llm_timeout = float(llm_timeout)
         except Exception:

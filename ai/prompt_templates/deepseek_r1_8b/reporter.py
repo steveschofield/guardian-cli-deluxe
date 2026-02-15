@@ -43,6 +43,8 @@ Write 2-3 paragraphs with logical flow:
 
 Use business terms. Explain cause-and-effect relationships clearly.
 
+IMPORTANT: Output ONLY the summary. No headers like "1. REASONING:" or follow-up questions.
+
 EXECUTIVE SUMMARY:"""
 
 REPORTER_TECHNICAL_FINDINGS_PROMPT = """Generate technical findings with logical analysis.
@@ -65,7 +67,9 @@ For each finding include:
 
 Use clear reasoning to connect evidence → vulnerability → impact → fix.
 
-Structure logically with clear section headings."""
+Structure logically with clear section headings.
+
+IMPORTANT: Output ONLY findings content. No prompt headers or follow-up questions."""
 
 REPORTER_REMEDIATION_PROMPT = """Generate remediation plan with reasoned prioritization.
 
@@ -96,21 +100,21 @@ For each action:
 - Effort estimate (time required)
 - Risk reduction (impact with reasoning)
 
-Use logical reasoning to justify prioritization."""
+Use logical reasoning to justify prioritization.
 
-REPORTER_AI_TRACE_PROMPT = """Document AI reasoning and decision-making process.
+IMPORTANT: Output ONLY the plan. No prompt headers or follow-up questions."""
+
+REPORTER_AI_TRACE_PROMPT = """Generate concise AI decision log (max 500 words).
 
 AI Decisions: {ai_decisions}
 Workflow: {workflow}
 
-Transparency report showing reasoning:
+Key decisions with reasoning:
+1. Critical tool selections + why
+2. Major findings + logic
+3. Failed operations
+4. Important decision points
 
-1. Planning Logic: Strategic decisions and rationale
-2. Tool Selection: Why each tool was chosen (reasoning)
-3. Analysis Process: How findings were evaluated (logical steps)
-4. Correlation Method: How findings were connected (reasoning chain)
-5. Confidence Levels: Assessment certainty (justified)
+Format: Bullet points with brief reasoning.
 
-Show clear logical progression throughout the test.
-
-Purpose: Demonstrate systematic reasoning for transparency and audit."""
+IMPORTANT: <500 words. Output ONLY the log. No prompt headers or follow-up questions."""

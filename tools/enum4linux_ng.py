@@ -17,8 +17,8 @@ class Enum4linuxNgTool(BaseTool):
         self.tool_name = "enum4linux-ng"
 
     def _check_installation(self) -> bool:
-        # Some distros expose enum4linux-ng as enum4linux-ng.py
-        return bool(shutil.which("enum4linux-ng.py") or shutil.which("enum4linux-ng"))
+        # Check for enum4linux-ng (preferred) or enum4linux-ng.py (some distros)
+        return bool(shutil.which("enum4linux-ng") or shutil.which("enum4linux-ng.py"))
 
     def get_command(self, target: str, **kwargs) -> List[str]:
         tools_cfg = (self.config or {}).get("tools", {}) or {}
@@ -29,7 +29,7 @@ class Enum4linuxNgTool(BaseTool):
             or {}
         )
 
-        binary = cfg.get("command") or cfg.get("binary") or shutil.which("enum4linux-ng.py") or "enum4linux-ng"
+        binary = cfg.get("command") or cfg.get("binary") or shutil.which("enum4linux-ng") or shutil.which("enum4linux-ng.py") or "enum4linux-ng"
         args = kwargs.get("args")
         if args is None:
             args = kwargs.get("scan_type")

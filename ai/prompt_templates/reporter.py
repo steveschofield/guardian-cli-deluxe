@@ -55,6 +55,12 @@ Create a concise executive summary (2-3 paragraphs) that:
 3. Provides high-level recommendations
 4. Uses non-technical language suitable for executives
 
+IMPORTANT OUTPUT REQUIREMENTS:
+- Output ONLY the executive summary content
+- Do NOT include prompt headers like "1. REASONING:" or "3. EXPLANATION:"
+- Do NOT ask follow-up questions like "Would you like me to elaborate?"
+- Write as a final, polished report section ready for executives
+
 EXECUTIVE SUMMARY:
 """
 
@@ -98,6 +104,12 @@ Strict data integrity rules:
 - If an exploit source is not present in the finding data, write `N/A` for that source.
 
 Format as a professional technical report section with clear headings and structure.
+
+IMPORTANT OUTPUT REQUIREMENTS:
+- Output ONLY the technical findings content
+- Do NOT include prompt headers like "1. REASONING:" or "3. SUPPORTING FACTS:"
+- Do NOT ask follow-up questions
+- Write as a final, polished report section
 """
 
 REPORTER_REMEDIATION_PROMPT = """Generate prioritized remediation recommendations.
@@ -121,9 +133,15 @@ For each recommendation:
 - Security impact
 
 Format as a prioritized action plan.
+
+IMPORTANT OUTPUT REQUIREMENTS:
+- Output ONLY the remediation plan content
+- Do NOT include prompt headers or meta-commentary
+- Do NOT ask follow-up questions
+- Write as a final, polished report section
 """
 
-REPORTER_AI_TRACE_PROMPT = """Document the AI decision-making process for this penetration test.
+REPORTER_AI_TRACE_PROMPT = """Generate concise AI decision log (max 500 words).
 
 AI DECISIONS:
 {ai_decisions}
@@ -131,12 +149,18 @@ AI DECISIONS:
 WORKFLOW:
 {workflow}
 
-Create a transparent AI decision trace showing:
-1. Strategic decisions made by the planner
-2. Tools selected and why
-3. Analysis reasoning
-4. How findings were correlated
-5. Confidence levels in assessments
+List only key decisions in bullet points:
+1. Critical tool selections and rationale
+2. Major vulnerability findings
+3. Failed operations (if any)
+4. Important decision points
 
-This section demonstrates the AI's reasoning for audit and transparency purposes.
+Format: Bullet points for technical audience.
+
+IMPORTANT OUTPUT REQUIREMENTS:
+- Keep response under 500 words
+- Output ONLY the decision log content
+- Do NOT include prompt headers or numbered instructions
+- Do NOT ask follow-up questions
+- Write as a final, polished report section
 """

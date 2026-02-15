@@ -14,7 +14,12 @@ class Enum4linuxWrapper:
     """Wrapper for enum4linux to enforce null session by default"""
     
     def __init__(self, use_ng: bool = False):
-        self.command = "enum4linux-ng.py" if use_ng else "enum4linux"
+        # Try to find the correct binary (prefer enum4linux-ng over enum4linux-ng.py)
+        if use_ng:
+            import shutil
+            self.command = shutil.which("enum4linux-ng") or shutil.which("enum4linux-ng.py") or "enum4linux-ng"
+        else:
+            self.command = "enum4linux"
         self.use_ng = use_ng
     
     def run_null_session(self, target: str, options: Optional[List[str]] = None) -> int:

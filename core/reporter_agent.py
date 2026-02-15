@@ -30,6 +30,39 @@ class ReporterAgent(BaseAgent):
     def __init__(self, config, llm_client, memory):
         super().__init__("Reporter", config, llm_client, memory)
         self.osint_enricher = OSINTEnricher(config, logger=self.logger)
+
+    def _clean_llm_artifacts(self, text: str) -> str:
+        """
+        Remove common LLM prompt artifacts from generated text.
+
+        Strips:
+        - Numbered prompt instructions (e.g., "3. EXPLANATION:", "1. REASONING:")
+        - Follow-up questions (e.g., "Would you like me to elaborate?")
+        - Meta-commentary about the response
+        """
+        if not text:
+            return text
+
+        # Remove numbered prompt headers like "3. EXPLANATION:", "1. REASONING:", etc.
+        text = re.sub(r'^\s*\d+\.\s+(EXPLANATION|REASONING|SUPPORTING FACTS|JUSTIFICATION|'
+                     r'ATTACK CHAIN|REFERENCES|REFLECTION|SUPPORTING DETAILS):\s*',
+                     '', text, flags=re.MULTILINE | re.IGNORECASE)
+
+        # Remove follow-up questions at the end
+        followup_patterns = [
+            r'Would you like me to elaborate.*?\?',
+            r'Should I (?:explain|clarify|provide more|elaborate).*?\?',
+            r'Do you want me to.*?\?',
+            r'Let me know if you.*?\?',
+            r'Would you like.*?\?'
+        ]
+        for pattern in followup_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+
+        # Remove trailing empty lines and whitespace
+        text = text.rstrip()
+
+        return text
     
     async def execute(self, format: str = "markdown") -> Dict[str, Any]:
         """
@@ -126,8 +159,8 @@ class ReporterAgent(BaseAgent):
         )
         
         result = await self.think(prompt, REPORTER_SYSTEM_PROMPT)
-        return result["response"]
-    
+        return self._clean_llm_artifacts(result["response"])
+
     async def generate_technical_findings(self) -> str:
         """Generate detailed technical findings section"""
         # Format findings for AI
@@ -138,7 +171,8 @@ class ReporterAgent(BaseAgent):
         )
         
         result = await self.think(prompt, REPORTER_SYSTEM_PROMPT)
-        technical = self._dedupe_markdown_sections(result["response"])
+        technical = self._clean_llm_artifacts(result["response"])
+        technical = self._dedupe_markdown_sections(technical)
         issues = self._validate_technical_findings_quality(technical)
         if not issues:
             return technical
@@ -187,8 +221,8 @@ class ReporterAgent(BaseAgent):
         )
         
         result = await self.think(prompt, REPORTER_SYSTEM_PROMPT)
-        return result["response"]
-    
+        return self._clean_llm_artifacts(result["response"])
+
     async def generate_ai_trace(self) -> str:
         """Generate AI decision trace for transparency"""
         reporting_cfg = (self.config or {}).get("reporting", {}) or {}
@@ -224,16 +258,27 @@ class ReporterAgent(BaseAgent):
                 0, f"- [system] AI trace truncated to last {max_entries} decisions"
             )
         ai_decisions = "\n".join(ai_decisions_lines)
-        
+
+        # Apply max_ai_trace_chars limit to the entire AI trace string
+        max_trace_chars = reporting_cfg.get("max_ai_trace_chars", 0)
+        try:
+            max_trace_chars = int(max_trace_chars)
+        except (TypeError, ValueError):
+            max_trace_chars = 0
+
+        if max_trace_chars > 0 and len(ai_decisions) > max_trace_chars:
+            ai_decisions = ai_decisions[:max_trace_chars].rstrip() + "\n\n[AI trace truncated due to length]"
+            self.logger.info(f"AI trace truncated to {max_trace_chars} chars to reduce LLM token usage")
+
         workflow = f"Phase: {self.memory.current_phase}\nCompleted Actions: {len(self.memory.completed_actions)}"
-        
+
         prompt = REPORTER_AI_TRACE_PROMPT.format(
             ai_decisions=ai_decisions or "No AI decisions recorded",
             workflow=workflow
         )
         
         result = await self.think(prompt, REPORTER_SYSTEM_PROMPT)
-        return result["response"]
+        return self._clean_llm_artifacts(result["response"])
 
     async def generate_zap_summary(self) -> str:
         """

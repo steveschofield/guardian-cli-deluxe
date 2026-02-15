@@ -43,6 +43,12 @@ Executive summary (2-3 paragraphs):
 
 Frame as "What if a real attacker found this?" narrative.
 
+IMPORTANT OUTPUT REQUIREMENTS:
+- Output ONLY the executive summary content
+- Do NOT include prompt headers like "1. REASONING:" or "3. EXPLANATION:"
+- Do NOT ask follow-up questions like "Would you like me to elaborate?"
+- Write as a final, polished report section ready for executives
+
 EXECUTIVE SUMMARY:"""
 
 REPORTER_TECHNICAL_FINDINGS_PROMPT = """Generate red team exploitation report.
@@ -63,7 +69,13 @@ For each exploitable finding:
 
 Structure as attack chain: Initial Access → Exploitation → Impact
 
-Highlight exploitability and real-world risk."""
+Highlight exploitability and real-world risk.
+
+IMPORTANT OUTPUT REQUIREMENTS:
+- Output ONLY the technical findings content
+- Do NOT include prompt headers like "1. REASONING:" or "3. SUPPORTING FACTS:"
+- Do NOT ask follow-up questions
+- Write as a final, polished report section"""
 
 REPORTER_REMEDIATION_PROMPT = """Generate red team remediation roadmap.
 
@@ -97,21 +109,30 @@ Each item:
 - Required tools/resources
 - Effort estimate (hours/days)
 - Risk reduction impact
-- Detection/prevention benefit"""
+- Detection/prevention benefit
 
-REPORTER_AI_TRACE_PROMPT = """Document red team operation decisions.
+IMPORTANT OUTPUT REQUIREMENTS:
+- Output ONLY the remediation roadmap content
+- Do NOT include prompt headers or meta-commentary
+- Do NOT ask follow-up questions
+- Write as a final, polished report section"""
+
+REPORTER_AI_TRACE_PROMPT = """Generate concise AI decision log (max 500 words).
 
 Decisions: {ai_decisions}
 Operations: {workflow}
 
-Red team decision log:
+List only key decisions in bullet points:
+1. Critical tool selections and rationale
+2. Major vulnerability findings
+3. Failed operations (if any)
+4. Attack progression
 
-1. Target Selection: Why this target, reconnaissance performed
-2. Exploitation Strategy: Tool/technique selection rationale
-3. Operational Security: Detection avoidance measures
-4. Objective Progress: How operations advanced goals
-5. Attack Chain: Step-by-step compromise narrative
+Format: Bullet points for technical audience.
 
-Show red team methodology: Recon → Exploit → Access → Impact
-
-This demonstrates realistic adversary simulation and offensive security expertise."""
+IMPORTANT OUTPUT REQUIREMENTS:
+- Keep response under 500 words
+- Output ONLY the decision log content
+- Do NOT include prompt headers or numbered instructions
+- Do NOT ask follow-up questions
+- Write as a final, polished report section"""

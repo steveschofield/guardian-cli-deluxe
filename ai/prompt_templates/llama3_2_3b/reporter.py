@@ -36,6 +36,8 @@ Write 2-3 paragraphs covering:
 
 Audience: Executives (non-technical language)
 
+IMPORTANT: Output ONLY the summary. No headers like "1. REASONING:" or follow-up questions.
+
 EXECUTIVE SUMMARY:"""
 
 REPORTER_TECHNICAL_FINDINGS_PROMPT = """Generate technical findings section.
@@ -53,7 +55,9 @@ For each finding include:
 7. CVSS v3.1 [if available]
 8. OWASP/CWE mapping [if provided]
 
-Format: Professional report with clear headings."""
+Format: Professional report with clear headings.
+
+IMPORTANT: Output ONLY findings content. No prompt headers or follow-up questions."""
 
 REPORTER_REMEDIATION_PROMPT = """Create prioritized remediation plan.
 
@@ -72,18 +76,21 @@ Each item needs:
 - Effort estimate
 - Security impact
 
-Format: Prioritized action plan."""
+Format: Prioritized action plan.
 
-REPORTER_AI_TRACE_PROMPT = """Document AI decision-making for transparency.
+IMPORTANT: Output ONLY the plan. No prompt headers or follow-up questions."""
+
+REPORTER_AI_TRACE_PROMPT = """Generate concise AI decision log (max 500 words).
 
 Decisions: {ai_decisions}
 Workflow: {workflow}
 
-Show:
-1. Planner strategic decisions + rationale
-2. Tool selection reasoning
-3. Analysis logic
-4. Finding correlation process
-5. Confidence levels
+Key decisions only:
+1. Critical tool selections + why
+2. Major findings
+3. Failed operations
+4. Important decision points
 
-Purpose: Audit trail showing AI reasoning throughout test."""
+Format: Bullet points.
+
+IMPORTANT: <500 words. Output ONLY the log. No prompt headers or follow-up questions."""
